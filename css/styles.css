@@ -2456,8 +2456,8 @@ body.salary-blur .overtime-money-amount {
 
 .time-picker-button {
   position: absolute;
-  right: 8px;
-  top: 50%;
+  right: -5px;
+  top: 45%;
   transform: translateY(-50%);
   background: transparent;
   border: none;
@@ -2637,7 +2637,7 @@ body.salary-blur .overtime-money-amount {
 
 /* MODAL */
 .modal-overlay {
-  position: fixed;
+  position: fixed !important;
   top: 0;
   left: 0;
   right: 0;
@@ -2649,11 +2649,14 @@ body.salary-blur .overtime-money-amount {
   z-index: 1000;
   padding: var(--space-16);
   backdrop-filter: blur(2px);
+  height: 100%;
+  overflow: hidden;
 }
 
 .modal-content {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
+  max-height: 90vh;
   max-width: 500px;
   width: 100%;
   box-shadow: var(--shadow-lg);
