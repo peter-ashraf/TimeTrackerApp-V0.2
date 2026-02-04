@@ -55,7 +55,7 @@ function App() {
     // Detect direction on first significant move
     if (swipeDirection === null && (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10)) {
       // Check if touch is inside a table or scrollable container
-      const target = e.target.closest('.data-table, .table-container, table, [data-no-swipe]');
+      const target = e.target.closest('.data-table, .table-container, table, [data-no-swipe], .modal-content, .input');
       
       if (target && Math.abs(deltaX) > Math.abs(deltaY)) {
         // Horizontal swipe inside table - block screen swipe
