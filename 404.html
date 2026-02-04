@@ -1,14 +1,26 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Redirecting...</title>
-  <meta http-equiv="refresh" content="0;URL=/TimeTrackerApp-V0.2/">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TimeTracker</title>
+  <link rel="manifest" href="./TimeTrackerApp-V0.2/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./TimeTrackerApp-V0.2/icon-512.png">
   <script>
-    window.location.replace('/TimeTrackerApp-V0.2/');
+    // iPhone PWA + GitHub Pages 404 fix
+    window.location.replace('./TimeTrackerApp-V0.2/');
   </script>
+  <style>
+    body { 
+      font-family: -apple-system,BlinkMacSystemFont,sans-serif; 
+      text-align: center; 
+      padding: 50px; 
+      background: #f8f9fa;
+    }
+  </style>
 </head>
-<body style="text-align:center;padding:50px;">
-  <h1>🔄 Redirecting to TimeTracker...</h1>
-  <p><a href="/TimeTrackerApp-V0.2/">Click here if not redirected</a></p>
+<body>
+  <h1>🚀 TimeTracker App</h1>
+  <p>Loading your timesheet...</p>
 </body>
 </html>
