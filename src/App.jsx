@@ -121,43 +121,37 @@ function App() {
 
   // SCROLL DETECTION FOR HEADER COLLAPSE
   useEffect(() => {
-    console.log('✅ Attaching scroll listener to window');
-    let lastScrollY = 0;
-    let ticking = false;
+  let lastScrollY = window.scrollY;
+  let ticking = false;
 
-    const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const currentScrollY = window.scrollY || document.documentElement.scrollTop;
-          console.log('📜 SCROLL EVENT FIRED! Y:', currentScrollY, 'Last:', lastScrollY);
-          
-          if (currentScrollY > 50 && currentScrollY > lastScrollY) {
-            console.log('⬇️ COLLAPSING header');
-            setIsHeaderCollapsed(true);
-          } 
-          else if (currentScrollY < lastScrollY) {
-            console.log('⬆️ EXPANDING header');
-            setIsHeaderCollapsed(false);
-          }
-          
-          lastScrollY = currentScrollY;
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
+  const handleScroll = () => {
+    if (!ticking) {
+      window.requestAnimationFrame(() => {
+        const currentScrollY = window.scrollY;
 
-    const timeoutId = setTimeout(() => {
-      window.addEventListener('scroll', handleScroll, { passive: true });
-      console.log('🎯 Listener attached after timeout');
-    }, 100);
+        // 1. INSTANT COLLAPSE: 
+        // If current position is greater than last (scrolling down) 
+        // AND we are not at the very top (to avoid glitching at 0)
+        if (currentScrollY > lastScrollY && currentScrollY > 10) {
+          setIsHeaderCollapsed(true);
+        } 
+        
+        // 2. DELAYED EXPANSION:
+        // Only expand when the user actually reaches the top area
+        else if (currentScrollY <= 30) {
+          setIsHeaderCollapsed(false);
+        }
 
-    return () => {
-      clearTimeout(timeoutId);
-      window.removeEventListener('scroll', handleScroll);
-      console.log('🗑️ Cleanup: Removing scroll listener');
-    };
-  }, []);
+        lastScrollY = currentScrollY;
+        ticking = false;
+      });
+      ticking = true;
+    }
+  };
+
+  window.addEventListener('scroll', handleScroll, { passive: true });
+  return () => window.removeEventListener('scroll', handleScroll);
+}, []);
 
   return (
     <div

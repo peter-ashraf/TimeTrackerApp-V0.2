@@ -207,17 +207,22 @@ function Timesheet() {
                           <td className="hide-mobile">{entry.type}</td>
                           <td className="hide-mobile">
                             {breakIntervals.length > 0 
-                              ? breakIntervals.map(b => formatTime(b.out)).join(', ')
+                              ? breakIntervals.map(b => formatTime(b.in)).join(', ')
                               : '-'
                             }
                           </td>
                           <td className="hide-mobile">
                             {breakIntervals.length > 0 
-                              ? breakIntervals.map(b => formatTime(b.in)).join(', ')
+                              ? breakIntervals.map(b => formatTime(b.out)).join(', ')
                               : '-'
                             }
                           </td>
-                          <td className="hide-mobile">-</td>
+                          <td className="hide-mobile">
+                            {entry.type === 'Regular' && entry.hoursSpentOutside > 0 
+                              ? `${entry.hoursSpentOutside.toFixed(2)}h` 
+                              : '-'
+                            }
+                          </td>
                         </>
                       )}
                       <td className="actions-cell">

@@ -129,15 +129,21 @@ function EditEntryModal({ entry, onClose }) {
                 <small>💡 Tip: Click the clock icon to pick time with seconds</small>
               </p>
               
-              {editedEntry.intervals.map((interval, index) => (
-                <div key={index} className="form-group interval-group">
+              {editedEntry.intervals.map((interval, index) => {
+                const isMainWork = index === 0;
+                // SWAPPED LABELS: Main is In/Out, Breaks are Out/In
+                const firstLabel = isMainWork ? 'CHECK IN' : 'CHECK OUT';
+                const secondLabel = isMainWork ? 'CHECK OUT' : 'CHECK IN';
+
+                return (
+                  <div key={index} className="form-group interval-group">
                   <label className="interval-label">
                     {index === 0 ? '🕐 Main Work Hours' : `☕ Break ${index}`}
                   </label>
                   <div className="interval-inputs">
                     {/* Check In */}
                     <div className="time-input-wrapper">
-                      <label className="time-input-label">Check In</label>
+                      <label className="time-input-label">{firstLabel}</label>
                       <div className="time-input-with-picker">
                         <input
                           type="text"
@@ -173,7 +179,7 @@ function EditEntryModal({ entry, onClose }) {
 
                     {/* Check Out */}
                     <div className="time-input-wrapper">
-                      <label className="time-input-label">Check Out</label>
+                      <label className="time-input-label">{secondLabel}</label>
                       <div className="time-input-with-picker">
                         <input
                           type="text"
@@ -204,8 +210,14 @@ function EditEntryModal({ entry, onClose }) {
                         />
                       </div>
                     </div>
-
-                    {editedEntry.intervals.length > 1 && (
+                  </div>
+                  {!isValidTime(interval.in) && interval.in && (
+                    <small className="error-text">Invalid format. Use HH:MM:SS</small>
+                  )}
+                  {!isValidTime(interval.out) && interval.out && (
+                    <small className="error-text">Invalid format. Use HH:MM:SS</small>
+                  )}
+                  {editedEntry.intervals.length > 1 && (
                       <button 
                         className="btn btn-sm btn-danger remove-interval-btn"
                         onClick={() => removeInterval(index)}
@@ -214,15 +226,8 @@ function EditEntryModal({ entry, onClose }) {
                         ✕
                       </button>
                     )}
-                  </div>
-                  {!isValidTime(interval.in) && interval.in && (
-                    <small className="error-text">Invalid format. Use HH:MM:SS</small>
-                  )}
-                  {!isValidTime(interval.out) && interval.out && (
-                    <small className="error-text">Invalid format. Use HH:MM:SS</small>
-                  )}
                 </div>
-              ))}
+              )})}
               
               <button className="btn btn-secondary add-interval-btn" onClick={addInterval}>
                 + Add Break Interval

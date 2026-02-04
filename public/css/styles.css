@@ -323,6 +323,26 @@ body,
   top: 0;
   z-index: 100;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 100px;;
+}
+
+.header-title-content, 
+#appName, 
+#appIcon, 
+.app-subtitle, 
+.btn-theme, 
+.tab-navigation, 
+.tab-btn, 
+.tab-icon, 
+.tab-label {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#header.collapsed {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Adds depth when small */
+  background-color: var(--color-surface); /* Solidify background */
+  transform: translateY(-5px); /* Slightly tucks the whole header up */
+  gap: 12px !important;
 }
 
 #header.collapsed .header-title-content {
@@ -331,12 +351,12 @@ body,
 }
 
 #header.collapsed #appName {
-  font-size: 18px;
+  font-size: 16px;
   transition: font-size 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #header.collapsed #appIcon {
-  font-size: 18px;
+  font-size: var(--font-size-md) !important;
   transition: font-size 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -348,14 +368,15 @@ body,
 }
 
 #header.collapsed .btn-theme {
-  width: 36px;
-  height: 36px;
+  font-size: var(--font-size-md) !important;
+  width: 32px;
+  height: 32px;
   transition: all 0.3s ease;
 }
 
 /* Collapsed tabs */
 #header.collapsed .tab-navigation {
-  padding: 8px 24px;
+  /* padding: 8px 24px; */
   transition: padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -463,7 +484,6 @@ body,
   background: rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.3);
   color: var(--color-white);
-
   padding: var(--space-8) var(--space-12);
   font-size: var(--font-size-xl);
   cursor: pointer;
@@ -473,9 +493,19 @@ body,
   justify-content: center;
 }
 
+.btn-theme i {
+  transition: all var(--duration-normal) var(--ease-standard);
+}
+
+
 .btn-theme:hover {
   background: rgba(255, 255, 255, 0.3);
   transform: scale(1.05);
+}
+
+.btn-theme:hover i {
+  color: var(--color-yellow-500);
+  transform: rotate(360deg);
 }
 
 .btn-theme:active {
@@ -488,6 +518,7 @@ body,
   align-items: center;
   width: 100vw;
   border-top: 1px solid var(--border-color) !important;
+  max-height: 60px;
 }
 
 #navTab.active,
@@ -503,12 +534,12 @@ body,
   width: 100%;
 }
 
-.main-content,
+/* .main-content,
 .app-container,
 #root > div {
   position: relative;
   overflow: hidden;
-}
+} */
 
 /* Each page/view wrapper */
 .dashboard-container,
@@ -640,12 +671,18 @@ body {
 .main-content {
   position: relative;
   flex: 1;
-  overflow: hidden;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  height: auto;
   width: 100%;
   padding: 12px;
   transition: transform 0.1s ease-out;
   margin-bottom: 0;
   padding-bottom: 0;
+  margin-top: 20px;
+  scroll-behavior: smooth;
+  scrollbar-width: none; 
 }
 
 /* View containers */
@@ -660,9 +697,9 @@ body {
   transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   width: 100%;
   padding-bottom: 0 !important;
-  overflow-y: auto; /* ADD THIS */
-  overflow-x: hidden; /* ADD THIS */
-  -webkit-overflow-scrolling: touch; /* ADD THIS for smooth mobile scroll */
+  overflow-y: auto; 
+  overflow-x: hidden; 
+  -webkit-overflow-scrolling: touch; 
 }
 
 .view-container:not(.active) {
@@ -825,20 +862,16 @@ body {
     -webkit-overflow-scrolling: touch;
   }
   
-  body {
+  /* body {
     overscroll-behavior: none;
     position: fixed;
     width: 100%;
     overflow: hidden;
-  }
+  } */
 
-  .main-content {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    height: calc(100vh - 200px);
-    scroll-behavior: smooth;
-    scrollbar-width: none;
-  }  
+  body {
+    overflow-x: hidden;
+  }
 
   .app.swiping {
     touch-action: none;
@@ -850,17 +883,17 @@ body {
     -webkit-overflow-scrolling: touch;
   }
   
-  body {
+  /* body {
     overscroll-behavior: none;
     position: fixed;
     width: 100%;
     overflow: hidden;
-  }
+  } */
 
   .main-content {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    height: calc(100vh - 200px);
+
   }  
 
   .app.swiping {
@@ -2440,9 +2473,27 @@ body.salary-blur .overtime-money-amount {
   border-radius: 4px;
 }
 
+.interval-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.interval-group .remove-interval-btn {
+  margin-bottom: 0;
+  width: 100%;
+}
+
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 640px) {
+
+  .interval-inputs {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
     
   .time-separator {
     display: none;
