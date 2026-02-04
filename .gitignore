@@ -9,10 +9,14 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# Editor files
+.vscode/
+.idea/
+
 # Logs
 *.log
 npm-debug.log*
 
-# Cache
+# Deployment cache
 .cache/
 .gh-pages/

@@ -1,1 +1,0 @@
-if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/TimeTrackerApp-V0.2/sw.js', { scope: '/TimeTrackerApp-V0.2/' })})}

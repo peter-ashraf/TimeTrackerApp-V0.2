@@ -1,44 +1,53 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import { VitePWA } from 'vite-plugin-pwa';
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  base: '/TimeTrackerApp-V0.2/',
+  base: '/TimeTrackerApp-V0.2/',  // ← Your repo name!
+  
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: [
-        'icons/favicon.png',
-        'css/styles.css',
-        'js/config.js',
-        'js/utils.js',
-        'js/main.js',
-        'js/app/app.core.js',
-        'js/app/app.system.js',
-        'js/app/app.periods.js',
-        'js/app/app.logic.js',
-        'js/app/app.csv.js',
-        'js/app/app.ui.js'
-      ],
+      devOptions: {
+        enabled: true
+      },
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'TimeTracker',
+        name: 'TimeTracker App',
         short_name: 'TimeTracker',
-        description: 'Professional Time & Leave Management Application',
-        start_url: '/',
-        scope: '/',
-        display: 'standalone',
-        background_color: '#ffffff',
+        description: 'Employee timesheet tracker',
         theme_color: '#208589',
+        background_color: '#ffffff',
+        display: 'standalone',
+        scope: '/',  // ← iPhone fix #1
+        start_url: '/',
         icons: [
           {
-            src: 'data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 192 192\'><rect fill=\'%23208589\' width=\'192\' height=\'192\'/><text x=\'50%\' y=\'50%\' font-size=\'100\' fill=\'%23fff\' text-anchor=\'middle\' dominant-baseline=\'middle\' font-family=\'Arial\'>⏱️</text></svg>',
+            src: 'icons/icon-192.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
-            purpose: 'any'
+            type: 'image/png'
+          },
+          {
+            src: 'icons/icon-512.png',
+            sizes: '512x512',
+            type: 'image/png'
           }
         ]
-      }
+      },
+      workbox: {
+ globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+ runtimeCaching: [{
+    urlPattern: ({ url }) => url.origin === location.origin,  
+    handler: 'NetworkFirst',
+    options: {
+      cacheName: 'offlineCache',
+      expiration: {
+        maxEntries: 200,
+      },
+    }
+  }]
+}
     })
   ]
-});
+})
