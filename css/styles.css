@@ -2443,6 +2443,12 @@ body.salary-blur .overtime-money-amount {
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 640px) {
+
+  .interval-inputs {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
     
   .time-separator {
     display: none;
