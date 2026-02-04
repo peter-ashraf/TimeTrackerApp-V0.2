@@ -20,16 +20,16 @@ export default defineConfig({
         theme_color: '#208589',
         background_color: '#ffffff',
         display: 'standalone',
-        scope: '/',  // ← iPhone fix #1
+        scope: '/',  
         start_url: '/',
         icons: [
           {
-            src: 'icons/icon-192.png',
+            src: 'icons/adaptive-icon.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'icons/icon-512.png',
+            src: 'icons/adaptive-icon.png',
             sizes: '512x512',
             type: 'image/png'
           }
