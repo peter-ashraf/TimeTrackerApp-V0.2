@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  base: '/TimeTrackerApp-V0.2/',  // ← Your repo name!
+  base: '/TimeTrackerApp-V0.2/',
   
   plugins: [
     react(),
@@ -20,7 +20,7 @@ export default defineConfig({
         theme_color: '#208589',
         background_color: '#ffffff',
         display: 'standalone',
-        scope: '/',  
+        scope: '/',
         start_url: '/',
         icons: [
           {

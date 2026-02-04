@@ -2,7 +2,7 @@
   "name": "TimeTracker",
   "short_name": "TimeTracker",
   "description": "Employee timesheet tracker",
-  "start_url": "/TimeTrackerApp-V0.2/index.html",
+  "start_url": "/TimeTrackerApp-V0.2/",
   "scope": "/TimeTrackerApp-V0.2/",
   "display": "standalone",
   "background_color": "#ffffff",
