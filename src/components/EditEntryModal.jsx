@@ -153,7 +153,7 @@ function EditEntryModal({ entry, onClose }) {
                           onChange={(e) => handleIntervalChange(index, 'in', e.target.value)}
                           maxLength="8"
                         />
-                        <button
+                        {/* <button
                           type="button"
                           className="time-picker-button"
                           onClick={(e) => {
@@ -163,7 +163,7 @@ function EditEntryModal({ entry, onClose }) {
                           title="Pick time"
                         >
                           🕐
-                        </button>
+                        </button> */}
                         <input
                           type="time"
                           step="1"
@@ -189,7 +189,7 @@ function EditEntryModal({ entry, onClose }) {
                           onChange={(e) => handleIntervalChange(index, 'out', e.target.value)}
                           maxLength="8"
                         />
-                        <button
+                        {/* <button
                           type="button"
                           className="time-picker-button"
                           onClick={(e) => {
@@ -199,7 +199,7 @@ function EditEntryModal({ entry, onClose }) {
                           title="Pick time"
                         >
                           🕐
-                        </button>
+                        </button> */}
                         <input
                           type="time"
                           step="1"
