@@ -9,7 +9,7 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
     setTheme(newTheme);
   };
 
-  const handleNavClick = (view) => {
+  const handleNavClick = (view, event) => {
     setCurrentView(view);
     if (event && event.currentTarget) {
       event.currentTarget.blur();
@@ -37,21 +37,21 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
       <nav className="tab-navigation">
         <button
           className={`tab-btn ${currentView === "dashboard" ? "active" : ""}`}
-          onClick={() => handleNavClick("dashboard")}
+          onClick={(event) => handleNavClick("dashboard", event)}
         >
           <span className="tab-icon">📊</span>
           <span className="tab-label">Dashboard</span>
         </button>
         <button
           className={`tab-btn ${currentView === "timesheet" ? "active" : ""}`}
-          onClick={() => handleNavClick("timesheet")}
+          onClick={(event) => handleNavClick("timesheet", event)}
         >
           <span className="tab-icon">📋</span>
           <span className="tab-label">Timesheet</span>
         </button>
         <button
           className={`tab-btn ${currentView === "settings" ? "active" : ""}`}
-          onClick={() => handleNavClick("settings")}
+          onClick={(event) => handleNavClick("settings", event)}
         >
           <span className="tab-icon">⚙️</span>
           <span className="tab-label">Settings</span>

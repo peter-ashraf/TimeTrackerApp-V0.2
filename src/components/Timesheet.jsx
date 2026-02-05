@@ -33,7 +33,7 @@ function Timesheet() {
 
   // Filter and sort entries for VIEWING period
   const periodEntries = useMemo(() => {
-    if (!viewingPeriod) return entries.sort((a, b) => a.date.localeCompare(b.date));
+    if (!viewingPeriod) return [...entries].sort((a, b) => a.date.localeCompare(b.date));
     
     return entries
       .filter(e => e.date >= viewingPeriod.start && e.date <= viewingPeriod.end)

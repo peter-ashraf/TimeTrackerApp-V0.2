@@ -1,6 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import ConfirmModal from '../components/ConfirmModal';
 import BackupReminderModal from '../components/BackupReminderModal';
+import { useEmployee } from '../hooks/useEmployee';
+import { useLeaveSettings } from '../hooks/useLeaveSettings';
+import { useEntries } from '../hooks/useEntries';
+import { usePeriods } from '../hooks/usePeriods';
+import { useCalculations } from '../hooks/useCalculations';
 
 const TimeTrackerContext = createContext();
 
@@ -13,74 +18,12 @@ export const useTimeTracker = () => {
 };
 
 export const TimeTrackerProvider = ({ children }) => {
-  // Employee Data
-  const [employee, setEmployee] = useState({
-    name: localStorage.getItem('fullName') || '',
-    salary: parseFloat(localStorage.getItem('salary')) || 0
-  });
-
-  // Leave Settings
-  const [leaveSettings, setLeaveSettings] = useState({
-    annualVacation: parseFloat(localStorage.getItem('annualVacation')) || 10,
-    sickDays: parseFloat(localStorage.getItem('sickDays')) || 7
-  });
-
-  // Time Entries
-  const [entries, setEntries] = useState(() => {
-    const saved = localStorage.getItem('timeEntries');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  // Pay Periods
-  // ✅ FIXED: Load periods first, then set current period based on loaded periods
-const [periods, setPeriods] = useState(() => {
-  const saved = localStorage.getItem('payPeriods');
-  const defaultPeriod = {
-    id: 'period-default',
-    label: '23 Jan - 20 Feb 2026',
-    start: '2026-01-23',
-    end: '2026-02-20'
-  };
-
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      return parsed.length > 0 ? parsed : [defaultPeriod];
-    } catch (e) {
-      console.error('Error parsing periods:', e);
-      return [defaultPeriod];
-    }
-  }
-  return [defaultPeriod];
-});
-
-const [currentPeriodId, setCurrentPeriodId] = useState(() => {
-  const savedPeriods = localStorage.getItem('payPeriods');
-  const savedCurrentId = localStorage.getItem('currentPeriodId');
-  
-  // Parse periods to get the actual first period ID
-  let loadedPeriods = [];
-  if (savedPeriods) {
-    try {
-      loadedPeriods = JSON.parse(savedPeriods);
-    } catch (e) {
-      console.error('Error parsing periods for currentPeriodId:', e);
-    }
-  }
-
-  // If we have a saved current ID and it exists in periods, use it
-  if (savedCurrentId && loadedPeriods.some(p => p.id === savedCurrentId)) {
-    return savedCurrentId;
-  }
-
-  // Otherwise, use first period's ID
-  if (loadedPeriods.length > 0) {
-    return loadedPeriods[0].id;
-  }
-
-  // Fallback to default
-  return 'period-default';
-});
+  // Use extracted hooks
+  const { employee, updateEmployee } = useEmployee();
+  const { leaveSettings, updateLeaveSettings } = useLeaveSettings();
+  const { entries, setEntries, updateEntry, deleteEntry, addEntry, clearAllEntries } = useEntries();
+  const { periods, setPeriods, currentPeriodId, setCurrentPeriodId, getCurrentPeriod } = usePeriods();
+  const { calculateHoursWorked, calculateOvertimeDetails, timeToSeconds, secondsToHours } = useCalculations();
 
 
   // UI State
@@ -138,7 +81,6 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
       const savedTheme = localStorage.getItem('theme');
       if (!savedTheme) {
         const newTheme = e.matches ? 'dark' : 'light';
-        console.log('🎨 System theme changed to:', newTheme);
         setTheme(newTheme);
       }
     };
@@ -233,7 +175,6 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
     );
 
     if (needsMigration && entries.length > 0) {
-      console.log('🔄 Migrating entries to include calculated fields...');
       
       const migratedEntries = entries.map(entry => {
         // If already has all calculated fields, skip
@@ -328,7 +269,6 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
       });
 
       setEntries(migratedEntries);
-      console.log('✅ Migration complete!');
     }
   }, []); // Run only once on mount
 
@@ -342,7 +282,6 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
         );
 
         if (invalidEntries.length > 0) {
-          console.warn('Found invalid entries:', invalidEntries);
           
           // Attempt to fix
           const fixedEntries = entries.filter(e => 
@@ -351,7 +290,6 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
           
           if (fixedEntries.length < entries.length) {
             setEntries(fixedEntries);
-            console.log(`Removed ${entries.length - fixedEntries.length} invalid entries`);
           }
         }
 
@@ -359,7 +297,7 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
         const dateMap = new Map();
         entries.forEach(e => {
           if (dateMap.has(e.date)) {
-            console.warn('Duplicate date found:', e.date);
+            // Keep duplicate for now; potential data issue but don't log in production
           }
           dateMap.set(e.date, e);
         });
@@ -375,22 +313,6 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
   }, []); // Run once on mount
 
 
-  // Helper Functions
- // Memoize and avoid console spam
-  const getCurrentPeriod = useCallback(() => {
-    if (!periods || periods.length === 0) {
-      return null;
-    }
-    
-    const found = periods.find(p => p.id === currentPeriodId);
-    
-    // If current period not found, silently return first period
-    if (!found) {
-      return periods[0];
-    }
-    
-    return found;
-  }, [periods, currentPeriodId]);
 
   const formatDate = (date) => {
     const d = new Date(date);
@@ -411,19 +333,6 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
     setLastSaved(new Date().toISOString());
   };
 
-  // Helper: Convert time string (HH:MM or HH:MM:SS) to total seconds
-  const timeToSeconds = (timeStr) => {
-    if (!timeStr || timeStr.trim() === '') return 0;
-    const parts = timeStr.split(':').map(Number);
-    if (parts.length === 3) {
-      // HH:MM:SS
-      return parts[0] * 3600 + parts[1] * 60 + parts[2];
-    } else if (parts.length === 2) {
-      // HH:MM
-      return parts[0] * 3600 + parts[1] * 60;
-    }
-    return 0;
-  };
 
   // Helper: Convert seconds to HH:MM:SS format
   const secondsToTime = (totalSeconds) => {
@@ -433,10 +342,6 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
-  // Helper: Convert seconds to decimal hours with precision
-  const secondsToHours = (seconds) => {
-    return seconds / 3600;
-  };
 
   // Helper: Format time for display (handles both HH:MM and HH:MM:SS)
   const formatTimeDisplay = (timeStr) => {
@@ -446,158 +351,6 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
     // If only HH:MM, add :00
     return timeStr + ':00';
   };
-
-  // Helper: Calculate hours worked from intervals (WITH SECONDS)
-  const calculateHoursWorked = useCallback((intervals, date) => {
-    if (!intervals || intervals.length === 0) {
-      return 0;
-    }
-
-    // Filter out intervals with missing check-in or check-out times
-    const validIntervals = intervals.filter(interval => interval.in && interval.out);
-    if (validIntervals.length === 0) return 0;
-
-    // FIRST interval is main working hours
-    const mainInterval = validIntervals[0];
-    const firstInSeconds = timeToSeconds(mainInterval.in);
-    const lastOutSeconds = timeToSeconds(mainInterval.out);
-
-    // Calculate gross seconds (main interval span)
-    const grossSeconds = lastOutSeconds - firstInSeconds;
-
-    // Permitted break window: 13:00:00 - 13:30:00
-    const ALLOWED_START = 13 * 3600; // 13:00:00
-    const ALLOWED_END = 13 * 3600 + 30 * 60; // 13:30:00
-
-    let deductedBreakSeconds = 0;
-
-    // Process BREAKS (intervals 2+)
-    for (let i = 1; i < validIntervals.length; i++) {
-      const breakInterval = validIntervals[i];
-      const breakStartSeconds = timeToSeconds(breakInterval.in);
-      const breakEndSeconds = timeToSeconds(breakInterval.out);
-      const breakDuration = breakEndSeconds - breakStartSeconds;
-
-      // Check if break falls within allowed window
-      const isAllowedBreak =
-        breakStartSeconds >= ALLOWED_START &&
-        breakStartSeconds <= ALLOWED_END &&
-        breakEndSeconds >= ALLOWED_START &&
-        breakEndSeconds <= ALLOWED_END;
-
-      // Only deduct breaks OUTSIDE the allowed window
-      if (!isAllowedBreak) {
-        deductedBreakSeconds += breakDuration;
-      }
-    }
-
-    // Net working seconds
-    const netSeconds = Math.max(0, grossSeconds - deductedBreakSeconds);
-    return secondsToHours(netSeconds); // Convert to hours
-  }, [timeToSeconds, secondsToHours]);
-
-  // Helper: Calculate overtime WITH PROPER TOTALS
-
-  const calculateOvertimeDetails = useCallback((entries, periodStart, periodEnd) => {
-    const periodEntries = entries.filter(e => 
-      e.date >= periodStart && 
-      e.date <= periodEnd
-    );
-
-    let totalHoursWorked = 0;
-    let totalExtraHours = 0;
-    let totalExtraHoursWithFactor = 0;
-
-    periodEntries.forEach(entry => {
-      if (!entry.intervals || entry.intervals.length === 0) return;
-
-      // Check if all intervals are complete
-      const allComplete = entry.intervals.every(interval => interval.in && interval.out);
-      if (!allComplete) return;
-
-      // ✅ FIXED: Always calculate if stored values are missing or undefined
-      let actualHours, extraHours, extraHoursWithFactor;
-
-      if (
-        entry.hoursWorked !== undefined && 
-        entry.hoursWorked !== null &&
-        entry.extraHours !== undefined && 
-        entry.extraHours !== null &&
-        entry.extraHoursWithFactor !== undefined &&
-        entry.extraHoursWithFactor !== null
-      ) {
-        // Use stored values
-        actualHours = entry.hoursWorked;
-        extraHours = entry.extraHours;
-        extraHoursWithFactor = entry.extraHoursWithFactor;
-      } else {
-        // ✅ CALCULATE if not stored (fallback)
-        actualHours = calculateHoursWorked(entry.intervals, entry.date);
-        
-        // Check if day is weekend/holiday/vacation
-        const dayOfWeek = new Date(entry.date).getDay();
-        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-        const isSpecialDay = entry.type === 'Holiday' || entry.type === 'Vacation';
-        const useDoubleFactor = isWeekend || isSpecialDay;
-
-        // Check if it's a half day special
-        const isHalfDaySpecial = (entry.duration === 0.5) &&
-          (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
-
-        // Check if it's a full day special
-        const isFullDaySpecial = (entry.duration === 1) &&
-          (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
-
-        // Full Day Special - No extra hours
-        if (isFullDaySpecial) {
-          extraHours = 0;
-          extraHoursWithFactor = 0;
-        }
-        // Half Day Special - 4.5h baseline
-        else if (isHalfDaySpecial) {
-          const halfDayBaseline = 4.5;
-          extraHours = actualHours - halfDayBaseline;
-          extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
-        }
-        // Check if "Double Hours" flag is set
-        else if (entry.doubleHours) {
-          extraHours = actualHours;
-          extraHoursWithFactor = actualHours * 2;
-        }
-        // For vacation/holiday worked, ALL hours are extra with 2x
-        else if (useDoubleFactor && entry.type !== 'Regular') {
-          extraHours = actualHours;
-          extraHoursWithFactor = actualHours * 2;
-        }
-        // Regular day or weekend
-        else {
-          const standardHours = isWeekend ? 0 : 9; // 9h regular, 0h weekend
-          extraHours = actualHours - standardHours;
-          
-          const factor = useDoubleFactor ? 2 : 1.5;
-          if (extraHours > 0) {
-            extraHoursWithFactor = extraHours * factor;
-          } else {
-            extraHoursWithFactor = extraHours; // Negative hours no factor
-          }
-        }
-      }
-      
-      // Only count Regular working days in total hours
-      if (entry.type === 'Regular') {
-        totalHoursWorked += actualHours;
-      }
-
-      totalExtraHours += extraHours;
-      totalExtraHoursWithFactor += extraHoursWithFactor;
-    });
-
-    return {
-      totalHoursWorked,
-      totalExtraHours,
-      totalExtraHoursWithFactor
-    };
-  }, [calculateHoursWorked, timeToSeconds, secondsToHours]);
 
 
 // Helper to recalculate all fields for an entry
@@ -694,21 +447,6 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
   };
 };
 
-// Update entry and recalculate fields
-  const updateEntry = (date, updates) => {
-  updateEntries(prevEntries => {
-    return prevEntries.map(entry => {
-      if (entry.date === date) {
-        // Merge updates with existing entry
-        const updatedEntry = { ...entry, ...updates };
-        
-        // Recalculate all fields
-        return recalculateEntryFields(updatedEntry);
-      }
-      return entry;
-    });
-  });
-};
 
 // Helper to show confirmation modal
 const showConfirm = (title, message, type, onConfirmCallback) => {
@@ -898,34 +636,6 @@ const checkIn = () => {
   };
 
 
-  // Delete Entry
-  // Delete Entry
-  const deleteEntry = (date) => {
-    setConfirmModal({
-      isOpen: true,
-      title: 'Delete Entry',
-      message: `Are you sure you want to delete the entry for ${date}? This cannot be undone.`,
-      type: 'danger',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
-      showCancel: true, // Show both buttons for confirmation
-      onConfirm: () => {
-        updateEntries(entries.filter(e => e.date !== date));
-        
-        // After deletion, show success with ONLY OK button
-        setConfirmModal({
-          isOpen: true,
-          title: 'Entry Deleted',
-          message: 'Entry deleted successfully!',
-          type: 'success',
-          confirmText: 'OK',
-          showCancel: false, // ← ONLY OK BUTTON
-          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
-        });
-      },
-      onCancel: () => setConfirmModal({ ...confirmModal, isOpen: false }) // Add this for cancel
-    });
-  };
 
   // Clear Functions
   const clearCurrentDay = () => {
@@ -960,17 +670,7 @@ const checkIn = () => {
     }
   };
 
-  // Update Employee
-  const updateEmployee = (data) => {
-    setEmployee(data);
-    
-  };
 
-  // Update Leave Settings
-  const updateLeaveSettings = (data) => {
-    setLeaveSettings(data);
-    
-  };
 
   // Backup reminder handlers
   const handleBackupNow = () => {

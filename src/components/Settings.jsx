@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ExportModal from './ExportModal';
 import ImportModal from './ImportModal';
+import ModalShell from './ModalShell';
 import '../styles/settings.css';
 
 const validateEmployeeData = (name, salary, annualVacation, sickDays) => {
@@ -727,75 +728,73 @@ const handleClearAllData = () => {
 
         {/* Add Period Modal */}
         {showAddPeriod && (
-          <div className="modal-overlay" onClick={() => setShowAddPeriod(false)}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-              <form onSubmit={handleAddPeriod}>
-                <h3>Add New Pay Period</h3>
-                <p className="settings-description">
-                  Period label will be automatically generated from the dates
-                </p>
-                
-                <div className="form-group">
-                  <label className="form-label">Start Date</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    value={newPeriodStart}
-                    onChange={(e) => setNewPeriodStart(e.target.value)}
-                    max={newPeriodEnd || undefined}
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label className="form-label">End Date</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    value={newPeriodEnd}
-                    onChange={(e) => setNewPeriodEnd(e.target.value)}
-                    min={newPeriodStart || undefined}
-                    required
-                  />
-                </div>
+          <ModalShell onClose={() => setShowAddPeriod(false)}>
+            <form onSubmit={handleAddPeriod}>
+              <h3>Add New Pay Period</h3>
+              <p className="settings-description">
+                Period label will be automatically generated from the dates
+              </p>
+              
+              <div className="form-group">
+                <label className="form-label">Start Date</label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={newPeriodStart}
+                  onChange={(e) => setNewPeriodStart(e.target.value)}
+                  max={newPeriodEnd || undefined}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">End Date</label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={newPeriodEnd}
+                  onChange={(e) => setNewPeriodEnd(e.target.value)}
+                  min={newPeriodStart || undefined}
+                  required
+                />
+              </div>
 
-                {newPeriodStart && newPeriodEnd && (
-                  <div className="form-group">
-                    <label className="form-label">Generated Label (Preview)</label>
-                    <div className="period-preview">
-                      {(() => {
-                        const startDate = new Date(newPeriodStart);
-                        const endDate = new Date(newPeriodEnd);
-                        const formatDate = (date) => {
-                          const day = date.getDate();
-                          const month = date.toLocaleString('en-US', { month: 'short' });
-                          return `${day} ${month}`;
-                        };
-                        return `${formatDate(startDate)} - ${formatDate(endDate)} ${endDate.getFullYear()}`;
-                      })()}
-                    </div>
+              {newPeriodStart && newPeriodEnd && (
+                <div className="form-group">
+                  <label className="form-label">Generated Label (Preview)</label>
+                  <div className="period-preview">
+                    {(() => {
+                      const startDate = new Date(newPeriodStart);
+                      const endDate = new Date(newPeriodEnd);
+                      const formatDate = (date) => {
+                        const day = date.getDate();
+                        const month = date.toLocaleString('en-US', { month: 'short' });
+                        return `${day} ${month}`;
+                      };
+                      return `${formatDate(startDate)} - ${formatDate(endDate)} ${endDate.getFullYear()}`;
+                    })()}
                   </div>
-                )}
-                
-                <div className="form-actions">
-                  <button type="submit" className="btn btn-primary">
-                    Add Period
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => {
-                      setShowAddPeriod(false);
-                      setNewPeriodStart('');
-                      setNewPeriodEnd('');
-                    }}
-                  >
-                    Cancel
-                  </button>
                 </div>
-              </form>
-            </div>
-          </div>
+              )}
+              
+              <div className="form-actions">
+                <button type="submit" className="btn btn-primary">
+                  Add Period
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowAddPeriod(false);
+                    setNewPeriodStart('');
+                    setNewPeriodEnd('');
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </ModalShell>
         )}
       </section>
 
@@ -840,42 +839,15 @@ const handleClearAllData = () => {
         </div>
       </section>
 
-      {/* ✅ NEW: Export Modal Placeholder */}
-        {showExportModal && (
-          <div className="modal-overlay" onClick={() => setShowExportModal(false)}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-              <h3>📤 Export Data</h3>
-              <p>Export modal will be implemented in Phase 2</p>
-              <button className="btn btn-secondary" onClick={() => setShowExportModal(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-
-
-        {/* ✅ Export Modal */}
-        {showExportModal && (
-          <ExportModal onClose={() => setShowExportModal(false)} />
-        )}
-
-      {/* ✅ NEW: Import Modal Placeholder */}
-      {showImportModal && (
-        <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>📥 Import Data</h3>
-            <p>Import modal will be implemented in Phase 3</p>
-            <button className="btn btn-secondary" onClick={() => setShowImportModal(false)}>
-              Close
-            </button>
-          </div>
-        </div>
+      {/* ✅ Export Modal */}
+      {showExportModal && (
+        <ExportModal onClose={() => setShowExportModal(false)} />
       )}
 
-        {/* ✅ Import Modal */}
-        {showImportModal && (
-          <ImportModal onClose={() => setShowImportModal(false)} />
-        )}
+      {/* ✅ Import Modal */}
+      {showImportModal && (
+        <ImportModal onClose={() => setShowImportModal(false)} />
+      )}
     </main>
   );
 }

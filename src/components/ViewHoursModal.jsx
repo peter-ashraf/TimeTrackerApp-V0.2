@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
+import ModalShell from './ModalShell';
 
 function ViewHoursModal({ onClose }) {
   const { entries, getCurrentPeriod } = useTimeTracker();
@@ -41,59 +42,57 @@ function ViewHoursModal({ onClose }) {
   const overtime = totalHours - expectedHours;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <h2>Hours Summary - {currentPeriod?.label || 'Current Period'}</h2>
-        <div className="modal-body">
-          <div className="hours-summary">
-            <div className="summary-item">
-              <span className="summary-label">Total Hours Worked:</span>
-              <span className="summary-value">{totalHours.toFixed(2)}h</span>
-            </div>
-            <div className="summary-item">
-              <span className="summary-label">Expected Hours:</span>
-              <span className="summary-value">{expectedHours}h</span>
-            </div>
-            <div className="summary-item">
-              <span className="summary-label">Overtime:</span>
-              <span className="summary-value" style={{color: overtime >= 0 ? '#80FF00' : '#FF9696'}}>
-                {overtime.toFixed(2)}h
-              </span>
-            </div>
+    <ModalShell onClose={onClose}>
+      <h2>Hours Summary - {currentPeriod?.label || 'Current Period'}</h2>
+      <div className="modal-body">
+        <div className="hours-summary">
+          <div className="summary-item">
+            <span className="summary-label">Total Hours Worked:</span>
+            <span className="summary-value">{totalHours.toFixed(2)}h</span>
           </div>
+          <div className="summary-item">
+            <span className="summary-label">Expected Hours:</span>
+            <span className="summary-value">{expectedHours}h</span>
+          </div>
+          <div className="summary-item">
+            <span className="summary-label">Overtime:</span>
+            <span className="summary-value" style={{color: overtime >= 0 ? '#80FF00' : '#FF9696'}}>
+              {overtime.toFixed(2)}h
+            </span>
+          </div>
+        </div>
 
-          <h3 style={{marginTop: '20px'}}>Daily Breakdown</h3>
-          <table className="data-table" style={{marginTop: '10px'}}>
-            <thead>
+        <h3 style={{marginTop: '20px'}}>Daily Breakdown</h3>
+        <table className="data-table" style={{marginTop: '10px'}}>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Hours</th>
+            </tr>
+          </thead>
+          <tbody>
+            {periodEntries.length === 0 ? (
               <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Hours</th>
+                <td colSpan="3" style={{textAlign: 'center'}}>No entries found</td>
               </tr>
-            </thead>
-            <tbody>
-              {periodEntries.length === 0 ? (
-                <tr>
-                  <td colSpan="3" style={{textAlign: 'center'}}>No entries found</td>
+            ) : (
+              periodEntries.map(entry => (
+                <tr key={entry.date}>
+                  <td>{entry.date}</td>
+                  <td>{entry.type}</td>
+                  <td>{entry.type === 'Regular' ? calculateHours(entry.intervals).toFixed(2) + 'h' : '-'}</td>
                 </tr>
-              ) : (
-                periodEntries.map(entry => (
-                  <tr key={entry.date}>
-                    <td>{entry.date}</td>
-                    <td>{entry.type}</td>
-                    <td>{entry.type === 'Regular' ? calculateHours(entry.intervals).toFixed(2) + 'h' : '-'}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="modal-actions">
-          <button className="btn btn-primary" onClick={onClose}>Close</button>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
-    </div>
+
+      <div className="modal-actions">
+        <button className="btn btn-primary" onClick={onClose}>Close</button>
+      </div>
+    </ModalShell>
   );
 }
 

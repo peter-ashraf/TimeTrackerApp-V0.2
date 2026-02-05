@@ -51,34 +51,6 @@
   margin: 1rem 0 1.5rem;
 }
 
-.backup-actions {
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.backup-actions .btn {
-  min-width: 120px;
-}
-
-.backup-actions .btn-sm {
-  font-size: 0.85rem;
-  padding: 0.5rem 1rem;
-  min-width: auto;
-}
-
-.backup-actions .btn span {
-  margin-right: 0.5rem;
-}
-
-/* Responsive */
-@media (max-width: 500px) {
-  .backup-actions .btn {
-    width: 100%;
-  }
-}
-
-
 /* Remind Later Section */
 .backup-reminder-modal .form-group {
   margin: 1.5rem 0;

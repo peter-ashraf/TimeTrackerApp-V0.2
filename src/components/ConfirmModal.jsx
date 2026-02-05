@@ -1,5 +1,6 @@
 import React from 'react';
 import '../styles/confirm-modal.css';
+import ModalShell from './ModalShell';
 
 function ConfirmModal({ 
   isOpen, 
@@ -25,39 +26,36 @@ function ConfirmModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal-content confirm-modal" onClick={(e) => e.stopPropagation()}>
-        
-        {/* Icon and Title Container */}
-        <div className="confirm-header">
-          <div className={`confirm-icon confirm-icon-${type}`}>
-            {getIcon()}
-          </div>
-          <h3>{title}</h3>
+    <ModalShell onClose={onCancel} contentClassName="confirm-modal">
+      {/* Icon and Title Container */}
+      <div className="confirm-header">
+        <div className={`confirm-icon confirm-icon-${type}`}>
+          {getIcon()}
         </div>
-        
-        <p className="confirm-message" style={{ whiteSpace: 'pre-line' }}>
-          {message}
-        </p>
-        
-        <div className="modal-actions">
-          {showCancel && (
-            <button 
-              className="btn btn-secondary" 
-              onClick={onCancel}
-            >
-              {cancelText}
-            </button>
-          )}
-          <button 
-            className={`btn ${type === 'danger' ? 'btn-danger' : 'btn-primary'}`}
-            onClick={onConfirm}
-          >
-            {confirmText}
-          </button>
-        </div>
+        <h3>{title}</h3>
       </div>
-    </div>
+      
+      <p className="confirm-message" style={{ whiteSpace: 'pre-line' }}>
+        {message}
+      </p>
+      
+      <div className="modal-actions">
+        {showCancel && (
+          <button 
+            className="btn btn-secondary" 
+            onClick={onCancel}
+          >
+            {cancelText}
+          </button>
+        )}
+        <button 
+          className={`btn ${type === 'danger' ? 'btn-danger' : 'btn-primary'}`}
+          onClick={onConfirm}
+        >
+          {confirmText}
+        </button>
+      </div>
+    </ModalShell>
   );
 }
 

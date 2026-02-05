@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
+import ModalShell from './ModalShell';
 
 function EditEntryModal({ entry, onClose }) {
   const { updateEntry } = useTimeTracker();
@@ -100,10 +101,9 @@ function EditEntryModal({ entry, onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content edit-entry-modal" onClick={(e) => e.stopPropagation()}>
-        <h2>✏️ Edit Entry - {entry.date}</h2>
-        <div className="modal-body">
+    <ModalShell onClose={onClose} contentClassName="edit-entry-modal">
+      <h2>✏️ Edit Entry - {entry.date}</h2>
+      <div className="modal-body">
           <div className="form-group">
             <label className="form-label">Type</label>
             <select 
@@ -261,12 +261,11 @@ function EditEntryModal({ entry, onClose }) {
           </div>
         </div>
 
-        <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave}>💾 Save Changes</button>
-        </div>
+      <div className="modal-actions">
+        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" onClick={handleSave}>💾 Save Changes</button>
       </div>
-    </div>
+    </ModalShell>
   );
 }
 

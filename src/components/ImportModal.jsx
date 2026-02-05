@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { useTimeTracker } from '../context/TimeTrackerContext';
 import * as XLSX from 'xlsx';
+import { useTimeTracker } from '../context/TimeTrackerContext';
+import ModalShell from './ModalShell';
 import '../styles/import-modal.css';
 
 function ImportModal({ onClose }) {
@@ -20,7 +21,7 @@ function ImportModal({ onClose }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
   
-  // ✅ NEW: Multi-step flow state
+  // NEW: Multi-step flow state
   const [currentStep, setCurrentStep] = useState(1); // 1: File, 2: Period, 3: Conflict
   const [selectedPeriod, setSelectedPeriod] = useState(null);
   const [periodOption, setPeriodOption] = useState('auto'); // 'auto', 'existing', 'custom'
@@ -71,7 +72,7 @@ function ImportModal({ onClose }) {
     throw new Error(`Invalid date format: ${excelDate}`);
   };
 
-  // ✅ Extract date range from imported entries
+  // Extract date range from imported entries
   const extractDateRange = (importedEntries) => {
     const dates = importedEntries.map(e => e.entry.date).sort();
     return {
@@ -80,7 +81,7 @@ function ImportModal({ onClose }) {
     };
   };
 
-  // ✅ Format period label: "27 Nov - 19 Dec 2025"
+  // Format period label: "27 Nov - 19 Dec 2025"
   const formatPeriodLabel = (startDate, endDate) => {
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -97,12 +98,12 @@ function ImportModal({ onClose }) {
     return `${formatDate(start)} - ${formatDate(end)} ${year}`;
   };
 
-  // ✅ Check if period exists in periods array
+  // Check if period exists in periods array
   const findPeriodByDateRange = (start, end) => {
     return periods.find(p => p.start === start && p.end === end);
   };
 
-  // ✅ Check for conflicts (existing data in period)
+  // Check for conflicts (existing data in period)
   const checkForConflicts = (periodStart, periodEnd, importedData) => {
     const existingEntriesInPeriod = entries.filter(e => 
       e.date >= periodStart && e.date <= periodEnd
@@ -263,7 +264,7 @@ function ImportModal({ onClose }) {
         setPreviewData(parsedData);
         setIsProcessing(false);
 
-        // ✅ AUTO-SUGGEST PERIOD after parsing
+        // AUTO-SUGGEST PERIOD after parsing
         if (parsedData.length > 0) {
           const { start, end } = extractDateRange(parsedData);
           const autoSuggestedPeriod = {
@@ -424,12 +425,12 @@ function ImportModal({ onClose }) {
   
   const executeImport = (period, mode) => {
     try {
-      // ✅ CRITICAL: Get entries OUTSIDE selected period (NEVER TOUCH THESE)
+      // CRITICAL: Get entries OUTSIDE selected period (NEVER TOUCH THESE)
       const entriesOutsidePeriod = entries.filter(e => 
         e.date < period.start || e.date > period.end
       );
 
-      // ✅ Get entries INSIDE selected period
+      // Get entries INSIDE selected period
       const entriesInsidePeriod = entries.filter(e => 
         e.date >= period.start && e.date <= period.end
       );
@@ -440,31 +441,31 @@ function ImportModal({ onClose }) {
       let finalEntries;
 
       if (mode === 'replace') {
-        // ✅ REPLACE MODE: Keep outside + imported only
+        // REPLACE MODE: Keep outside + imported only
         finalEntries = [...entriesOutsidePeriod, ...importedEntries];
       } else {
-        // ✅ MERGE MODE: Keep outside + merge inside with imported
+        // MERGE MODE: Keep outside + merge inside with imported
         const mergedMap = new Map(entriesInsidePeriod.map(e => [e.date, e]));
         importedEntries.forEach(e => mergedMap.set(e.date, e));
         const mergedEntries = Array.from(mergedMap.values());
         finalEntries = [...entriesOutsidePeriod, ...mergedEntries];
       }
 
-      // ✅ CRITICAL: Sort by date ASCENDING (oldest first)
+      // CRITICAL: Sort by date ASCENDING (oldest first)
       finalEntries.sort((a, b) => a.date.localeCompare(b.date));
 
       // Update entries
       setEntries(finalEntries);
 
-      // ✅ Create period if it doesn't exist
+      // Create period if it doesn't exist
       const periodExists = findPeriodByDateRange(period.start, period.end);
       if (!periodExists) {
         setPeriods([...periods, period]);
       }
 
       const message = mode === 'replace'
-        ? `✅ Import successful!\n\n${importedEntries.length} entries imported\nMode: Replace (period-scoped)\nPeriod: ${period.label}`
-        : `✅ Import successful!\n\n${importedEntries.length} entries imported\nMode: Merge\nPeriod: ${period.label}`;
+        ? `Import successful!\n\n${importedEntries.length} entries imported\nMode: Replace (period-scoped)\nPeriod: ${period.label}`
+        : `Import successful!\n\n${importedEntries.length} entries imported\nMode: Merge\nPeriod: ${period.label}`;
 
       setConfirmModal({
         isOpen: true,
@@ -511,9 +512,8 @@ function ImportModal({ onClose }) {
   // ===== RENDER =====
   
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content import-modal" onClick={(e) => e.stopPropagation()}>
-        <h3>📥 Import Timesheet Data</h3>
+    <ModalShell onClose={onClose} contentClassName="import-modal">
+      <h3>Import Timesheet Data</h3>
         
         {/* Step Indicator */}
         <div className="import-steps">
@@ -548,7 +548,7 @@ function ImportModal({ onClose }) {
               />
               {selectedFile && (
                 <div className="selected-file">
-                  📄 {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
+                  {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
                 </div>
               )}
             </div>
@@ -562,7 +562,7 @@ function ImportModal({ onClose }) {
 
             {validationErrors.length > 0 && (
               <div className="import-errors">
-                <strong>⚠️ Validation Warnings ({validationErrors.length}):</strong>
+                <strong>Validation Warnings ({validationErrors.length}):</strong>
                 <div className="error-list">
                   {validationErrors.slice(0, 5).map((error, index) => (
                     <div key={index} className="error-item">• {error}</div>
@@ -576,7 +576,7 @@ function ImportModal({ onClose }) {
 
             {previewData && previewData.length > 0 && (
               <div className="import-preview">
-                <strong>📊 Preview:</strong>
+                <strong>Preview:</strong>
                 <div className="preview-stats">
                   <div className="preview-stat">
                     <span className="stat-value">{previewData.length}</span>
@@ -859,8 +859,7 @@ function ImportModal({ onClose }) {
             </div>
           </>
         )}
-      </div>
-    </div>
+    </ModalShell>
   );
 }
 

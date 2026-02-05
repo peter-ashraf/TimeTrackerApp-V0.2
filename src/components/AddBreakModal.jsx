@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
+import ModalShell from './ModalShell';
 
 function AddBreakModal({ onClose }) {
   const { entries, formatDate, updateEntry } = useTimeTracker();
@@ -54,58 +55,56 @@ function AddBreakModal({ onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <h2>Add Break</h2>
-        <div className="modal-body">
-          <div className="form-group">
-            <label className="form-label">Date</label>
+    <ModalShell onClose={onClose}>
+      <h2>Add Break</h2>
+      <div className="modal-body">
+        <div className="form-group">
+          <label className="form-label">Date</label>
+          <input
+            type="date"
+            className="form-control"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+          />
+        </div>
+
+        <div className="form-group interval-group">
+          <label>Break Times</label>
+          <div className="interval-inputs">
             <input
-              type="date"
+              type="time"
               className="form-control"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              placeholder="Break Start"
+              value={breakStart}
+              onChange={(e) => setBreakStart(e.target.value)}
             />
-          </div>
-
-          <div className="form-group interval-group">
-            <label>Break Times</label>
-            <div className="interval-inputs">
-              <input
-                type="time"
-                className="form-control"
-                placeholder="Break Start"
-                value={breakStart}
-                onChange={(e) => setBreakStart(e.target.value)}
-              />
-              <input
-                type="time"
-                className="form-control"
-                placeholder="Break End"
-                value={breakEnd}
-                onChange={(e) => setBreakEnd(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Notes (optional)</label>
-            <textarea
+            <input
+              type="time"
               className="form-control"
-              placeholder="Add notes about this break (optional)"
-              rows="3"
-              value={breakNotes}
-              onChange={(e) => setBreakNotes(e.target.value)}
+              placeholder="Break End"
+              value={breakEnd}
+              onChange={(e) => setBreakEnd(e.target.value)}
             />
           </div>
         </div>
 
-        <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave}>Add Break</button>
+        <div className="form-group">
+          <label className="form-label">Notes (optional)</label>
+          <textarea
+            className="form-control"
+            placeholder="Add notes about this break (optional)"
+            rows="3"
+            value={breakNotes}
+            onChange={(e) => setBreakNotes(e.target.value)}
+          />
         </div>
       </div>
-    </div>
+
+      <div className="modal-actions">
+        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" onClick={handleSave}>Add Break</button>
+      </div>
+    </ModalShell>
   );
 }
 

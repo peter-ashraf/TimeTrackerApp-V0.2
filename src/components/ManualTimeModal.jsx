@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
+import ModalShell from './ModalShell';
 
 function ManualTimeModal({ mode, onClose }) {
   const { setEntries, entries, formatDate, getCurrentPeriod, updateEntry } = useTimeTracker();
@@ -82,52 +83,50 @@ function ManualTimeModal({ mode, onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <h2>{mode === 'checkIn' ? 'Manual Check In' : 'Manual Check Out'}</h2>
-        <div className="modal-body">
-          <div className="form-group">
-            <label className="form-label">Apply for</label>
-            <select 
-              className="form-control"
-              value={applyMode}
-              onChange={(e) => setApplyMode(e.target.value)}
-            >
-              <option value="today">Today ({formatDate(new Date())})</option>
-              <option value="date">Specific date</option>
-            </select>
-          </div>
+    <ModalShell onClose={onClose}>
+      <h2>{mode === 'checkIn' ? 'Manual Check In' : 'Manual Check Out'}</h2>
+      <div className="modal-body">
+        <div className="form-group">
+          <label className="form-label">Apply for</label>
+          <select 
+            className="form-control"
+            value={applyMode}
+            onChange={(e) => setApplyMode(e.target.value)}
+          >
+            <option value="today">Today ({formatDate(new Date())})</option>
+            <option value="date">Specific date</option>
+          </select>
+        </div>
 
-          {applyMode === 'date' && (
-            <div className="form-group">
-              <label className="form-label">Select date</label>
-              <input
-                type="date"
-                className="form-control"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-              />
-            </div>
-          )}
-
+        {applyMode === 'date' && (
           <div className="form-group">
-            <label className="form-label">Time (HH:MM:SS)</label>
+            <label className="form-label">Select date</label>
             <input
-              type="time"
-              step="1"
+              type="date"
               className="form-control"
-              value={timeValue}
-              onChange={(e) => setTimeValue(e.target.value)}
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
             />
           </div>
-        </div>
+        )}
 
-        <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave}>Save</button>
+        <div className="form-group">
+          <label className="form-label">Time (HH:MM:SS)</label>
+          <input
+            type="time"
+            step="1"
+            className="form-control"
+            value={timeValue}
+            onChange={(e) => setTimeValue(e.target.value)}
+          />
         </div>
       </div>
-    </div>
+
+      <div className="modal-actions">
+        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" onClick={handleSave}>Save</button>
+      </div>
+    </ModalShell>
   );
 }
 

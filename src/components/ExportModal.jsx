@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
+import ModalShell from './ModalShell';
 import * as XLSX from 'xlsx';
 
 function ExportModal({ onClose }) {
@@ -415,12 +416,11 @@ function ExportModal({ onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content export-modal" onClick={(e) => e.stopPropagation()}>
-        <h3>📤 Export Timesheet Data</h3>
-        <p className="settings-description">
-          Export your timesheet data to Excel or download an empty template for bulk data entry.
-        </p>
+    <ModalShell onClose={onClose} contentClassName="export-modal">
+      <h3>📤 Export Timesheet Data</h3>
+      <p className="settings-description">
+        Export your timesheet data to Excel or download an empty template for bulk data entry.
+      </p>
 
         {/* Employee Info Preview */}
         <div className="export-preview-box">
@@ -617,18 +617,10 @@ function ExportModal({ onClose }) {
               (exportMode === 'template' && templateMode === 'period' && !templatePeriod)
             }
           >
-            {exportMode === 'template' ? '📋 Download Template' : '📥 Export to Excel'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={onClose}
-          >
-            Cancel
+            Export
           </button>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }
 
