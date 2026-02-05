@@ -1,0 +1,225 @@
+.backup-reminder-modal {
+  max-width: 500px;
+  text-align: center;
+  padding: 1rem;
+}
+
+.backup-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.backup-reminder-modal h3 {
+  margin: 0.5rem 0 1rem;
+
+}
+
+.backup-message {
+
+  margin: 1rem 0;
+  line-height: 1.6;
+}
+
+.backup-warning {
+  background: rgba(255, 165, 0, 0.1);
+  border-left: 4px solid #ffa500;
+  padding: 1rem;
+  margin: 1.5rem 0;
+  text-align: left;
+  border-radius: 4px;
+}
+
+.backup-warning strong {
+  color: #ffa500;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.backup-recommendation {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.backup-actions {
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.backup-actions .btn {
+  min-width: 120px;
+}
+
+.backup-actions .btn-sm {
+  font-size: 0.85rem;
+  padding: 0.5rem 1rem;
+  min-width: auto;
+}
+
+.backup-actions .btn span {
+  margin-right: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 500px) {
+  .backup-actions .btn {
+    width: 100%;
+  }
+}
+
+
+/* Remind Later Section */
+.backup-reminder-modal .form-group {
+  margin: 1.5rem 0;
+  text-align: left;
+}
+
+.backup-reminder-modal .form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+
+  font-size: 0.95rem;
+}
+
+.backup-reminder-modal .form-control {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid var(--border-color, #ddd);
+  border-radius: 6px;
+  font-size: 1rem;
+  background: var(--bg-secondary, white);
+  color: var(--text-primary);
+}
+
+.backup-reminder-modal .form-control:focus {
+  outline: none;
+  border-color: var(--primary-color, #4a9eff);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb, 74, 158, 255), 0.1);
+}
+
+.remind-later-section {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: rgba(var(--primary-rgb, 74, 158, 255), 0.05);
+  border-radius: 8px;
+}
+
+.remind-later-section .form-label {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-weight: 500;
+
+  font-size: 0.95rem;
+}
+
+.remind-options {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.remind-option-btn {
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--border-color, #ddd);
+  background: var(--bg-secondary, white);
+  color: var(--text-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.remind-option-btn:hover {
+  border-color: var(--primary-color, #4a9eff);
+  background: rgba(var(--primary-rgb, 74, 158, 255), 0.1);
+}
+
+.remind-option-btn.active {
+  border-color: var(--primary-color, #4a9eff);
+  background: var(--primary-color, #4a9eff);
+  color: white;
+  font-weight: 500;
+}
+
+.custom-days-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.custom-days-input input {
+  width: 80px;
+  padding: 0.5rem;
+  border: 2px solid var(--border-color, #ddd);
+  border-radius: 6px;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.custom-days-input span {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.backup-actions {
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.backup-actions .btn {
+  min-width: 120px;
+}
+
+.backup-actions .btn-sm {
+  font-size: 0.85rem;
+  padding: 0.5rem 1rem;
+  min-width: auto;
+}
+
+.backup-actions .btn span {
+  margin-right: 0.5rem;
+}
+
+
+/* Button Styles */
+.backup-actions .btn-dismiss {
+  opacity: 0.7;
+}
+
+.backup-actions .btn-dismiss:hover {
+  opacity: 1;
+  background: #ff6b6b;
+  border-color: #ff6b6b;
+  color: white;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .remind-options {
+    flex-direction: column;
+  }
+  
+  .remind-option-btn {
+    width: 100%;
+  }
+
+  .backup-actions .btn {
+    width: 100%;
+  }
+}
+

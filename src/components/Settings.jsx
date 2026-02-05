@@ -2,6 +2,100 @@ import React, { useState, useEffect } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ExportModal from './ExportModal';
 import ImportModal from './ImportModal';
+import '../styles/settings.css';
+
+const validateEmployeeData = (name, salary, annualVacation, sickDays) => {
+  const errors = [];
+  
+  // Validate name
+  if (!name || name.trim().length === 0) {
+    errors.push('• Employee name is required');
+  } else if (name.trim().length < 2) {
+    errors.push('• Employee name must be at least 2 characters');
+  }
+  
+  // Validate salary
+  if (isNaN(salary)) {
+    errors.push('• Salary must be a valid number');
+  } else if (salary < 0) {
+    errors.push('• Salary cannot be negative');
+  } else if (salary > 10000000) {
+    errors.push('• Salary seems unrealistically high (max 10,000,000)');
+  }
+  
+  // Validate annual vacation
+  if (isNaN(annualVacation)) {
+    errors.push('• Annual vacation days must be a valid number');
+  } else if (annualVacation < 0) {
+    errors.push('• Annual vacation days cannot be negative');
+  } else if (annualVacation > 365) {
+    errors.push('• Annual vacation days cannot exceed 365');
+  }
+  
+  // Validate sick days
+  if (isNaN(sickDays)) {
+    errors.push('• Sick days must be a valid number');
+  } else if (sickDays < 0) {
+    errors.push('• Sick days cannot be negative');
+  } else if (sickDays > 365) {
+    errors.push('• Sick days cannot exceed 365');
+  }
+  
+  return errors;
+};
+
+const validatePeriodDates = (start, end, existingPeriods, editingId = null) => {
+  const errors = [];
+  
+  // Check if dates are provided
+  if (!start || !end) {
+    errors.push('• Both start and end dates are required');
+    return errors;
+  }
+  
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  
+  // Check if start is before end
+  if (startDate >= endDate) {
+    errors.push('• End date must be after start date');
+    return errors; // Stop here if dates are reversed
+  }
+  
+  // ✅ FIXED: Calculate duration in days (corrected calculation)
+  const durationDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+  
+  // ✅ FIXED: Check for reasonable duration (1 to 35 days)
+  if (durationDays < 1) {
+    errors.push('• Period must be at least 1 day long');
+  }
+  if (durationDays > 35) {
+    errors.push(`• Period cannot exceed 35 days (currently ${durationDays} days)`);
+  }
+  
+  // Only check overlaps if duration is valid (to avoid confusing error messages)
+  if (errors.length > 0) {
+    return errors; // Return duration errors first
+  }
+  
+  // ✅ FIXED: Now check for overlaps AFTER duration validation
+  const periodsToCheck = existingPeriods.filter(p => p.id !== editingId);
+  
+  for (const period of periodsToCheck) {
+    const periodStart = new Date(period.start);
+    const periodEnd = new Date(period.end);
+    
+    // Check overlap: two periods overlap if one starts before the other ends
+    const overlaps = (startDate <= periodEnd && endDate >= periodStart);
+    
+    if (overlaps) {
+      errors.push(`• Period overlaps with "${period.label}"`);
+      break; // Only show first overlap
+    }
+  }
+  
+  return errors;
+};
 
 function Settings() {
   const {
@@ -16,7 +110,9 @@ function Settings() {
     setPeriods,
     clearCurrentDay,
     clearCurrentMonth,
-    clearAllData
+    clearAllData,
+    confirmModal,
+    setConfirmModal 
   } = useTimeTracker();
 
   // Employee form
@@ -40,6 +136,12 @@ function Settings() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
 
+  const handleOpenExport = () => {
+    setShowExportModal(true);
+    // Mark that user is attempting to backup
+    localStorage.setItem('lastBackupDate', new Date().toISOString());
+  };
+
   useEffect(() => {
     setName(employee.name);
     setSalary(employee.salary);
@@ -50,18 +152,98 @@ function Settings() {
     setSickDays(leaveSettings.sickDays);
   }, [leaveSettings]);
 
-  const handleSaveEmployee = (e) => {
-    e.preventDefault();
-    updateEmployee({ name, salary: parseFloat(salary) || 0 });
-  };
-
-  const handleSaveLeave = (e) => {
-    e.preventDefault();
-    updateLeaveSettings({
-      annualVacation: parseFloat(annualVacation) || 0,
-      sickDays: parseFloat(sickDays) || 0
+  const handleSaveAll = (e) => {
+  e.preventDefault();
+  
+  // Parse values
+  const parsedSalary = parseFloat(salary) || 0;
+  const parsedVacation = parseFloat(annualVacation) || 0;
+  const parsedSickDays = parseFloat(sickDays) || 0;
+  
+  // Run validation
+  const errors = validateEmployeeData(
+    name,
+    parsedSalary,
+    parsedVacation,
+    parsedSickDays
+  );
+  
+  // If validation fails, show errors
+  if (errors.length > 0) {
+    setConfirmModal({
+      isOpen: true,
+      title: '❌ Validation Error',
+      message: `Please fix the following errors:\n\n${errors.join('\n')}`,
+      type: 'danger',
+      confirmText: 'OK',
+      showCancel: false,
+      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
     });
-  };
+    return; // Stop - don't save
+  }
+  
+  // Check what changed
+  const nameChanged = name !== employee.name;
+  const salaryChanged = parsedSalary !== employee.salary;
+  const vacationChanged = parsedVacation !== leaveSettings.annualVacation;
+  const sickDaysChanged = parsedSickDays !== leaveSettings.sickDays;
+  
+  const anyChanges = nameChanged || salaryChanged || vacationChanged || sickDaysChanged;
+  
+  // If nothing changed, alert user
+  if (!anyChanges) {
+    setConfirmModal({
+      isOpen: true,
+      title: 'No Changes Detected',
+      message: 'You haven\'t made any changes to save.',
+      type: 'info',
+      confirmText: 'OK',
+      showCancel: false,
+      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+    });
+    return;
+  }
+  
+  // Build list of what changed
+  const changedItems = [];
+  if (nameChanged) changedItems.push(`• Name: "${employee.name}" → "${name}"`);
+  if (salaryChanged) changedItems.push(`• Salary: ${employee.salary} → ${parsedSalary}`);
+  if (vacationChanged) changedItems.push(`• Vacation Days: ${leaveSettings.annualVacation} → ${parsedVacation}`);
+  if (sickDaysChanged) changedItems.push(`• Sick Days: ${leaveSettings.sickDays} → ${parsedSickDays}`);
+  
+  // Save all data (preserves unchanged values automatically)
+  updateEmployee({ 
+    name: name,
+    salary: parsedSalary 
+  });
+  
+  updateLeaveSettings({
+    annualVacation: parsedVacation,
+    sickDays: parsedSickDays
+  });
+  
+  // Show success with what changed
+  let summaryMessage = '';
+
+    if (changedItems.length === 1) {
+      // Single change - simple message
+      const item = changedItems[0].replace('• ', '');
+      summaryMessage = `✓ ${item}`;
+    } else {
+      // Multiple changes - formatted list
+      summaryMessage = `${changedItems.length} settings updated:\n\n${changedItems.map(item => item).join('\n')}`;
+    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Settings Saved',
+      message: summaryMessage,
+      type: 'success',
+      confirmText: 'OK',
+      showCancel: false,
+      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+    });
+};
 
   const categorizePeriods = () => {
     const today = new Date().toISOString().split('T')[0];
@@ -80,63 +262,250 @@ function Settings() {
   const { current, upcoming, previous } = categorizePeriods();
 
   const handleAddPeriod = (e) => {
-    e.preventDefault();
-    if (!newPeriodStart || !newPeriodEnd) {
-      alert('Please fill start and end dates');
-      return;
-    }
+  e.preventDefault();
+  
+  // Basic check
+  if (!newPeriodStart || !newPeriodEnd) {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Missing Dates',
+      message: 'Please fill in both start and end dates',
+      type: 'warning',
+      confirmText: 'OK',
+      showCancel: false,
+      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+    });
+    return;
+  }
 
-    const startDate = new Date(newPeriodStart);
-    const endDate = new Date(newPeriodEnd);
-    
-    const formatDate = (date) => {
-      const day = date.getDate();
-      const month = date.toLocaleString('en-US', { month: 'short' });
-      return `${day} ${month}`;
-    };
+  // Run validation
+  const errors = validatePeriodDates(
+    newPeriodStart,
+    newPeriodEnd,
+    periods,
+    null // null = new period (not editing)
+  );
 
-    const autoLabel = `${formatDate(startDate)} - ${formatDate(endDate)} ${endDate.getFullYear()}`;
+  // If validation fails, show errors
+  if (errors.length > 0) {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Invalid Period',
+      message: `Cannot add period:\n\n${errors.join('\n')}`,
+      type: 'danger',
+      confirmText: 'OK',
+      showCancel: false,
+      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+    });
+    return;
+  }
 
-    const newPeriod = {
-      id: 'period-' + Date.now(),
-      label: autoLabel,
-      start: newPeriodStart,
-      end: newPeriodEnd
-    };
-
-    setPeriods([...periods, newPeriod]);
-    setShowAddPeriod(false);
-    setNewPeriodStart('');
-    setNewPeriodEnd('');
-    alert('Period added successfully!');
+  // Validation passed - create period
+  const startDate = new Date(newPeriodStart);
+  const endDate = new Date(newPeriodEnd);
+  
+  const formatDate = (date) => {
+    const day = date.getDate();
+    const month = date.toLocaleString('en-US', { month: 'short' });
+    return `${day} ${month}`;
   };
 
-  const handleDeletePeriod = (periodId) => {
-    if (periods.length === 1) {
-      alert('Cannot delete the last period!');
-      return;
-    }
+  const autoLabel = `${formatDate(startDate)} - ${formatDate(endDate)} ${endDate.getFullYear()}`;
 
-    if (window.confirm('Are you sure you want to delete this period?')) {
+  const newPeriod = {
+    id: 'period-' + Date.now(),
+    label: autoLabel,
+    start: newPeriodStart,
+    end: newPeriodEnd
+  };
+
+  setPeriods([...periods, newPeriod]);
+  setShowAddPeriod(false);
+  setNewPeriodStart('');
+  setNewPeriodEnd('');
+  
+  // Show success modal
+  setConfirmModal({
+    isOpen: true,
+    title: 'Period Added',
+    message: `Period "${autoLabel}" added successfully!`,
+    type: 'success',
+    confirmText: 'OK',
+    showCancel: false,
+    onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+  });
+};
+
+
+  const handleDeletePeriod = (periodId) => {
+  // Can't delete last period
+  if (periods.length === 1) {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Cannot Delete',
+      message: 'Cannot delete the last period! You must have at least one pay period.',
+      type: 'warning',
+      confirmText: 'OK',
+      showCancel: false,
+      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+    });
+    return;
+  }
+
+  const periodToDelete = periods.find(p => p.id === periodId);
+
+  // Ask for confirmation
+  setConfirmModal({
+    isOpen: true,
+    title: 'Delete Period',
+    message: `Are you sure you want to delete "${periodToDelete.label}"?\n\nThis cannot be undone.`,
+    type: 'danger',
+    confirmText: 'Delete',
+    cancelText: 'Cancel',
+    showCancel: true,
+    onConfirm: () => {
       const newPeriods = periods.filter(p => p.id !== periodId);
       setPeriods(newPeriods);
       
+      // If deleting current period, switch to first available
       if (currentPeriodId === periodId) {
         setCurrentPeriodId(newPeriods[0].id);
       }
       
-      alert('Period deleted!');
+      // Show success
+      setConfirmModal({
+        isOpen: true,
+        title: 'Period Deleted',
+        message: `Period "${periodToDelete.label}" has been deleted.`,
+        type: 'success',
+        confirmText: 'OK',
+        showCancel: false,
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
     }
-  };
+  });
+};
+
+const handleClearCurrentDay = () => {
+  const today = new Date().toISOString().split('T')[0];
+  const todayEntry = entries.find(e => e.date === today);
+  
+  if (!todayEntry) {
+    setConfirmModal({
+      isOpen: true,
+      title: 'No Data Found',
+      message: `No data found for today (${today}).`,
+      type: 'info',
+      confirmText: 'OK',
+      showCancel: false,
+      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+    });
+    return;
+  }
+
+  setConfirmModal({
+    isOpen: true,
+    title: 'Clear Today\'s Data?',
+    message: `Are you sure you want to clear all data for today?\n\nDate: ${today}\nType: ${todayEntry.type}\n\n⚠️ This action cannot be undone.\n\n💡 Tip: Consider exporting your data first.`,
+    type: 'danger',
+    confirmText: 'Clear Today',
+    cancelText: 'Cancel',
+    showCancel: true,
+    onConfirm: () => {
+      clearCurrentDay();
+      setConfirmModal({
+        isOpen: true,
+        title: 'Data Cleared',
+        message: 'Today\'s data has been cleared.',
+        type: 'success',
+        confirmText: 'OK',
+        showCancel: false,
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
+    }
+  });
+};
+
+const handleClearCurrentPeriod = () => {
+  const currentPeriod = periods.find(p => p.id === currentPeriodId);
+  const periodEntries = entries.filter(e => 
+    e.date >= currentPeriod.start && e.date <= currentPeriod.end
+  );
+
+  if (periodEntries.length === 0) {
+    setConfirmModal({
+      isOpen: true,
+      title: 'No Data Found',
+      message: `No data found for the current period (${currentPeriod.label}).`,
+      type: 'info',
+      confirmText: 'OK',
+      showCancel: false,
+      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+    });
+    return;
+  }
+
+  setConfirmModal({
+    isOpen: true,
+    title: 'Clear Period Data?',
+    message: `Are you sure you want to clear all data for this period?\n\nPeriod: ${currentPeriod.label}\nEntries: ${periodEntries.length}\n\n⚠️ This action cannot be undone.\n\n💡 Recommended: Export this period first to avoid data loss.`,
+    type: 'danger',
+    confirmText: 'Clear Period',
+    cancelText: 'Cancel',
+    showCancel: true,
+    onConfirm: () => {
+      clearCurrentMonth();
+      setConfirmModal({
+        isOpen: true,
+        title: 'Period Cleared',
+        message: `All data for ${currentPeriod.label} has been cleared.`,
+        type: 'success',
+        confirmText: 'OK',
+        showCancel: false,
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
+    }
+  });
+};
+
+const handleClearAllData = () => {
+  const totalEntries = entries.length;
+  
+  setConfirmModal({
+    isOpen: true,
+    title: '⚠️ DELETE ALL DATA?',
+    message: `You are about to delete ALL your timesheet data!\n\nTotal entries: ${totalEntries}\nPeriods: ${periods.length}\n\n🚨 THIS ACTION CANNOT BE UNDONE!\n\n💾 STRONGLY RECOMMENDED: Export your data first!\n\nType "DELETE" to confirm this action.`,
+    type: 'danger',
+    confirmText: 'I understand, Delete All',
+    cancelText: 'Cancel',
+    showCancel: true,
+    requireConfirmation: true, // ✅ NEW: Add this flag
+    onConfirm: () => {
+      clearAllData();
+      setConfirmModal({
+        isOpen: true,
+        title: 'All Data Deleted',
+        message: 'All your timesheet data has been permanently deleted.',
+        type: 'success',
+        confirmText: 'OK',
+        showCancel: false,
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
+    }
+  });
+};
+
 
   return (
     <main className="main-content">
       <h1>Settings</h1>
 
-      {/* Employee Information */}
-      <section className="settings-section">
-        <h2>Employee Information</h2>
-        <form onSubmit={handleSaveEmployee}>
+      {/* ✅ UNIFIED EMPLOYEE INFORMATION & LEAVE SETTINGS */}
+      <div className="settings-section">
+        <h2>👤 Employee Information</h2>
+        <form onSubmit={handleSaveAll}>
+          
+          {/* Full Name */}
           <div className="form-group">
             <label className="form-label">Full Name</label>
             <input
@@ -148,37 +517,21 @@ function Settings() {
             />
           </div>
 
+          {/* Monthly Salary */}
           <div className="form-group">
             <label className="form-label">Monthly Salary (L.E.)</label>
             <input
-              type={hideSalary ? "password" : "number"}
+              type="number"
               className="form-control"
-              value={hideSalary ? '' : salary}
+              value={salary}
               onChange={(e) => setSalary(e.target.value)}
-              placeholder={hideSalary ? "••••••" : "Enter your monthly salary"}
-              disabled={hideSalary}
-              style={{
-                filter: hideSalary ? 'blur(5px)' : 'none',
-                transition: 'filter 0.3s ease'
-              }}
+              placeholder="Enter monthly salary"
+              min="0"
+              step="0.01"
             />
-            {hideSalary && (
-              <small style={{color: '#FF9696', marginTop: '8px', display: 'block'}}>
-                ⚠️ Salary is hidden. Unhide from Dashboard to edit.
-              </small>
-            )}
           </div>
 
-          <button type="submit" className="btn btn-primary" disabled={hideSalary}>
-            Save Employee Info
-          </button>
-        </form>
-      </section>
-
-      {/* Leave Settings */}
-      <section className="settings-section">
-        <h2>Leave Settings</h2>
-        <form onSubmit={handleSaveLeave}>
+          {/* Annual Vacation Days */}
           <div className="form-group">
             <label className="form-label">Annual Vacation Days</label>
             <input
@@ -188,10 +541,11 @@ function Settings() {
               onChange={(e) => setAnnualVacation(e.target.value)}
               placeholder="Enter annual vacation days"
               min="0"
-              step="0.5"
+              max="365"
             />
           </div>
 
+          {/* Sick Days */}
           <div className="form-group">
             <label className="form-label">Sick Days</label>
             <input
@@ -201,15 +555,17 @@ function Settings() {
               onChange={(e) => setSickDays(e.target.value)}
               placeholder="Enter sick days"
               min="0"
-              step="0.5"
+              max="365"
             />
           </div>
 
+          {/* Single Save Button */}
           <button type="submit" className="btn btn-primary">
-            Save Leave Settings
+            💾 Save All Settings
           </button>
         </form>
-      </section>
+      </div>
+
 
       {/* Pay Periods Management */}
       <section className="settings-section">
@@ -386,6 +742,7 @@ function Settings() {
                     className="form-control"
                     value={newPeriodStart}
                     onChange={(e) => setNewPeriodStart(e.target.value)}
+                    max={newPeriodEnd || undefined}
                     required
                   />
                 </div>
@@ -397,6 +754,7 @@ function Settings() {
                     className="form-control"
                     value={newPeriodEnd}
                     onChange={(e) => setNewPeriodEnd(e.target.value)}
+                    min={newPeriodStart || undefined}
                     required
                   />
                 </div>
@@ -451,7 +809,8 @@ function Settings() {
           <div className="data-management-actions">
             <button 
               className="btn btn-primary"
-              onClick={() => setShowExportModal(true)}
+              onClick={handleOpenExport}
+              data-export-btn
             >
               📤 Export Data
             </button>
@@ -469,13 +828,13 @@ function Settings() {
       <section className="settings-section danger-zone">
         <h2>⚠️ Danger Zone</h2>
         <div className="danger-actions">
-          <button className="btn btn-danger" onClick={clearCurrentDay}>
+          <button className="btn btn-danger" onClick={handleClearCurrentDay}>
             Clear Today's Data
           </button>
-          <button className="btn btn-danger" onClick={clearCurrentMonth}>
+          <button className="btn btn-danger" onClick={handleClearCurrentPeriod}>
             Clear Current Period Data
           </button>
-          <button className="btn btn-danger" onClick={clearAllData}>
+          <button className="btn btn-danger" onClick={handleClearAllData}>
             Delete All Data
           </button>
         </div>

@@ -1,0 +1,32 @@
+.input-error {
+  border: 2px solid #ff4444 !important;
+  background-color: rgba(255, 68, 68, 0.05);
+  animation: shake 0.3s;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.input-error:focus {
+  outline: none;
+  border-color: #ff4444;
+  box-shadow: 0 0 0 3px rgba(255, 68, 68, 0.1);
+}
+
+.confirm-message {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 1rem 0 1.5rem;
+  line-height: 1.6;
+  white-space: pre-line; /* Respects \n line breaks */
+  text-align: left; /* Align left for lists */
+}
+
+/* When modal has success type with list */
+.confirm-modal .confirm-icon-success ~ h3 ~ .confirm-message {
+  font-family: monospace; /* Better for showing values */
+  font-size: 0.9rem;
+}

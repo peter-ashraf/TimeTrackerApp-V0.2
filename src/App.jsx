@@ -4,6 +4,8 @@ import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import Timesheet from './components/Timesheet';
 import Settings from './components/Settings';
+import AutoSaveIndicator from './components/AutoSaveIndicator';
+import ConfirmModal from './components/ConfirmModal';
 
 function App() {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -11,6 +13,7 @@ function App() {
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
   const [swipeDirection, setSwipeDirection] = useState(null);
+  const { lastSaved, entries } = useTimeTracker();
   
   const { theme } = useTimeTracker();
   const containerRef = useRef(null);
@@ -19,9 +22,26 @@ function App() {
   const lastScrollYRef = useRef(0);
   const views = ['dashboard', 'timesheet', 'settings'];
 
+  const [showTest, setShowTest] = useState(false);
+
+  
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    const shouldNavigateToExport = localStorage.getItem('navigateToExport');
+    if (shouldNavigateToExport === 'true') {
+      localStorage.removeItem('navigateToExport');
+      setCurrentView('settings');
+      // Small delay to ensure settings loads, then open export
+      setTimeout(() => {
+        const exportBtn = document.querySelector('[data-export-btn]');
+        if (exportBtn) exportBtn.click();
+      }, 100);
+    }
+  }, []);
 
   const isMobile = () => window.innerWidth <= 768;
 
@@ -153,6 +173,32 @@ function App() {
   return () => window.removeEventListener('scroll', handleScroll);
 }, []);
 
+  // Warn before closing if there's recent activity
+  useEffect(() => {
+      const handleBeforeUnload = (e) => {
+        // Check if there's an active check-in today
+        const today = new Date().toISOString().split('T')[0];
+        const todayEntry = entries.find(e => e.date === today);
+        
+        if (todayEntry && todayEntry.intervals && todayEntry.intervals.length > 0) {
+          const lastInterval = todayEntry.intervals[todayEntry.intervals.length - 1];
+          
+          // If checked in but not checked out
+          if (lastInterval.in && !lastInterval.out) {
+            e.preventDefault();
+            e.returnValue = ''; // Required for Chrome
+            return ''; // Required for some browsers
+          }
+        }
+      };
+
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+      };
+    }, [entries]);
+
   return (
     <div
       className={`app ${isSwiping ? 'swiping' : ''}`}
@@ -183,6 +229,8 @@ function App() {
         <div className={`view-container settings-container ${currentView === 'settings' ? 'active' : ''}`}>
           <Settings />
         </div>
+
+        <AutoSaveIndicator lastSaved={lastSaved} />
       </div>
     </div>
   );

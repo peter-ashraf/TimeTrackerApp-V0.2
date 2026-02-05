@@ -1,0 +1,68 @@
+.confirm-modal {
+  max-width: 450px;
+  text-align: center;
+  padding: 1rem;
+}
+
+/* ✅ NEW: Header container with icon + title side by side */
+.confirm-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+/* ✅ UPDATED: Icon styling */
+.confirm-icon {
+  font-size: 2rem; /* Smaller so it fits next to title */
+  margin: 0; /* Remove default margin */
+  line-height: 1;
+}
+
+.confirm-icon-danger {
+  color: #ff4444;
+}
+
+.confirm-icon-warning {
+  color: #ffa500;
+}
+
+.confirm-icon-info {
+  color: #4a9eff;
+}
+
+.confirm-icon-success {
+  color: #4caf50;
+}
+
+/* ✅ UPDATED: Title styling to work with icon */
+.confirm-modal h3 {
+  margin: 0;
+
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.confirm-message {
+  font-size: 1rem;
+
+  margin: 1rem 0 1.5rem;
+  line-height: 1.5;
+  text-align: left; /* Left align for better readability */
+}
+
+.confirm-modal .modal-actions {
+  gap: 1rem;
+  justify-content: center;
+}
+
+.btn-danger {
+  background: #ff4444;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #cc0000;
+}

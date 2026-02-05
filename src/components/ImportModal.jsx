@@ -9,7 +9,9 @@ function ImportModal({ onClose }) {
     setEntries, 
     periods, 
     setPeriods, 
-    calculateHoursWorked 
+    calculateHoursWorked,
+    confirmModal,
+    setConfirmModal 
   } = useTimeTracker();
 
   // ===== STATE MANAGEMENT =====
@@ -122,7 +124,15 @@ function ImportModal({ onClose }) {
     if (!file) return;
 
     if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
-      alert('❌ Please select a valid Excel file (.xlsx or .xls)');
+      setConfirmModal({
+        isOpen: true,
+        title: 'Invalid File Type',
+        message: 'Please select a valid Excel file (.xlsx or .xls).',
+        type: 'warning',
+        confirmText: 'OK',
+        showCancel: false,
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
       return;
     }
 
@@ -273,13 +283,29 @@ function ImportModal({ onClose }) {
         }
       } catch (err) {
         console.error('Error parsing Excel file:', err);
-        alert('❌ Failed to parse Excel file. Please check the file format.');
+        setConfirmModal({
+          isOpen: true,
+          title: 'Parse Error',
+          message: 'Failed to parse Excel file. Please check the file format and try again.',
+          type: 'danger',
+          confirmText: 'OK',
+          showCancel: false,
+          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        });
         setIsProcessing(false);
       }
     };
 
     reader.onerror = () => {
-      alert('❌ Failed to read file');
+      setConfirmModal({
+        isOpen: true,
+        title: 'File Read Error',
+        message: 'Failed to read the file. Please try again.',
+        type: 'danger',
+        confirmText: 'OK',
+        showCancel: false,
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
       setIsProcessing(false);
     };
 
@@ -290,17 +316,33 @@ function ImportModal({ onClose }) {
   
   const handleNextToPeriodSelection = () => {
     if (!previewData || previewData.length === 0) {
-      alert('❌ No valid data to proceed');
+      setConfirmModal({
+        isOpen: true,
+        title: 'No Data Found',
+        message: 'No valid data to proceed. Please select a file with valid timesheet data.',
+        type: 'warning',
+        confirmText: 'OK',
+        showCancel: false,
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
       return;
     }
 
     if (validationErrors.length > 0) {
-      const confirmProceed = window.confirm(
-        `⚠️ Warning: ${validationErrors.length} error(s) found.\n\n` +
-        `Some rows may be skipped.\n\n` +
-        `Continue anyway?`
-      );
-      if (!confirmProceed) return;
+      setConfirmModal({
+        isOpen: true,
+        title: 'Validation Warnings',
+        message: `Warning: ${validationErrors.length} error(s) found.\n\nSome rows may be skipped during import.\n\nDo you want to continue?`,
+        type: 'warning',
+        confirmText: 'Continue',
+        cancelText: 'Cancel',
+        showCancel: true,
+        onConfirm: () => {
+          setConfirmModal({ ...confirmModal, isOpen: false });
+          setCurrentStep(2); // Proceed to next step
+        }
+      });
+      return; // Exit function - modal will handle the flow
     }
 
     setCurrentStep(2);
@@ -314,17 +356,41 @@ function ImportModal({ onClose }) {
       finalPeriod = selectedPeriod;
     } else if (periodOption === 'existing') {
       if (!selectedPeriod) {
-        alert('❌ Please select an existing period');
+        setConfirmModal({
+          isOpen: true,
+          title: 'Period Not Selected',
+          message: 'Please select an existing period from the dropdown.',
+          type: 'warning',
+          confirmText: 'OK',
+          showCancel: false,
+          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        });
         return;
       }
       finalPeriod = selectedPeriod;
     } else if (periodOption === 'custom') {
       if (!customStartDate || !customEndDate) {
-        alert('❌ Please enter both start and end dates');
+        setConfirmModal({
+          isOpen: true,
+          title: 'Dates Required',
+          message: 'Please enter both start and end dates for the custom period.',
+          type: 'warning',
+          confirmText: 'OK',
+          showCancel: false,
+          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        });
         return;
       }
       if (customStartDate > customEndDate) {
-        alert('❌ Start date must be before end date');
+        setConfirmModal({
+          isOpen: true,
+          title: 'Invalid Date Range',
+          message: 'Start date must be before end date. Please adjust the dates.',
+          type: 'warning',
+          confirmText: 'OK',
+          showCancel: false,
+          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        });
         return;
       }
       finalPeriod = {
@@ -400,17 +466,43 @@ function ImportModal({ onClose }) {
         ? `✅ Import successful!\n\n${importedEntries.length} entries imported\nMode: Replace (period-scoped)\nPeriod: ${period.label}`
         : `✅ Import successful!\n\n${importedEntries.length} entries imported\nMode: Merge\nPeriod: ${period.label}`;
 
-      alert(message);
-      onClose();
+      setConfirmModal({
+        isOpen: true,
+        title: 'Import Successful',
+        message: message,
+        type: 'success',
+        confirmText: 'OK',
+        showCancel: false,
+        onConfirm: () => {
+          setConfirmModal({ ...confirmModal, isOpen: false });
+          onClose();
+        }
+      });
     } catch (err) {
       console.error('Error importing data:', err);
-      alert('❌ Failed to import data. Please try again.');
+      setConfirmModal({
+        isOpen: true,
+        title: 'Import Failed',
+        message: 'Failed to import data. Please check your file and try again.\n\nError: ' + err.message,
+        type: 'danger',
+        confirmText: 'OK',
+        showCancel: false,
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
     }
   };
 
   const handleFinalImport = () => {
     if (!selectedPeriod) {
-      alert('❌ No period selected');
+      setConfirmModal({
+        isOpen: true,
+        title: 'No Period Selected',
+        message: 'No period selected. Please go back and choose a period.',
+        type: 'warning',
+        confirmText: 'OK',
+        showCancel: false,
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
       return;
     }
     executeImport(selectedPeriod, importMode);

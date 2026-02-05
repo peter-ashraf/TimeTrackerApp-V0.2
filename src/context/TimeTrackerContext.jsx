@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import ConfirmModal from '../components/ConfirmModal';
+import BackupReminderModal from '../components/BackupReminderModal';
 
 const TimeTrackerContext = createContext();
 
@@ -86,6 +88,8 @@ const [currentPeriodId, setCurrentPeriodId] = useState(() => {
     return localStorage.getItem('hideSalary') === 'true';
   });
 
+  const [lastSaved, setLastSaved] = useState(null);
+
   const [use12Hour, setUse12Hour] = useState(() => {
     return localStorage.getItem('use12HourFormat') !== 'false';
   });
@@ -93,6 +97,16 @@ const [currentPeriodId, setCurrentPeriodId] = useState(() => {
   const [detailedView, setDetailedView] = useState(() => {
     return localStorage.getItem('detailedView') === 'true';
   });
+
+  // State Conrimation
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'warning',
+    onConfirm: null
+  });
+
 
   // Theme State
   const [theme, setTheme] = useState(() => {
@@ -105,6 +119,9 @@ const [currentPeriodId, setCurrentPeriodId] = useState(() => {
     }
     return 'light';
   });
+
+  // Backup reminder state
+const [showBackupReminder, setShowBackupReminder] = useState(false);
 
   // Persist to localStorage and apply to document
   useEffect(() => {
@@ -137,6 +154,39 @@ const [currentPeriodId, setCurrentPeriodId] = useState(() => {
       return () => mediaQuery.removeListener(handleThemeChange);
     }
   }, []);
+
+  // Check for backup reminder (run once on mount)
+  useEffect(() => {
+    const lastBackup = localStorage.getItem('lastBackupDate');
+    const dismissedReminder = localStorage.getItem('dismissedBackupReminder');
+    
+    // If user permanently dismissed, don't show
+    if (dismissedReminder === 'true') return;
+    
+    const today = new Date();
+    
+    if (!lastBackup) {
+      // First time user - check if they have entries older than 7 days
+      if (entries.length > 0) {
+        const oldestEntry = entries.sort((a, b) => a.date.localeCompare(b.date))[0];
+        const oldestDate = new Date(oldestEntry.date);
+        const daysSinceFirst = Math.floor((today - oldestDate) / (1000 * 60 * 60 * 24));
+        
+        if (daysSinceFirst >= 7) {
+          setShowBackupReminder(true);
+        }
+      }
+    } else {
+      // Check if 14 days since last backup
+      const lastBackupDate = new Date(lastBackup);
+      const daysSinceBackup = Math.floor((today - lastBackupDate) / (1000 * 60 * 60 * 24));
+      
+      if (daysSinceBackup >= 14) {
+        setShowBackupReminder(true);
+      }
+    }
+  }, []); 
+
 
   useEffect(() => {
     localStorage.setItem('fullName', employee.name);
@@ -174,7 +224,7 @@ const [currentPeriodId, setCurrentPeriodId] = useState(() => {
     localStorage.setItem('detailedView', detailedView);
   }, [detailedView]);
 
-  // ✅ MIGRATION: Add calculated fields to existing entries (ONLY RUNS ONCE)
+  // Add calculated fields to existing entries (ONLY RUNS ONCE)
   useEffect(() => {
     const needsMigration = entries.some(e => 
       e.hoursWorked === undefined || 
@@ -282,8 +332,51 @@ const [currentPeriodId, setCurrentPeriodId] = useState(() => {
     }
   }, []); // Run only once on mount
 
+  // Data integrity check on load
+  useEffect(() => {
+    const checkDataIntegrity = () => {
+      try {
+        // Check if entries are properly formatted
+        const invalidEntries = entries.filter(e => 
+          !e.date || !e.type || !Array.isArray(e.intervals)
+        );
+
+        if (invalidEntries.length > 0) {
+          console.warn('Found invalid entries:', invalidEntries);
+          
+          // Attempt to fix
+          const fixedEntries = entries.filter(e => 
+            e.date && e.type && Array.isArray(e.intervals)
+          );
+          
+          if (fixedEntries.length < entries.length) {
+            setEntries(fixedEntries);
+            console.log(`Removed ${entries.length - fixedEntries.length} invalid entries`);
+          }
+        }
+
+        // Check for duplicate dates in same period
+        const dateMap = new Map();
+        entries.forEach(e => {
+          if (dateMap.has(e.date)) {
+            console.warn('Duplicate date found:', e.date);
+          }
+          dateMap.set(e.date, e);
+        });
+
+      } catch (err) {
+        console.error('Data integrity check failed:', err);
+      }
+    };
+
+    if (entries.length > 0) {
+      checkDataIntegrity();
+    }
+  }, []); // Run once on mount
+
+
   // Helper Functions
- // ✅ FIXED: Memoize and avoid console spam
+ // Memoize and avoid console spam
 const getCurrentPeriod = () => {
   if (!periods || periods.length === 0) {
     return null;
@@ -310,6 +403,12 @@ const getCurrentPeriod = () => {
     const minutes = String(d.getMinutes()).padStart(2, '0');
     const seconds = String(d.getSeconds()).padStart(2, '0');
     return `${hours}:${minutes}:${seconds}`;
+  };
+
+  //  Wrapper for setEntries with auto-save notification
+  const updateEntries = (newEntries) => {
+    setEntries(newEntries);
+    setLastSaved(new Date().toISOString());
   };
 
   // Helper: Convert time string (HH:MM or HH:MM:SS) to total seconds
@@ -399,7 +498,7 @@ const getCurrentPeriod = () => {
 
   // Helper: Calculate overtime WITH PROPER TOTALS
 
-const calculateOvertimeDetails = (entries, periodStart, periodEnd) => {
+  const calculateOvertimeDetails = (entries, periodStart, periodEnd) => {
   const periodEntries = entries.filter(e => 
     e.date >= periodStart && 
     e.date <= periodEnd
@@ -500,9 +599,9 @@ const calculateOvertimeDetails = (entries, periodStart, periodEnd) => {
   };
 };
 
-// ✅ NEW: Helper to recalculate all fields for an entry
-// ✅ NEW: Helper to recalculate all fields for an entry
-const recalculateEntryFields = (entry) => {
+
+// Helper to recalculate all fields for an entry
+  const recalculateEntryFields = (entry) => {
   if (!entry.intervals || entry.intervals.length === 0) {
     return {
       ...entry,
@@ -595,9 +694,9 @@ const recalculateEntryFields = (entry) => {
   };
 };
 
-// ✅ NEW: Update entry and recalculate fields
-const updateEntry = (date, updates) => {
-  setEntries(prevEntries => {
+// Update entry and recalculate fields
+  const updateEntry = (date, updates) => {
+  updateEntries(prevEntries => {
     return prevEntries.map(entry => {
       if (entry.date === date) {
         // Merge updates with existing entry
@@ -611,6 +710,24 @@ const updateEntry = (date, updates) => {
   });
 };
 
+// Helper to show confirmation modal
+const showConfirm = (title, message, type, onConfirmCallback) => {
+  return new Promise((resolve) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+      onConfirm: () => {
+        onConfirmCallback();
+        setConfirmModal({ ...confirmModal, isOpen: false });
+        resolve(true);
+      }
+    });
+  });
+};
+
+
 
 // Backward compatible calculateOvertime
 const calculateOvertime = (entries, periodStart, periodEnd) => {
@@ -619,45 +736,64 @@ const calculateOvertime = (entries, periodStart, periodEnd) => {
 };
 
   // ✅ UPDATED: Check In WITH CALCULATED FIELDS
-  const checkIn = () => {
-    const today = formatDate(new Date());
-    const now = new Date();
-    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+const checkIn = () => {
+  const today = formatDate(new Date());
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
 
-    const existingEntry = entries.find(e => e.date === today);
-    
-    if (existingEntry) {
-      const lastInterval = existingEntry.intervals?.[existingEntry.intervals.length - 1];
-      if (lastInterval && !lastInterval.out) {
-        alert('You are already checked in');
-        return;
-      }
+  const existingEntry = entries.find(e => e.date === today);
+
+  if (existingEntry) {
+    const lastInterval = existingEntry.intervals?.[existingEntry.intervals.length - 1];
+
+    if (lastInterval && !lastInterval.out) {
+      // ERROR: Already checked in - INFO ONLY (no cancel needed)
       
-      const updatedIntervals = [...(existingEntry.intervals || []), { in: time, out: null }];
-      
-      setEntries(entries.map(e => 
-        e.date === today 
-          ? { 
-              ...e, 
-              intervals: updatedIntervals
-              // Don't recalculate until checkout
-            }
-          : e
-      ));
-    } else {
-      setEntries([...entries, {
-        date: today,
-        type: 'Regular',
-        intervals: [{ in: time, out: null }],
-        hoursWorked: 0,
-        extraHours: 0,
-        extraHoursWithFactor: 0,
-        hoursSpentOutside: 0
-      }]);
+      setConfirmModal({
+        isOpen: true,
+        title: 'Already Checked In',
+        message: 'You are already checked in. Please check out first.',
+        type: 'info',
+        confirmText: 'OK',
+        showCancel: false, // Only show OK button
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
+      return;
     }
-    
-    alert(`Checked in at ${time}`);
-  };
+
+    const updatedIntervals = [...(existingEntry.intervals || []), { in: time, out: null }];
+    updateEntries(entries.map(e =>
+      e.date === today
+        ? {
+            ...e,
+            intervals: updatedIntervals
+            // Don't recalculate until checkout
+          }
+        : e
+    ));
+  } else {
+    updateEntries([...entries, {
+      date: today,
+      type: 'Regular',
+      intervals: [{ in: time, out: null }],
+      hoursWorked: 0,
+      extraHours: 0,
+      extraHoursWithFactor: 0,
+      hoursSpentOutside: 0
+    }]);
+  }
+
+  // SUCCESS: Checked in - INFO ONLY (no cancel needed)
+  setConfirmModal({
+    isOpen: true,
+    title: '✓ Checked In Successfully',
+    message: `Checked in at ${time}`,
+    type: 'success',
+    confirmText: 'OK',
+    showCancel: false, // Only show OK button
+    onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+  });
+};
 
   // ✅ UPDATED: Check Out WITH CALCULATED FIELDS
   const checkOut = () => {
@@ -666,28 +802,46 @@ const calculateOvertime = (entries, periodStart, periodEnd) => {
     const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
 
     const existingEntry = entries.find(e => e.date === today);
-    
+
     if (!existingEntry || !existingEntry.intervals?.length) {
-      alert('No active check-in found');
+      // ERROR: No check-in found - INFO ONLY (no cancel needed)
+      setConfirmModal({
+        isOpen: true,
+        title: 'No Check-In Found',
+        message: 'You need to check in first before checking out.',
+        type: 'warning',
+        confirmText: 'OK',
+        showCancel: false, // Only show OK button
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
       return;
     }
 
     const lastInterval = existingEntry.intervals[existingEntry.intervals.length - 1];
+
     if (lastInterval.out) {
-      alert('You are already checked out');
+      // ERROR: Already checked out - INFO ONLY (no cancel needed)
+      setConfirmModal({
+        isOpen: true,
+        title: 'Already Checked Out',
+        message: 'You are already checked out. Check in again to start a new session.',
+        type: 'info',
+        confirmText: 'OK',
+        showCancel: false, // Only show OK button
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
       return;
     }
 
     // Update intervals with checkout time
-    const updatedIntervals = existingEntry.intervals.map((interval, idx) => 
-      idx === existingEntry.intervals.length - 1 
+    const updatedIntervals = existingEntry.intervals.map((interval, idx) =>
+      idx === existingEntry.intervals.length - 1
         ? { ...interval, out: time }
         : interval
     );
 
     // ✅ RECALCULATE ALL FIELDS
     const hoursWorked = calculateHoursWorked(updatedIntervals, today);
-    
     const dayOfWeek = new Date(today).getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const standardHours = isWeekend ? 0 : 9;
@@ -698,8 +852,8 @@ const calculateOvertime = (entries, periodStart, periodEnd) => {
     const breakIntervals = updatedIntervals.slice(1);
     const ALLOWED_START = 13 * 3600;
     const ALLOWED_END = 13 * 3600 + 30 * 60;
-
     let hoursSpentOutside = 0;
+
     breakIntervals.forEach(interval => {
       if (interval.in && interval.out) {
         const breakStartSeconds = timeToSeconds(interval.in);
@@ -718,8 +872,8 @@ const calculateOvertime = (entries, periodStart, periodEnd) => {
       }
     });
 
-    setEntries(entries.map(e => 
-      e.date === today 
+    updateEntries(entries.map(e =>
+      e.date === today
         ? {
             ...e,
             intervals: updatedIntervals,
@@ -730,23 +884,54 @@ const calculateOvertime = (entries, periodStart, periodEnd) => {
           }
         : e
     ));
-    
-    alert(`Checked out at ${time}`);
+
+    // SUCCESS: Checked out - INFO ONLY (no cancel needed)
+    setConfirmModal({
+      isOpen: true,
+      title: '✓ Checked Out Successfully',
+      message: `Checked out at ${time}\n\nHours worked today: ${hoursWorked.toFixed(2)}h`,
+      type: 'success',
+      confirmText: 'OK',
+      showCancel: false, // Only show OK button
+      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+    });
   };
 
+
+  // Delete Entry
   // Delete Entry
   const deleteEntry = (date) => {
-    if (window.confirm(`Are you sure you want to delete the entry for ${date}?`)) {
-      setEntries(entries.filter(e => e.date !== date));
-      alert('Entry deleted!');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Entry',
+      message: `Are you sure you want to delete the entry for ${date}? This cannot be undone.`,
+      type: 'danger',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      showCancel: true, // Show both buttons for confirmation
+      onConfirm: () => {
+        updateEntries(entries.filter(e => e.date !== date));
+        
+        // After deletion, show success with ONLY OK button
+        setConfirmModal({
+          isOpen: true,
+          title: 'Entry Deleted',
+          message: 'Entry deleted successfully!',
+          type: 'success',
+          confirmText: 'OK',
+          showCancel: false, // ← ONLY OK BUTTON
+          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        });
+      },
+      onCancel: () => setConfirmModal({ ...confirmModal, isOpen: false }) // Add this for cancel
+    });
   };
 
   // Clear Functions
   const clearCurrentDay = () => {
     if (window.confirm('Are you sure you want to clear data for today? This cannot be undone!')) {
       const today = formatDate(new Date());
-      setEntries(entries.filter(e => e.date !== today));
+      updateEntries(entries.filter(e => e.date !== today));
       alert('Today\'s data cleared!');
     }
   };
@@ -754,7 +939,7 @@ const calculateOvertime = (entries, periodStart, periodEnd) => {
   const clearCurrentMonth = () => {
     const period = getCurrentPeriod();
     if (window.confirm(`Are you sure you want to clear all data for ${period.label}? This cannot be undone!`)) {
-      setEntries(entries.filter(e => e.date < period.start || e.date > period.end));
+      updateEntries(entries.filter(e => e.date < period.start || e.date > period.end));
       alert(`Data for ${period.label} cleared!`);
     }
   };
@@ -778,15 +963,46 @@ const calculateOvertime = (entries, periodStart, periodEnd) => {
   // Update Employee
   const updateEmployee = (data) => {
     setEmployee(data);
-    alert('Employee information saved successfully!');
+    
   };
 
   // Update Leave Settings
   const updateLeaveSettings = (data) => {
     setLeaveSettings(data);
-    alert('Leave settings saved successfully!');
+    
   };
 
+  // Backup reminder handlers
+  const handleBackupNow = () => {
+    localStorage.setItem('lastBackupDate', new Date().toISOString());
+    setShowBackupReminder(false);
+    // This will be handled by navigating to export in Settings
+
+    localStorage.setItem('navigateToExport', 'true');
+    window.location.hash = '#settings';
+  };
+
+  const handleBackupLater = (days = 3) => {
+    // Set reminder to show again after specified days
+    // We calculate: 14 (total interval) - days = days ago to set
+    const futureDate = new Date();
+    const daysAgo = 14 - days;
+    futureDate.setDate(futureDate.getDate() - daysAgo);
+    localStorage.setItem('lastBackupDate', futureDate.toISOString());
+    setShowBackupReminder(false);
+  };
+
+
+  const handleDismissBackup = () => {
+    // Permanently dismiss backup reminders
+    localStorage.setItem('dismissedBackupReminder', 'true');
+    setShowBackupReminder(false);
+  };
+
+  const handleCloseBackup = () => {
+    // Just close without changing anything
+    setShowBackupReminder(false);
+  };
 
   const value = {
     employee,
@@ -813,7 +1029,6 @@ const calculateOvertime = (entries, periodStart, periodEnd) => {
     getCurrentPeriod,
     formatDate,
     formatTime,
-    setEntries,
     setPeriods,
     setCurrentPeriodId,
     calculateHoursWorked,
@@ -824,12 +1039,40 @@ const calculateOvertime = (entries, periodStart, periodEnd) => {
     secondsToHours,
     formatTimeDisplay,
     recalculateEntryFields, 
-    updateEntry              
+    updateEntry,
+    confirmModal,
+    setConfirmModal,
+    showConfirm,
+    showBackupReminder,     
+    handleBackupNow,        
+    handleBackupLater,      
+    handleDismissBackup,
+    handleCloseBackup,
+    lastSaved,
+    setEntries: updateEntries            
   };
 
   return (
     <TimeTrackerContext.Provider value={value}>
       {children}
+      <ConfirmModal
+      isOpen={confirmModal.isOpen}
+      title={confirmModal.title}
+      message={confirmModal.message}
+      type={confirmModal.type}
+      confirmText={confirmModal.confirmText || 'Confirm'}  // ADD THIS
+      cancelText={confirmModal.cancelText || 'Cancel'}      // ADD THIS
+      showCancel={confirmModal.showCancel !== false}        // ADD THIS (important!)
+      onConfirm={confirmModal.onConfirm}
+      onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+    />
+    <BackupReminderModal
+      isOpen={showBackupReminder}
+      onExport={handleBackupNow}
+      onRemindLater={handleBackupLater}
+      onDismiss={handleDismissBackup}
+      onClose={handleCloseBackup}
+    />
     </TimeTrackerContext.Provider>
   );
 };

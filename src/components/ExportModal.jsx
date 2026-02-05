@@ -7,7 +7,9 @@ function ExportModal({ onClose }) {
     entries, 
     periods, 
     employee,
-    calculateOvertimeDetails
+    calculateOvertimeDetails,
+    confirmModal,
+    setConfirmModal
   } = useTimeTracker();
 
   // Export options state
@@ -160,13 +162,30 @@ function ExportModal({ onClose }) {
 
     if (templateMode === 'period') {
       if (!templatePeriod) {
-        alert('Please select a period for the template');
+        setConfirmModal({
+          isOpen: true,
+          title: 'Period Not Selected',
+          message: 'Please select a period for the template.',
+          type: 'warning',
+          confirmText: 'OK',
+          showCancel: false,
+          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        });
         return;
       }
 
+
       selectedPeriod = periods.find(p => p.id === templatePeriod);
       if (!selectedPeriod) {
-        alert('Selected period not found');
+        setConfirmModal({
+          isOpen: true,
+          title: 'Period Not Found',
+          message: 'The selected period could not be found. Please try again.',
+          type: 'danger',
+          confirmText: 'OK',
+          showCancel: false,
+          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        });
         return;
       }
 
@@ -314,8 +333,18 @@ function ExportModal({ onClose }) {
       ? `✅ Blank template exported!\n\nFile: ${fileName}\nFully customizable - add your own dates and data.`
       : `✅ Template exported!\n\nFile: ${fileName}\nPeriod: ${selectedPeriod.label}\nAll dates pre-filled and ready to use!`;
     
-    alert(message);
-    onClose();
+    setConfirmModal({
+      isOpen: true,
+      title: 'Template Downloaded',
+      message: message,
+      type: 'success',
+      confirmText: 'OK',
+      showCancel: false,
+      onConfirm: () => {
+        setConfirmModal({ ...confirmModal, isOpen: false });
+        onClose();
+      }
+    });
   };
 
   // Handle export
@@ -326,7 +355,15 @@ function ExportModal({ onClose }) {
     }
 
     if (selectedPeriods.length === 0) {
-      alert('Please select at least one period to export');
+      setConfirmModal({
+        isOpen: true,
+        title: 'No Periods Selected',
+        message: 'Please select at least one period to export.',
+        type: 'warning',
+        confirmText: 'OK',
+        showCancel: false,
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
       return;
     }
 
@@ -362,10 +399,19 @@ function ExportModal({ onClose }) {
       : `Timesheet_Multiple_Periods_${timestamp}.xlsx`;
 
     XLSX.writeFile(workbook, filename);
-
-    alert(`✅ Export successful!\n\nFile: ${filename}\nPeriods: ${periodsToExport.length}\nView: ${detailedView ? 'Detailed' : 'Simple'}`);
-    
-    onClose();
+    localStorage.setItem('lastBackupDate', new Date().toISOString());
+    setConfirmModal({
+      isOpen: true,
+      title: 'Export Successful',
+      message: `Your data has been exported!\n\nFile: ${filename}\nPeriods: ${periodsToExport.length}\nView: ${detailedView ? 'Detailed' : 'Simple'}`,
+      type: 'success',
+      confirmText: 'OK',
+      showCancel: false,
+      onConfirm: () => {
+        setConfirmModal({ ...confirmModal, isOpen: false });
+        onClose();
+      }
+    });
   };
 
   return (
