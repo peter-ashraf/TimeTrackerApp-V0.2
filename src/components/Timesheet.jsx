@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ManualTimeModal from './ManualTimeModal';
 import AddBreakModal from './AddBreakModal';
@@ -25,20 +25,23 @@ function Timesheet() {
   const [showAddBreak, setShowAddBreak] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
 
-  // ✅ FIXED: Use local state for viewing period (separate from "current" period)
+  // Use local state for viewing period (separate from "current" period)
   const [viewingPeriodId, setViewingPeriodId] = useState(currentPeriodId);
-  const viewingPeriod = periods.find(p => p.id === viewingPeriodId) || getCurrentPeriod();
+  const viewingPeriod = useMemo(() => {
+    return periods.find(p => p.id === viewingPeriodId) || getCurrentPeriod();
+  }, [periods, viewingPeriodId, getCurrentPeriod]);
 
   // Filter and sort entries for VIEWING period
-  const periodEntries = entries
-    .filter(e => {
-      if (!viewingPeriod) return true;
-      return e.date >= viewingPeriod.start && e.date <= viewingPeriod.end;
-    })
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const periodEntries = useMemo(() => {
+    if (!viewingPeriod) return entries.sort((a, b) => a.date.localeCompare(b.date));
+    
+    return entries
+      .filter(e => e.date >= viewingPeriod.start && e.date <= viewingPeriod.end)
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [entries, viewingPeriod]);
 
   // Convert 24h to 12h format
-  const formatTime = (time24) => {
+  const formatTime = useCallback((time24) => {
     if (!time24) return '-';
     if (!use12Hour) return time24;
     
@@ -53,14 +56,15 @@ function Timesheet() {
     } catch (e) {
       return time24;
     }
-  };
+  }, [use12Hour]);
 
   // Calculate totals for VIEWING period
-  let overtimeDetails = { totalHoursWorked: 0, totalExtraHours: 0, totalExtraHoursWithFactor: 0 };
-  
-  if (calculateOvertimeDetails && viewingPeriod) {
-    overtimeDetails = calculateOvertimeDetails(entries, viewingPeriod.start, viewingPeriod.end);
-  }
+  const overtimeDetails = useMemo(() => {
+    if (!calculateOvertimeDetails || !viewingPeriod) {
+      return { totalHoursWorked: 0, totalExtraHours: 0, totalExtraHoursWithFactor: 0 };
+    }
+    return calculateOvertimeDetails(entries, viewingPeriod.start, viewingPeriod.end);
+  }, [entries, viewingPeriod, calculateOvertimeDetails]);
 
   return (
     <main className="main-content">

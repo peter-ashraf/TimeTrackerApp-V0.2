@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ManualTimeModal from './ManualTimeModal';
 import AddBreakModal from './AddBreakModal';
@@ -26,42 +26,70 @@ function Dashboard() {
   const [showViewHours, setShowViewHours] = useState(false);
   const [vacationModalType, setVacationModalType] = useState(null);
 
-  const currentPeriod = getCurrentPeriod();
+  const currentPeriod = useMemo(() => {
+    return getCurrentPeriod();
+  }, [getCurrentPeriod]);
 
   // Calculate vacation stats
-  const periodEntries = entries.filter(e => {
-    if (!currentPeriod) return false;
-    return e.date >= currentPeriod.start && e.date <= currentPeriod.end;
-  });
+  const periodEntries = useMemo(() => {
+    if (!currentPeriod) return [];
+    return entries.filter(e => 
+      e.date >= currentPeriod.start && e.date <= currentPeriod.end
+    );
+  }, [entries, currentPeriod]);
 
-  const vacationTaken = periodEntries
-    .filter(e => e.type === 'Vacation')
-    .reduce((sum, e) => sum + (e.duration || 1), 0);
+  // ✅ Memoize leave statistics
+  const leaveStats = useMemo(() => {
+    const vacationTaken = periodEntries
+      .filter(e => e.type === 'Vacation')
+      .reduce((sum, e) => sum + (e.duration || 1), 0);
 
-  const toBeAdded = periodEntries
-    .filter(e => e.type === 'To Be Added')
-    .reduce((sum, e) => sum + (e.duration || 1), 0);
+    const toBeAdded = periodEntries
+      .filter(e => e.type === 'To Be Added')
+      .reduce((sum, e) => sum + (e.duration || 1), 0);
 
-  const sickUsed = periodEntries
-    .filter(e => e.type === 'Sick Leave')
-    .reduce((sum, e) => sum + (e.duration || 1), 0);
+    const sickUsed = periodEntries
+      .filter(e => e.type === 'Sick Leave')
+      .reduce((sum, e) => sum + (e.duration || 1), 0);
 
-  const vacationBalance = leaveSettings.annualVacation - vacationTaken + toBeAdded;
-  const sickBalance = leaveSettings.sickDays - sickUsed;
+    const vacationBalance = leaveSettings.annualVacation - vacationTaken + toBeAdded;
+    const sickBalance = leaveSettings.sickDays - sickUsed;
+
+    return {
+      vacationTaken,
+      toBeAdded,
+      sickUsed,
+      vacationBalance,
+      sickBalance
+    };
+  }, [periodEntries, leaveSettings]);
+
+  // Destructure for use in JSX
+  const { vacationTaken, toBeAdded, sickUsed, vacationBalance, sickBalance } = leaveStats;
+
 
   // Calculate overtime
-  const overtimeDetails = calculateOvertimeDetails 
-    ? calculateOvertimeDetails(entries, currentPeriod?.start, currentPeriod?.end)
-    : { totalHoursWorked: 0, totalExtraHours: 0, totalExtraHoursWithFactor: 0 };
-  
+  const overtimeDetails = useMemo(() => {
+    if (!calculateOvertimeDetails || !currentPeriod) {
+      return { totalHoursWorked: 0, totalExtraHours: 0, totalExtraHoursWithFactor: 0 };
+    }
+    return calculateOvertimeDetails(entries, currentPeriod.start, currentPeriod.end);
+  }, [entries, currentPeriod, calculateOvertimeDetails]);
+
   const overtime = overtimeDetails.totalExtraHoursWithFactor;
   
   // Salary calculation (2/3 of salary)
-  const salaryDivided = employee.salary / 3;
-  const salaryTwoThird = salaryDivided * 2;
-  const employeeHourCost = salaryTwoThird / 187.5;
-  const overtimeMoney = overtime * employeeHourCost;
-  const totalSalary = employee.salary + overtimeMoney;
+  const salaryData = useMemo(() => {
+    const salaryDivided = employee.salary / 3;
+    const salaryTwoThird = salaryDivided * 2;
+    const employeeHourCost = salaryTwoThird / 187.5;
+    const overtimeMoney = overtime * employeeHourCost;
+    const totalSalary = employee.salary + overtimeMoney;
+
+    return { overtimeMoney, totalSalary };
+  }, [employee.salary, overtime]);
+
+const { overtimeMoney, totalSalary } = salaryData;
 
   return (
     <main className="main-content">

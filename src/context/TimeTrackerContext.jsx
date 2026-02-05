@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import ConfirmModal from '../components/ConfirmModal';
 import BackupReminderModal from '../components/BackupReminderModal';
 
@@ -377,20 +377,20 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
 
   // Helper Functions
  // Memoize and avoid console spam
-const getCurrentPeriod = () => {
-  if (!periods || periods.length === 0) {
-    return null;
-  }
-  
-  const found = periods.find(p => p.id === currentPeriodId);
-  
-  // If current period not found, silently return first period
-  if (!found) {
-    return periods[0];
-  }
-  
-  return found;
-};
+  const getCurrentPeriod = useCallback(() => {
+    if (!periods || periods.length === 0) {
+      return null;
+    }
+    
+    const found = periods.find(p => p.id === currentPeriodId);
+    
+    // If current period not found, silently return first period
+    if (!found) {
+      return periods[0];
+    }
+    
+    return found;
+  }, [periods, currentPeriodId]);
 
   const formatDate = (date) => {
     const d = new Date(date);
@@ -448,7 +448,7 @@ const getCurrentPeriod = () => {
   };
 
   // Helper: Calculate hours worked from intervals (WITH SECONDS)
-  const calculateHoursWorked = (intervals, date) => {
+  const calculateHoursWorked = useCallback((intervals, date) => {
     if (!intervals || intervals.length === 0) {
       return 0;
     }
@@ -494,110 +494,110 @@ const getCurrentPeriod = () => {
     // Net working seconds
     const netSeconds = Math.max(0, grossSeconds - deductedBreakSeconds);
     return secondsToHours(netSeconds); // Convert to hours
-  };
+  }, [timeToSeconds, secondsToHours]);
 
   // Helper: Calculate overtime WITH PROPER TOTALS
 
-  const calculateOvertimeDetails = (entries, periodStart, periodEnd) => {
-  const periodEntries = entries.filter(e => 
-    e.date >= periodStart && 
-    e.date <= periodEnd
-  );
+  const calculateOvertimeDetails = useCallback((entries, periodStart, periodEnd) => {
+    const periodEntries = entries.filter(e => 
+      e.date >= periodStart && 
+      e.date <= periodEnd
+    );
 
-  let totalHoursWorked = 0;
-  let totalExtraHours = 0;
-  let totalExtraHoursWithFactor = 0;
+    let totalHoursWorked = 0;
+    let totalExtraHours = 0;
+    let totalExtraHoursWithFactor = 0;
 
-  periodEntries.forEach(entry => {
-    if (!entry.intervals || entry.intervals.length === 0) return;
+    periodEntries.forEach(entry => {
+      if (!entry.intervals || entry.intervals.length === 0) return;
 
-    // Check if all intervals are complete
-    const allComplete = entry.intervals.every(interval => interval.in && interval.out);
-    if (!allComplete) return;
+      // Check if all intervals are complete
+      const allComplete = entry.intervals.every(interval => interval.in && interval.out);
+      if (!allComplete) return;
 
-    // ✅ FIXED: Always calculate if stored values are missing or undefined
-    let actualHours, extraHours, extraHoursWithFactor;
+      // ✅ FIXED: Always calculate if stored values are missing or undefined
+      let actualHours, extraHours, extraHoursWithFactor;
 
-    if (
-      entry.hoursWorked !== undefined && 
-      entry.hoursWorked !== null &&
-      entry.extraHours !== undefined && 
-      entry.extraHours !== null &&
-      entry.extraHoursWithFactor !== undefined &&
-      entry.extraHoursWithFactor !== null
-    ) {
-      // Use stored values
-      actualHours = entry.hoursWorked;
-      extraHours = entry.extraHours;
-      extraHoursWithFactor = entry.extraHoursWithFactor;
-    } else {
-      // ✅ CALCULATE if not stored (fallback)
-      actualHours = calculateHoursWorked(entry.intervals, entry.date);
-      
-      // Check if day is weekend/holiday/vacation
-      const dayOfWeek = new Date(entry.date).getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      const isSpecialDay = entry.type === 'Holiday' || entry.type === 'Vacation';
-      const useDoubleFactor = isWeekend || isSpecialDay;
-
-      // Check if it's a half day special
-      const isHalfDaySpecial = (entry.duration === 0.5) &&
-        (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
-
-      // Check if it's a full day special
-      const isFullDaySpecial = (entry.duration === 1) &&
-        (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
-
-      // Full Day Special - No extra hours
-      if (isFullDaySpecial) {
-        extraHours = 0;
-        extraHoursWithFactor = 0;
-      }
-      // Half Day Special - 4.5h baseline
-      else if (isHalfDaySpecial) {
-        const halfDayBaseline = 4.5;
-        extraHours = actualHours - halfDayBaseline;
-        extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
-      }
-      // Check if "Double Hours" flag is set
-      else if (entry.doubleHours) {
-        extraHours = actualHours;
-        extraHoursWithFactor = actualHours * 2;
-      }
-      // For vacation/holiday worked, ALL hours are extra with 2x
-      else if (useDoubleFactor && entry.type !== 'Regular') {
-        extraHours = actualHours;
-        extraHoursWithFactor = actualHours * 2;
-      }
-      // Regular day or weekend
-      else {
-        const standardHours = isWeekend ? 0 : 9; // 9h regular, 0h weekend
-        extraHours = actualHours - standardHours;
+      if (
+        entry.hoursWorked !== undefined && 
+        entry.hoursWorked !== null &&
+        entry.extraHours !== undefined && 
+        entry.extraHours !== null &&
+        entry.extraHoursWithFactor !== undefined &&
+        entry.extraHoursWithFactor !== null
+      ) {
+        // Use stored values
+        actualHours = entry.hoursWorked;
+        extraHours = entry.extraHours;
+        extraHoursWithFactor = entry.extraHoursWithFactor;
+      } else {
+        // ✅ CALCULATE if not stored (fallback)
+        actualHours = calculateHoursWorked(entry.intervals, entry.date);
         
-        const factor = useDoubleFactor ? 2 : 1.5;
-        if (extraHours > 0) {
-          extraHoursWithFactor = extraHours * factor;
-        } else {
-          extraHoursWithFactor = extraHours; // Negative hours no factor
+        // Check if day is weekend/holiday/vacation
+        const dayOfWeek = new Date(entry.date).getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        const isSpecialDay = entry.type === 'Holiday' || entry.type === 'Vacation';
+        const useDoubleFactor = isWeekend || isSpecialDay;
+
+        // Check if it's a half day special
+        const isHalfDaySpecial = (entry.duration === 0.5) &&
+          (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
+
+        // Check if it's a full day special
+        const isFullDaySpecial = (entry.duration === 1) &&
+          (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
+
+        // Full Day Special - No extra hours
+        if (isFullDaySpecial) {
+          extraHours = 0;
+          extraHoursWithFactor = 0;
+        }
+        // Half Day Special - 4.5h baseline
+        else if (isHalfDaySpecial) {
+          const halfDayBaseline = 4.5;
+          extraHours = actualHours - halfDayBaseline;
+          extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
+        }
+        // Check if "Double Hours" flag is set
+        else if (entry.doubleHours) {
+          extraHours = actualHours;
+          extraHoursWithFactor = actualHours * 2;
+        }
+        // For vacation/holiday worked, ALL hours are extra with 2x
+        else if (useDoubleFactor && entry.type !== 'Regular') {
+          extraHours = actualHours;
+          extraHoursWithFactor = actualHours * 2;
+        }
+        // Regular day or weekend
+        else {
+          const standardHours = isWeekend ? 0 : 9; // 9h regular, 0h weekend
+          extraHours = actualHours - standardHours;
+          
+          const factor = useDoubleFactor ? 2 : 1.5;
+          if (extraHours > 0) {
+            extraHoursWithFactor = extraHours * factor;
+          } else {
+            extraHoursWithFactor = extraHours; // Negative hours no factor
+          }
         }
       }
-    }
-    
-    // Only count Regular working days in total hours
-    if (entry.type === 'Regular') {
-      totalHoursWorked += actualHours;
-    }
+      
+      // Only count Regular working days in total hours
+      if (entry.type === 'Regular') {
+        totalHoursWorked += actualHours;
+      }
 
-    totalExtraHours += extraHours;
-    totalExtraHoursWithFactor += extraHoursWithFactor;
-  });
+      totalExtraHours += extraHours;
+      totalExtraHoursWithFactor += extraHoursWithFactor;
+    });
 
-  return {
-    totalHoursWorked,
-    totalExtraHours,
-    totalExtraHoursWithFactor
-  };
-};
+    return {
+      totalHoursWorked,
+      totalExtraHours,
+      totalExtraHoursWithFactor
+    };
+  }, [calculateHoursWorked, timeToSeconds, secondsToHours]);
 
 
 // Helper to recalculate all fields for an entry
