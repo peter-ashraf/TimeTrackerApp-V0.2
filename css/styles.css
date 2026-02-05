@@ -2406,7 +2406,7 @@ body.salary-blur .overtime-money-amount {
   position: absolute;
   right: 0;
   top: 0;
-  width: 30px;
+  width: 40px;
   height: 100%;
   opacity: 0;
   cursor: pointer;
@@ -2456,7 +2456,7 @@ body.salary-blur .overtime-money-amount {
 
 .time-picker-button {
   position: absolute;
-  right: 10px;
+  right: -5px;
   top: 45%;
   transform: translateY(-50%);
   background: transparent;
@@ -2466,7 +2466,6 @@ body.salary-blur .overtime-money-amount {
   padding: 4px 8px;
   z-index: 2;
   pointer-events: auto;
-  width: 30px;
 }
 
 .time-picker-button:hover {
@@ -2503,16 +2502,6 @@ body.salary-blur .overtime-money-amount {
   .remove-interval-btn {
     width: 100%;
     height: 36px;
-    
-  }
-
-  .time-picker-button {
-    width: 20px;
-    font-size: var(--font-size-md);
-  }
-
-  .time-picker-input {
-    width: 20px;
   }
 }
 
