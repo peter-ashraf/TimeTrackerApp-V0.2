@@ -2662,6 +2662,7 @@ body.salary-blur .overtime-money-amount {
   box-shadow: var(--shadow-lg);
   animation: slideUp var(--duration-normal) var(--ease-standard);
   border: 1px solid var(--color-card-border);
+  overflow-x: hidden !important;
 }
 
 @keyframes slideUp {
