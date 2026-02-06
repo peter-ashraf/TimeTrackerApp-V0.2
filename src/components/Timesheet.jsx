@@ -17,6 +17,7 @@ function Timesheet() {
     detailedView,
     setDetailedView,
     calculateHoursWorked,
+    calculateHoursSpentOutside,
     calculateOvertimeDetails
   } = useTimeTracker();
 
@@ -63,7 +64,10 @@ function Timesheet() {
     if (!calculateOvertimeDetails || !viewingPeriod) {
       return { totalHoursWorked: 0, totalExtraHours: 0, totalExtraHoursWithFactor: 0 };
     }
-    return calculateOvertimeDetails(entries, viewingPeriod.start, viewingPeriod.end);
+    
+    const result = calculateOvertimeDetails(entries, viewingPeriod.start, viewingPeriod.end);
+    
+    return result;
   }, [entries, viewingPeriod, calculateOvertimeDetails]);
 
   return (
@@ -173,19 +177,34 @@ function Timesheet() {
             ) : (
               <>
                 {periodEntries.map((entry) => {
-                  const hoursWorked = entry.type === 'Regular' && entry.intervals 
+                  // For incomplete entries, calculate fresh to avoid stored negative values
+                  const isComplete = entry.intervals && 
+                    entry.intervals.length > 0 && 
+                    entry.intervals.every(interval => interval.in && interval.out);
+                  
+                  const hoursWorked = entry.type === 'Regular' && entry.intervals && isComplete
                     ? calculateHoursWorked(entry.intervals, entry.date) 
                     : 0;
                   
-                  // Calculate extra hours
+                  // hoursSpentOutside is informational (portion of break outside allowed window)
+                  // Calculate fresh to update when intervals change
+                  const hoursSpentOutside = calculateHoursSpentOutside && entry.intervals && isComplete
+                    ? calculateHoursSpentOutside(entry.intervals)
+                    : 0;
+                  
+                  // Calculate extra hours based on hoursWorked (already net)
                   const dayOfWeek = new Date(entry.date).getDay();
                   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                   const standardHours = isWeekend ? 0 : 9;
                   const extraHours = hoursWorked - standardHours;
-                  const extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
+                  // Use same logic as useCalculations: 2x for weekends/holidays, 1.5x for regular days
+                  const useDoubleFactor = isWeekend || entry.type === 'Holiday' || entry.type === 'Vacation';
+                  const factor = useDoubleFactor ? 2 : 1.5;
+                  // Match Excel logic: only apply factor to positive extra hours
+                  const extraHoursWithFactor = extraHours > 0 ? parseFloat((extraHours * factor).toFixed(4)) : extraHours;
                   
                   const firstIn = entry.intervals?.[0]?.in;
-                  const lastOut = entry.intervals?.[0]?.out;
+                  const lastOut = entry.intervals?.[0]?.out; // First interval is the work period
                   
                   const breakIntervals = entry.intervals?.slice(1) || [];
 
@@ -222,8 +241,8 @@ function Timesheet() {
                             }
                           </td>
                           <td className="hide-mobile">
-                            {entry.type === 'Regular' && entry.hoursSpentOutside > 0 
-                              ? `${entry.hoursSpentOutside.toFixed(2)}h` 
+                            {entry.type === 'Regular' && hoursSpentOutside !== undefined && hoursSpentOutside !== null
+                              ? `${hoursSpentOutside.toFixed(2)}h` 
                               : '-'
                             }
                           </td>

@@ -11,6 +11,7 @@ function ImportModal({ onClose }) {
     periods, 
     setPeriods, 
     calculateHoursWorked,
+    calculateHoursSpentOutside,
     confirmModal,
     setConfirmModal 
   } = useTimeTracker();
@@ -218,19 +219,38 @@ function ImportModal({ onClose }) {
               };
 
               if (checkIn && checkOut) {
-                entry.intervals.push({
-                  in: checkIn,
-                  out: checkOut
-                });
-              }
-
-              if (breakIntervals.length > 0) {
-                entry.intervals.push(...breakIntervals);
+                if (breakIntervals.length > 0) {
+                  // Original structure: [work, break, break, break...]
+                  entry.intervals.push({
+                    in: checkIn,
+                    out: checkOut
+                  });
+                  
+                  // Add all breaks after work
+                  breakIntervals.forEach((breakInterval, index) => {
+                    if (breakInterval.in && breakInterval.out) {
+                      entry.intervals.push({
+                        in: breakInterval.in,
+                        out: breakInterval.out
+                      });
+                    }
+                  });
+                } else {
+                  // No breaks, single work interval
+                  entry.intervals.push({
+                    in: checkIn,
+                    out: checkOut
+                  });
+                }
               }
 
               if (entry.type === 'Regular' && entry.intervals.length > 0) {
                 const hoursWorked = calculateHoursWorked 
                   ? calculateHoursWorked(entry.intervals, dateStr)
+                  : 0;
+
+                const hoursSpentOutside = calculateHoursSpentOutside
+                  ? calculateHoursSpentOutside(entry.intervals)
                   : 0;
 
                 const dayOfWeek = new Date(dateStr).getDay();
@@ -242,7 +262,7 @@ function ImportModal({ onClose }) {
                 entry.hoursWorked = hoursWorked;
                 entry.extraHours = extraHours;
                 entry.extraHoursWithFactor = extraHoursWithFactor;
-                entry.hoursSpentOutside = 0;
+                entry.hoursSpentOutside = hoursSpentOutside;
               } else {
                 entry.hoursWorked = 0;
                 entry.extraHours = 0;

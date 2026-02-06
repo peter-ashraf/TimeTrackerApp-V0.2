@@ -102,6 +102,7 @@ function Settings() {
   const {
     employee,
     leaveSettings,
+    entries,
     periods,
     currentPeriodId,
     hideSalary,
@@ -126,6 +127,7 @@ function Settings() {
 
   // Period management
   const [showAddPeriod, setShowAddPeriod] = useState(false);
+  const [editingPeriodId, setEditingPeriodId] = useState(null);
   const [newPeriodStart, setNewPeriodStart] = useState('');
   const [newPeriodEnd, setNewPeriodEnd] = useState('');
 
@@ -284,7 +286,7 @@ function Settings() {
     newPeriodStart,
     newPeriodEnd,
     periods,
-    null // null = new period (not editing)
+    editingPeriodId // Pass editingPeriodId to exclude from overlap check
   );
 
   // If validation fails, show errors
@@ -313,23 +315,34 @@ function Settings() {
 
   const autoLabel = `${formatDate(startDate)} - ${formatDate(endDate)} ${endDate.getFullYear()}`;
 
-  const newPeriod = {
-    id: 'period-' + Date.now(),
-    label: autoLabel,
-    start: newPeriodStart,
-    end: newPeriodEnd
-  };
+  if (editingPeriodId) {
+    // Edit existing period
+    setPeriods(periods.map(p => 
+      p.id === editingPeriodId 
+        ? { ...p, label: autoLabel, start: newPeriodStart, end: newPeriodEnd }
+        : p
+    ));
+  } else {
+    // Add new period
+    const newPeriod = {
+      id: 'period-' + Date.now(),
+      label: autoLabel,
+      start: newPeriodStart,
+      end: newPeriodEnd
+    };
+    setPeriods([...periods, newPeriod]);
+  }
 
-  setPeriods([...periods, newPeriod]);
   setShowAddPeriod(false);
+  setEditingPeriodId(null);
   setNewPeriodStart('');
   setNewPeriodEnd('');
   
   // Show success modal
   setConfirmModal({
     isOpen: true,
-    title: 'Period Added',
-    message: `Period "${autoLabel}" added successfully!`,
+    title: editingPeriodId ? 'Period Updated' : 'Period Added',
+    message: `Period "${autoLabel}" ${editingPeriodId ? 'updated' : 'added'} successfully!`,
     type: 'success',
     confirmText: 'OK',
     showCancel: false,
@@ -607,6 +620,7 @@ const handleClearAllData = () => {
                           <button
                             className="btn btn-sm btn-outline"
                             onClick={() => {
+                              setEditingPeriodId(period.id);
                               setNewPeriodStart(period.start);
                               setNewPeriodEnd(period.end);
                               setShowAddPeriod(true);
@@ -644,6 +658,7 @@ const handleClearAllData = () => {
                       <button
                         className="btn btn-sm btn-outline"
                         onClick={() => {
+                          setEditingPeriodId(current.id);
                           setNewPeriodStart(current.start);
                           setNewPeriodEnd(current.end);
                           setShowAddPeriod(true);
@@ -694,6 +709,7 @@ const handleClearAllData = () => {
                           <button
                             className="btn btn-sm btn-outline"
                             onClick={() => {
+                              setEditingPeriodId(period.id);
                               setNewPeriodStart(period.start);
                               setNewPeriodEnd(period.end);
                               setShowAddPeriod(true);
@@ -719,7 +735,12 @@ const handleClearAllData = () => {
           <div className="period-actions-bar">
             <button
               className="btn btn-primary"
-              onClick={() => setShowAddPeriod(true)}
+              onClick={() => {
+                setEditingPeriodId(null);
+                setNewPeriodStart('');
+                setNewPeriodEnd('');
+                setShowAddPeriod(true);
+              }}
             >
               + Add Pay Period
             </button>
@@ -730,7 +751,7 @@ const handleClearAllData = () => {
         {showAddPeriod && (
           <ModalShell onClose={() => setShowAddPeriod(false)}>
             <form onSubmit={handleAddPeriod}>
-              <h3>Add New Pay Period</h3>
+              <h3>{editingPeriodId ? 'Edit Pay Period' : 'Add New Pay Period'}</h3>
               <p className="settings-description">
                 Period label will be automatically generated from the dates
               </p>
@@ -779,13 +800,14 @@ const handleClearAllData = () => {
               
               <div className="form-actions">
                 <button type="submit" className="btn btn-primary">
-                  Add Period
+                  {editingPeriodId ? 'Update Period' : 'Add Period'}
                 </button>
                 <button
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => {
                     setShowAddPeriod(false);
+                    setEditingPeriodId(null);
                     setNewPeriodStart('');
                     setNewPeriodEnd('');
                   }}

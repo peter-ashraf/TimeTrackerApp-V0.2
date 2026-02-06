@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import ConfirmModal from '../components/ConfirmModal';
 import BackupReminderModal from '../components/BackupReminderModal';
 import { useEmployee } from '../hooks/useEmployee';
@@ -23,7 +23,10 @@ export const TimeTrackerProvider = ({ children }) => {
   const { leaveSettings, updateLeaveSettings } = useLeaveSettings();
   const { entries, setEntries, updateEntry, deleteEntry, addEntry, clearAllEntries } = useEntries();
   const { periods, setPeriods, currentPeriodId, setCurrentPeriodId, getCurrentPeriod } = usePeriods();
-  const { calculateHoursWorked, calculateOvertimeDetails, timeToSeconds, secondsToHours } = useCalculations();
+  const { calculateHoursWorked, calculateHoursSpentOutside, calculateOvertimeDetails, timeToSeconds, secondsToHours } = useCalculations();
+
+  // Ref to track migration state and prevent infinite loops
+  const migrationRef = useRef(false);
 
 
   // UI State
@@ -166,28 +169,53 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
     localStorage.setItem('detailedView', detailedView);
   }, [detailedView]);
 
-  // Add calculated fields to existing entries (ONLY RUNS ONCE)
+  // Add calculated fields to existing entries (runs when entries change)
   useEffect(() => {
+    // Check if we need to force recalculation (version-based migration)
+    const migrationVersion = localStorage.getItem('migrationVersion') || '0';
+    const currentVersion = '4'; // Force migration to clear stored negative values
+    const needsVersionMigration = migrationVersion !== currentVersion;
+    
     const needsMigration = entries.some(e => 
       e.hoursWorked === undefined || 
       e.extraHours === undefined ||
-      e.hoursSpentOutside === undefined
+      e.hoursSpentOutside === undefined ||
+      e.hoursSpentOutside === null ||
+      needsVersionMigration
     );
 
-    if (needsMigration && entries.length > 0) {
+    if (needsMigration && entries.length > 0 && !migrationRef.current) {
+      migrationRef.current = true; // Prevent re-running
       
       const migratedEntries = entries.map(entry => {
-        // If already has all calculated fields, skip
-        if (
-          entry.hoursWorked !== undefined && 
-          entry.extraHours !== undefined &&
-          entry.hoursSpentOutside !== undefined
-        ) {
+        // Skip only if fully calculated and not forcing migration
+        if (!needsVersionMigration &&
+            entry.hoursWorked !== undefined && 
+            entry.extraHours !== undefined &&
+            entry.hoursSpentOutside !== undefined &&
+            entry.hoursSpentOutside !== null) {
           return entry;
         }
 
         // Calculate values using existing functions
         const hoursWorked = calculateHoursWorked(entry.intervals, entry.date);
+        
+        // Skip migration for incomplete entries
+        if (hoursWorked === 0 && !entry.intervals?.some(i => i.in && i.out)) {
+          return {
+            ...entry,
+            hoursWorked: 0,
+            extraHours: 0,
+            extraHoursWithFactor: 0,
+            hoursSpentOutside: 0
+          };
+        }
+
+        // Calculate hours spent outside FIRST (needed for net hours calculation)
+        const hoursSpentOutside = calculateHoursSpentOutside(entry.intervals);
+
+        // Use hoursWorked directly since it's already net (work minus breaks)
+        const netHoursWorked = hoursWorked;
 
         // Calculate extra hours based on day type
         const dayOfWeek = new Date(entry.date).getDay();
@@ -212,52 +240,27 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
         // Half Day Special - 4.5h baseline
         else if (isHalfDaySpecial) {
           const halfDayBaseline = 4.5;
-          extraHours = hoursWorked - halfDayBaseline;
-          extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
+          extraHours = netHoursWorked - halfDayBaseline;
+          extraHoursWithFactor = extraHours > 0 ? parseFloat((extraHours * 1.5).toFixed(4)) : extraHours;
         }
         // Double Hours flag
         else if (entry.doubleHours) {
-          extraHours = hoursWorked;
-          extraHoursWithFactor = hoursWorked * 2;
+          extraHours = netHoursWorked;
+          extraHoursWithFactor = parseFloat((netHoursWorked * 2).toFixed(4));
         }
         // Vacation/holiday worked
         else if (useDoubleFactor && entry.type !== 'Regular') {
-          extraHours = hoursWorked;
-          extraHoursWithFactor = hoursWorked * 2;
+          extraHours = netHoursWorked;
+          extraHoursWithFactor = parseFloat((netHoursWorked * 2).toFixed(4));
         }
         // Regular day or weekend
         else {
           const standardHours = isWeekend ? 0 : 9;
-          extraHours = hoursWorked - standardHours;
+          extraHours = netHoursWorked - standardHours;
           const factor = useDoubleFactor ? 2 : 1.5;
-          extraHoursWithFactor = extraHours > 0 ? extraHours * factor : extraHours;
+          // Match Excel logic: only apply factor to positive extra hours
+          extraHoursWithFactor = extraHours > 0 ? parseFloat((extraHours * factor).toFixed(4)) : extraHours;
         }
-
-        // Calculate hours spent outside (break duration OUTSIDE allowed window)
-        const breakIntervals = entry.intervals?.slice(1) || [];
-        const ALLOWED_START = 13 * 3600; // 13:00:00
-        const ALLOWED_END = 13 * 3600 + 30 * 60; // 13:30:00
-
-        let hoursSpentOutside = 0;
-        breakIntervals.forEach(interval => {
-          if (interval.in && interval.out) {
-            const breakStartSeconds = timeToSeconds(interval.in);
-            const breakEndSeconds = timeToSeconds(interval.out);
-            const breakDuration = breakEndSeconds - breakStartSeconds;
-
-            // Check if break falls within allowed window
-            const isAllowedBreak =
-              breakStartSeconds >= ALLOWED_START &&
-              breakStartSeconds <= ALLOWED_END &&
-              breakEndSeconds >= ALLOWED_START &&
-              breakEndSeconds <= ALLOWED_END;
-
-            // Only count breaks OUTSIDE the allowed window
-            if (!isAllowedBreak) {
-              hoursSpentOutside += secondsToHours(breakDuration);
-            }
-          }
-        });
 
         return {
           ...entry,
@@ -268,9 +271,27 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
         };
       });
 
-      setEntries(migratedEntries);
+      // Only update if there are actual changes
+      const hasChanges = migratedEntries.some((entry, idx) => 
+        entry.hoursSpentOutside !== entries[idx].hoursSpentOutside ||
+        entry.hoursWorked !== entries[idx].hoursWorked
+      );
+      
+      if (hasChanges) {
+        setEntries(migratedEntries);
+      }
+      
+      // Mark migration as complete
+      if (needsVersionMigration) {
+        localStorage.setItem('migrationVersion', currentVersion);
+      }
+      
+      // Reset migration ref after a short delay to allow future migrations
+      setTimeout(() => {
+        migrationRef.current = false;
+      }, 100);
     }
-  }, []); // Run only once on mount
+  }, [entries.length, calculateHoursWorked, calculateHoursSpentOutside, setEntries]);
 
   // Data integrity check on load
   useEffect(() => {
@@ -392,51 +413,28 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
   else if (isHalfDaySpecial) {
     const halfDayBaseline = 4.5;
     extraHours = hoursWorked - halfDayBaseline;
-    extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
+    extraHoursWithFactor = extraHours > 0 ? parseFloat((extraHours * 1.5).toFixed(4)) : extraHours;
   }
   // Double Hours flag
   else if (entry.doubleHours) {
     extraHours = hoursWorked;
-    extraHoursWithFactor = hoursWorked * 2;
+    extraHoursWithFactor = parseFloat((hoursWorked * 2).toFixed(4));
   }
   // Vacation/holiday worked
   else if (useDoubleFactor && entry.type !== 'Regular') {
     extraHours = hoursWorked;
-    extraHoursWithFactor = hoursWorked * 2;
+    extraHoursWithFactor = parseFloat((hoursWorked * 2).toFixed(4));
   }
   // Regular day or weekend
   else {
     const standardHours = isWeekend ? 0 : 9;
     extraHours = hoursWorked - standardHours;
     const factor = useDoubleFactor ? 2 : 1.5;
-    extraHoursWithFactor = extraHours > 0 ? extraHours * factor : extraHours;
+    extraHoursWithFactor = extraHours > 0 ? parseFloat((extraHours * factor).toFixed(4)) : extraHours;
   }
 
   // Calculate hours spent outside (break duration OUTSIDE allowed window)
-  const breakIntervals = entry.intervals.slice(1);
-  const ALLOWED_START = 13 * 3600; // 13:00:00
-  const ALLOWED_END = 13 * 3600 + 30 * 60; // 13:30:00
-
-  let hoursSpentOutside = 0;
-  breakIntervals.forEach(interval => {
-    if (interval.in && interval.out) {
-      const breakStartSeconds = timeToSeconds(interval.in);
-      const breakEndSeconds = timeToSeconds(interval.out);
-      const breakDuration = breakEndSeconds - breakStartSeconds;
-
-      // Check if break falls within allowed window
-      const isAllowedBreak =
-        breakStartSeconds >= ALLOWED_START &&
-        breakStartSeconds <= ALLOWED_END &&
-        breakEndSeconds >= ALLOWED_START &&
-        breakEndSeconds <= ALLOWED_END;
-
-      // Only count breaks OUTSIDE the allowed window
-      if (!isAllowedBreak) {
-        hoursSpentOutside += secondsToHours(breakDuration);
-      }
-    }
-  });
+  const hoursSpentOutside = calculateHoursSpentOutside(entry.intervals);
 
   return {
     ...entry,
@@ -584,31 +582,11 @@ const checkIn = () => {
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const standardHours = isWeekend ? 0 : 9;
     const extraHours = hoursWorked - standardHours;
-    const extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
+    const factor = isWeekend ? 1.5 : 1.5; // Regular overtime factor
+    const extraHoursWithFactor = extraHours > 0 ? parseFloat((extraHours * factor).toFixed(4)) : extraHours;
 
     // Calculate hours spent outside
-    const breakIntervals = updatedIntervals.slice(1);
-    const ALLOWED_START = 13 * 3600;
-    const ALLOWED_END = 13 * 3600 + 30 * 60;
-    let hoursSpentOutside = 0;
-
-    breakIntervals.forEach(interval => {
-      if (interval.in && interval.out) {
-        const breakStartSeconds = timeToSeconds(interval.in);
-        const breakEndSeconds = timeToSeconds(interval.out);
-        const breakDuration = breakEndSeconds - breakStartSeconds;
-
-        const isAllowedBreak =
-          breakStartSeconds >= ALLOWED_START &&
-          breakStartSeconds <= ALLOWED_END &&
-          breakEndSeconds >= ALLOWED_START &&
-          breakEndSeconds <= ALLOWED_END;
-
-        if (!isAllowedBreak) {
-          hoursSpentOutside += secondsToHours(breakDuration);
-        }
-      }
-    });
+    const hoursSpentOutside = calculateHoursSpentOutside(updatedIntervals);
 
     updateEntries(entries.map(e =>
       e.date === today
@@ -637,37 +615,52 @@ const checkIn = () => {
 
 
 
-  // Clear Functions
+  // Delete entry with confirmation wrapper
+  const confirmDeleteEntry = useCallback((date) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Entry',
+      message: `Are you sure you want to delete the entry for ${date}? This cannot be undone.`,
+      type: 'danger',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      showCancel: true,
+      onConfirm: () => {
+        deleteEntry(date);
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        setTimeout(() => {
+          setConfirmModal({
+            isOpen: true,
+            title: 'Entry Deleted',
+            message: 'Entry deleted successfully!',
+            type: 'success',
+            confirmText: 'OK',
+            showCancel: false,
+            onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
+          });
+        }, 100);
+      },
+      onCancel: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
+    });
+  }, [deleteEntry]);
+
+  // Clear Functions (without window.confirm - let UI layer handle confirmations)
   const clearCurrentDay = () => {
-    if (window.confirm('Are you sure you want to clear data for today? This cannot be undone!')) {
-      const today = formatDate(new Date());
-      updateEntries(entries.filter(e => e.date !== today));
-      alert('Today\'s data cleared!');
-    }
+    const today = formatDate(new Date());
+    updateEntries(entries.filter(e => e.date !== today));
   };
 
   const clearCurrentMonth = () => {
     const period = getCurrentPeriod();
-    if (window.confirm(`Are you sure you want to clear all data for ${period.label}? This cannot be undone!`)) {
-      updateEntries(entries.filter(e => e.date < period.start || e.date > period.end));
-      alert(`Data for ${period.label} cleared!`);
-    }
+    updateEntries(entries.filter(e => e.date < period.start || e.date > period.end));
   };
 
   const clearAllData = () => {
-    if (window.confirm('WARNING: This will delete ALL data (timesheet, settings, everything)! This cannot be undone.')) {
-      const confirmation = window.prompt('Type DELETE ALL to confirm');
-      if (confirmation === 'DELETE ALL') {
-        localStorage.clear();
-        setEmployee({ name: '', salary: 0 });
-        setLeaveSettings({ annualVacation: 10, sickDays: 7 });
-        setEntries([]);
-        setPeriods([]);
-        alert('All data has been cleared!');
-      } else {
-        alert('Deletion cancelled');
-      }
-    }
+    localStorage.clear();
+    setEmployee({ name: '', salary: 0 });
+    setLeaveSettings({ annualVacation: 10, sickDays: 7 });
+    setEntries([]);
+    setPeriods([]);
   };
 
 
@@ -722,7 +715,7 @@ const checkIn = () => {
     setTheme,
     checkIn,
     checkOut,
-    deleteEntry,
+    deleteEntry: confirmDeleteEntry,
     clearCurrentDay,
     clearCurrentMonth,
     clearAllData,
@@ -732,6 +725,7 @@ const checkIn = () => {
     setPeriods,
     setCurrentPeriodId,
     calculateHoursWorked,
+    calculateHoursSpentOutside,
     calculateOvertime,
     calculateOvertimeDetails,
     timeToSeconds,
