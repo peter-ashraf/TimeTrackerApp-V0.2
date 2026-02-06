@@ -241,7 +241,7 @@ function Timesheet() {
                             }
                           </td>
                           <td className="hide-mobile">
-                            {entry.type === 'Regular' && hoursSpentOutside !== undefined && hoursSpentOutside !== null
+                            {entry.type === 'Regular' && hoursSpentOutside !== undefined && hoursSpentOutside !== null && hoursSpentOutside > 0
                               ? `${hoursSpentOutside.toFixed(2)}h` 
                               : '-'
                             }

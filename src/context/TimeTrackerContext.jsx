@@ -352,6 +352,20 @@ const [showBackupReminder, setShowBackupReminder] = useState(false);
   const updateEntries = (newEntries) => {
     setEntries(newEntries);
     setLastSaved(new Date().toISOString());
+    
+    // Show success modal for entry updates
+    if (newEntries.length > 0) {
+      const latestEntry = newEntries[newEntries.length - 1];
+      setConfirmModal({
+        isOpen: true,
+        title: 'Entry Updated',
+        message: `Entry for ${latestEntry.date} updated successfully!`,
+        type: 'success',
+        confirmText: 'OK',
+        showCancel: false,
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
+    }
   };
 
 

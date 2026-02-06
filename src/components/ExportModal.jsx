@@ -619,6 +619,13 @@ function ExportModal({ onClose }) {
           >
             Export
           </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={onClose}
+              >
+                Cancel
+              </button>
         </div>
     </ModalShell>
   );
