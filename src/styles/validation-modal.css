@@ -1,0 +1,126 @@
+.validation-modal-content {
+  text-align: center;
+  padding: 2rem;
+  animation: slideInUp 0.3s ease-out;
+}
+
+.validation-modal-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  animation: bounceIn 0.5s ease-out;
+}
+
+.validation-modal-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #2c3e50;
+}
+
+.validation-modal-message {
+  margin-bottom: 2rem;
+  line-height: 1.5;
+}
+
+.validation-modal-line {
+  margin: 0.5rem 0;
+  font-size: 0.95rem;
+  color: #4a5568;
+}
+
+.validation-modal-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.validation-modal-button {
+  min-width: 120px;
+  padding: 0.75rem 2rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.validation-modal-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Type-specific styles */
+.validation-modal-warning .validation-modal-icon {
+  color: #f59e0b;
+}
+
+.validation-modal-error .validation-modal-icon {
+  color: #ef4444;
+}
+
+.validation-modal-success .validation-modal-icon {
+  color: #10b981;
+}
+
+.validation-modal-warning .validation-modal-title {
+  color: #d97706;
+}
+
+.validation-modal-error .validation-modal-title {
+  color: #991b1b;
+}
+
+.validation-modal-success .validation-modal-title {
+  color: #059669;
+}
+
+/* Animations */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Responsive design */
+@media (max-width: 480px) {
+  .validation-modal-content {
+    padding: 1.5rem;
+  }
+  
+  .validation-modal-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .validation-modal-title {
+    font-size: 1.1rem;
+  }
+  
+  .validation-modal-line {
+    font-size: 0.9rem;
+  }
+  
+  .validation-modal-button {
+    min-width: 100px;
+    padding: 0.6rem 1.5rem;
+  }
+}

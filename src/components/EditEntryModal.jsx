@@ -3,7 +3,10 @@ import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 
 function EditEntryModal({ entry, onClose }) {
-  const { updateEntry } = useTimeTracker();
+  const { updateEntry, confirmModal, setConfirmModal } = useTimeTracker();
+  
+  // Track if user made any modifications
+  const [hasModifications, setHasModifications] = useState(false);
   
   // ✅ Convert HH:MM:SS to display format (keep seconds)
   const formatTimeForDisplay = (time) => {
@@ -22,6 +25,20 @@ function EditEntryModal({ entry, onClose }) {
     }))
   });
 
+  // Track modifications
+  React.useEffect(() => {
+    const originalEntry = {
+      ...entry,
+      intervals: (entry.intervals || []).map(interval => ({
+        in: formatTimeForDisplay(interval.in),
+        out: formatTimeForDisplay(interval.out)
+      }))
+    };
+    
+    const hasChanges = JSON.stringify(editedEntry) !== JSON.stringify(originalEntry);
+    setHasModifications(hasChanges);
+  }, [entry, editedEntry]);
+
   // ✅ Validate time format HH:MM:SS
   const isValidTime = (timeStr) => {
     if (!timeStr) return true; // Empty is valid (optional)
@@ -34,6 +51,32 @@ function EditEntryModal({ entry, onClose }) {
   const handleTimePickerChange = (index, field, value) => {
     // With step="1", time picker returns HH:MM:SS directly
     handleIntervalChange(index, field, value);
+  };
+
+  // ✅ Show validation modal using existing system
+  const showValidationError = (title, message, type = 'warning') => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+      confirmText: 'OK',
+      showCancel: false,
+      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+    });
+  };
+
+  // ✅ Show success modal
+  const showSuccessModal = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: '✅ Success',
+      message: 'Entry updated successfully!',
+      type: 'success',
+      confirmText: 'OK',
+      showCancel: false,
+      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+    });
   };
 
   // ✅ Handle manual text input (expects HH:MM:SS)
@@ -56,23 +99,45 @@ function EditEntryModal({ entry, onClose }) {
   };
 
   const handleSave = () => {
+    // Check if user made any modifications
+    if (!hasModifications) {
+      showValidationError(
+        'ℹ️ No Changes Made',
+        'No modifications were made to this entry.\n\nMake some changes or click Cancel to close.',
+        'warning'
+      );
+      return;
+    }
+
     // ✅ Validate all time formats
     for (let i = 0; i < editedEntry.intervals.length; i++) {
       const interval = editedEntry.intervals[i];
       
       if (interval.in && !isValidTime(interval.in)) {
-        alert(`Invalid check-in time format in Interval ${i + 1}. Use HH:MM:SS (e.g., 08:30:00)`);
+        showValidationError(
+          '⚠️ Invalid Time Format',
+          `Invalid check-in time format in Interval ${i + 1}.\n\nUse HH:MM:SS format (e.g., 08:30:00)`,
+          'warning'
+        );
         return;
       }
       
       if (interval.out && !isValidTime(interval.out)) {
-        alert(`Invalid check-out time format in Interval ${i + 1}. Use HH:MM:SS (e.g., 17:45:30)`);
+        showValidationError(
+          '⚠️ Invalid Time Format',
+          `Invalid check-out time format in Interval ${i + 1}.\n\nUse HH:MM:SS format (e.g., 17:45:30)`,
+          'warning'
+        );
         return;
       }
       
       // ✅ Validate check-out after check-in
       if (interval.in && interval.out && interval.in >= interval.out) {
-        alert(`Check-out time must be after check-in time in Interval ${i + 1}`);
+        showValidationError(
+          '⚠️ Invalid Time Logic',
+          `Check-out time must be after check-in time in Interval ${i + 1}.\n\nPlease correct the time values.`,
+          'error'
+        );
         return;
       }
     }
@@ -83,7 +148,11 @@ function EditEntryModal({ entry, onClose }) {
     );
 
     if (editedEntry.type === 'Regular' && validIntervals.length === 0) {
-      alert('Regular day must have at least one time interval');
+      showValidationError(
+        '⚠️ Missing Time Data',
+        'Regular day must have at least one time interval.\n\nPlease add check-in and check-out times.',
+        'warning'
+      );
       return;
     }
 
@@ -96,8 +165,10 @@ function EditEntryModal({ entry, onClose }) {
       doubleHours: editedEntry.doubleHours
     });
     
-    alert('Entry updated successfully!');
-    onClose();
+    showSuccessModal();
+    setTimeout(() => {
+      onClose();
+    }, 1000); // Close after success modal
   };
 
   return (

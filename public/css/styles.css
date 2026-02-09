@@ -3154,6 +3154,7 @@ body.salary-blur .overtime-money-amount {
 .modal-content {
   max-height: 90vh;
   overflow: auto;
+  overflow-x: hidden;
 }
 
 .form-actions {
