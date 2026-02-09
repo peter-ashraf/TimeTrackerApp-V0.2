@@ -22,7 +22,7 @@ function ImportModal({ onClose }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
   
-  // NEW: Multi-step flow state
+  // Multi-step flow state
   const [currentStep, setCurrentStep] = useState(1); // 1: File, 2: Period, 3: Conflict
   const [selectedPeriod, setSelectedPeriod] = useState(null);
   const [periodOption, setPeriodOption] = useState('auto'); // 'auto', 'existing', 'custom'
@@ -47,9 +47,12 @@ function ImportModal({ onClose }) {
       const minutes = Math.floor((totalSeconds % 3600) / 60);
       const seconds = totalSeconds % 60;
       
-      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      const result = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      console.log(`excelTimeToString: ${excelTime} -> ${result}`);
+      return result;
     }
     
+    console.log(`excelTimeToString: Unhandled type ${typeof excelTime} for value ${excelTime}`);
     return null;
   };
 
@@ -82,7 +85,7 @@ function ImportModal({ onClose }) {
     };
   };
 
-  // Format period label: "27 Nov - 19 Dec 2025"
+  // Format period label
   const formatPeriodLabel = (startDate, endDate) => {
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -175,8 +178,8 @@ function ImportModal({ onClose }) {
           const typeCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('type'));
           const checkInCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('check in'));
           const checkOutCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('check out'));
-          const breakOutCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('break out'));
-          const breakInCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('break in'));
+          const breakOutCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('break out times'));
+          const breakInCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('break in times'));
 
           if (dateCol === -1 || typeCol === -1) {
             errors.push(`Sheet "${sheetName}": Missing required columns (Date and Type)`);
@@ -202,13 +205,50 @@ function ImportModal({ onClose }) {
                 const breakInValue = row[breakInCol];
 
                 if (breakOutValue && breakOutValue !== '-') {
-                  const breakOutTimes = breakOutValue.toString().split(',').map(t => excelTimeToString(t.trim())).filter(t => t);
-                  const breakInTimes = breakInValue ? breakInValue.toString().split(',').map(t => excelTimeToString(t.trim())).filter(t => t) : [];
+                  console.log(`Processing break times for row ${rowIndex + 2}:`, {
+                    breakOutValue,
+                    breakOutValueType: typeof breakOutValue,
+                    breakInValue,
+                    breakInValueType: typeof breakInValue
+                  });
+
+                  // For break times, we need to handle both single values and comma-separated values
+                  let breakOutTimes = [];
+                  let breakInTimes = [];
+
+                  if (typeof breakOutValue === 'number') {
+                    // Single break out time as number
+                    const converted = excelTimeToString(breakOutValue);
+                    if (converted) breakOutTimes.push(converted);
+                  } else if (typeof breakOutValue === 'string') {
+                    // Multiple break out times as comma-separated string
+                    breakOutTimes = breakOutValue.split(',').map(t => excelTimeToString(t.trim())).filter(t => t);
+                  }
+
+                  if (breakInValue) {
+                    if (typeof breakInValue === 'number') {
+                      // Single break in time as number
+                      const converted = excelTimeToString(breakInValue);
+                      if (converted) breakInTimes.push(converted);
+                    } else if (typeof breakInValue === 'string') {
+                      // Multiple break in times as comma-separated string
+                      breakInTimes = breakInValue.split(',').map(t => excelTimeToString(t.trim())).filter(t => t);
+                    }
+                  }
 
                   breakIntervals = breakOutTimes.map((out, i) => ({
-                    in: breakInTimes[i] || null,
-                    out: out
+                    out: breakInTimes[i] || null,  // break IN time becomes interval.out (break end)
+                    in: out                        // break OUT time becomes interval.in (break start)
                   }));
+
+                  // Debug logging for break intervals
+                  console.log(`Row ${rowIndex + 2} (${dateStr}): Break data parsed:`, {
+                    breakOutValue,
+                    breakInValue,
+                    breakOutTimes,
+                    breakInTimes,
+                    breakIntervals
+                  });
                 }
               }
 
@@ -228,10 +268,11 @@ function ImportModal({ onClose }) {
                   
                   // Add all breaks after work
                   breakIntervals.forEach((breakInterval, index) => {
-                    if (breakInterval.in && breakInterval.out) {
+                    // Allow breaks with either in or out time, or both
+                    if (breakInterval.in || breakInterval.out) {
                       entry.intervals.push({
-                        in: breakInterval.in,
-                        out: breakInterval.out
+                        in: breakInterval.in || null,
+                        out: breakInterval.out || null
                       });
                     }
                   });
@@ -268,6 +309,10 @@ function ImportModal({ onClose }) {
                 entry.extraHours = 0;
                 entry.extraHoursWithFactor = 0;
                 entry.hoursSpentOutside = 0;
+              }
+
+              if (entry.intervals.length > 0) {
+                console.log(`Row ${rowIndex + 2} (${dateStr}): Final entry intervals:`, entry.intervals);
               }
 
               parsedData.push({

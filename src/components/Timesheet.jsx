@@ -70,13 +70,39 @@ function Timesheet() {
     return result;
   }, [entries, viewingPeriod, calculateOvertimeDetails]);
 
+  // Helper function to group periods by year and sort chronologically
+  const getGroupedPeriods = () => {
+    if (!periods || periods.length === 0) return [];
+    
+    // Sort all periods by start date (oldest first)
+    const sortedPeriods = [...periods].sort((a, b) => a.start.localeCompare(b.start));
+    
+    // Group by year
+    const grouped = {};
+    sortedPeriods.forEach(period => {
+      const year = new Date(period.start).getFullYear();
+      if (!grouped[year]) {
+        grouped[year] = [];
+      }
+      grouped[year].push(period);
+    });
+    
+    // Convert to array and sort years in descending order (newest first)
+    return Object.entries(grouped)
+      .map(([year, yearPeriods]) => ({
+        year: parseInt(year),
+        periods: yearPeriods
+      }))
+      .sort((a, b) => b.year - a.year);
+  };
+
   return (
     <main className="main-content">
       <h1>Timesheet</h1>
 
       {/* Timesheet Controls */}
       <div className="timesheet-controls">
-        {/* ✅ FIXED: Period Selector with ALL periods */}
+        {/* ✅ UPDATED: Period Selector grouped by year */}
         <div className="month-selector">
           <label>Select Period:</label>
           <select 
@@ -84,10 +110,14 @@ function Timesheet() {
             value={viewingPeriodId}
             onChange={(e) => setViewingPeriodId(e.target.value)}
           >
-            {periods.map(period => (
-              <option key={period.id} value={period.id}>
-                {period.label} {period.id === currentPeriodId && '(Current)'}
-              </option>
+            {getGroupedPeriods().map(({ year, periods: yearPeriods }) => (
+              <optgroup key={year} label={`${year}`}>
+                {yearPeriods.map(period => (
+                  <option key={period.id} value={period.id}>
+                    {period.label} {period.id === currentPeriodId && '(Current)'}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
