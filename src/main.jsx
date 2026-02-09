@@ -2,13 +2,48 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import { TimeTrackerProvider } from './context/TimeTrackerContext';
+import LoadingScreen from './components/LoadingScreen.jsx';
+import './styles/loading-screen.css';
 
+// Register Service Worker for offline support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(registration => {
+        console.log('SW registered: ', registration);
+      })
+      .catch(registrationError => {
+        console.log('SW registration failed: ', registrationError);
+      });
+  });
+}
 
+// App loading state
+const AppLoader = () => {
+  const [isLoading, setIsLoading] = React.useState(true);
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
+  React.useEffect(() => {
+    // Simulate loading time or wait for app to be ready
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000); // 2 seconds loading time
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  return (
     <TimeTrackerProvider>
       <App />
     </TimeTrackerProvider>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <AppLoader />
   </React.StrictMode>,
 );

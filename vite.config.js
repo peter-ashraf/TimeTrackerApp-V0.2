@@ -10,11 +10,14 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      strategies: 'networkFirst',
+      // Custom service worker
+      filename: 'sw.js',
       // ... other options
       manifest: {
         name: 'TimeTracker App',
         short_name: 'TimeTracker',
-        description: 'Employee timesheet tracker',
+        description: 'Employee timesheet tracker with offline support',
         theme_color: '#208589',
         background_color: '#ffffff',
         display: 'standalone',
@@ -34,6 +37,10 @@ export default defineConfig({
             type: 'image/png'
           }
         ]
+      },
+      // Offline support
+      offline: {
+        page: '/offline.html'
       }
     })
   ]
