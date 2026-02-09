@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 export function useLeaveSettings() {
-  const [leaveSettings, setLeaveSettings] = useState({
-    annualVacation: parseFloat(localStorage.getItem('annualVacation')) || 10,
-    sickDays: parseFloat(localStorage.getItem('sickDays')) || 7
-  });
+  const { getUserData, saveUserData } = useAuth();
+  
+  const [leaveSettings, setLeaveSettings] = useState(() => ({
+    annualVacation: parseFloat(getUserData('annualVacation')) || 10,
+    sickDays: parseFloat(getUserData('sickDays')) || 7
+  }));
 
   useEffect(() => {
-    localStorage.setItem('annualVacation', leaveSettings.annualVacation);
-    localStorage.setItem('sickDays', leaveSettings.sickDays);
-  }, [leaveSettings]);
+    saveUserData('annualVacation', leaveSettings.annualVacation);
+    saveUserData('sickDays', leaveSettings.sickDays);
+  }, [leaveSettings, saveUserData]);
 
   const updateLeaveSettings = (updates) => {
     setLeaveSettings(prev => ({ ...prev, ...updates }));

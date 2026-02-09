@@ -1,8 +1,10 @@
 import React from "react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
+import { useAuth } from "../context/AuthContext";
 
 function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
   const { theme, setTheme } = useTimeTracker();
+  const { currentUser, logout } = useAuth();
 
   const toggleTheme = () => {
     const newTheme = theme === "dark" ? "light" : "dark";
@@ -13,6 +15,12 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
     setCurrentView(view);
     if (event && event.currentTarget) {
       event.currentTarget.blur();
+    }
+  };
+
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      logout();
     }
   };
 
@@ -32,6 +40,18 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
           >
             <i className={`fa-solid ${theme === "dark" ? "fa-sun" : "fa-moon"}`}></i>
           </button>
+          {currentUser && (
+            <div className="user-info">
+              <span className="username-display">👤 {currentUser.username}</span>
+              <button
+                className="logout-btn"
+                onClick={handleLogout}
+                title="Logout"
+              >
+                🚪
+              </button>
+            </div>
+          )}
         </div>
       </div>
       <nav className="tab-navigation">

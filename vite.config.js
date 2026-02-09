@@ -53,5 +53,10 @@ export default defineConfig({
         ]
       }
     })
-  ]
+  ],
+  server: {
+    hmr: {
+      overlay: false  // Disable HMR overlay to prevent React hook order issues
+    }
+  }
 })

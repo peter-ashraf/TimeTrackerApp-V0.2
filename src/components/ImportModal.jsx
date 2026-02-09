@@ -48,11 +48,11 @@ function ImportModal({ onClose }) {
       const seconds = totalSeconds % 60;
       
       const result = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-      console.log(`excelTimeToString: ${excelTime} -> ${result}`);
+
       return result;
     }
     
-    console.log(`excelTimeToString: Unhandled type ${typeof excelTime} for value ${excelTime}`);
+
     return null;
   };
 
@@ -205,13 +205,6 @@ function ImportModal({ onClose }) {
                 const breakInValue = row[breakInCol];
 
                 if (breakOutValue && breakOutValue !== '-') {
-                  console.log(`Processing break times for row ${rowIndex + 2}:`, {
-                    breakOutValue,
-                    breakOutValueType: typeof breakOutValue,
-                    breakInValue,
-                    breakInValueType: typeof breakInValue
-                  });
-
                   // For break times, we need to handle both single values and comma-separated values
                   let breakOutTimes = [];
                   let breakInTimes = [];
@@ -241,14 +234,6 @@ function ImportModal({ onClose }) {
                     in: out                        // break OUT time becomes interval.in (break start)
                   }));
 
-                  // Debug logging for break intervals
-                  console.log(`Row ${rowIndex + 2} (${dateStr}): Break data parsed:`, {
-                    breakOutValue,
-                    breakInValue,
-                    breakOutTimes,
-                    breakInTimes,
-                    breakIntervals
-                  });
                 }
               }
 
@@ -311,9 +296,7 @@ function ImportModal({ onClose }) {
                 entry.hoursSpentOutside = 0;
               }
 
-              if (entry.intervals.length > 0) {
-                console.log(`Row ${rowIndex + 2} (${dateStr}): Final entry intervals:`, entry.intervals);
-              }
+              
 
               parsedData.push({
                 sheetName,

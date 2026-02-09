@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 const DEFAULT_PERIOD = {
   id: 'period-default',
@@ -8,11 +9,13 @@ const DEFAULT_PERIOD = {
 };
 
 export function usePeriods() {
+  const { getUserData, saveUserData } = useAuth();
+  
   const [periods, setPeriods] = useState(() => {
-    const saved = localStorage.getItem('payPeriods');
+    const saved = getUserData('payPeriods');
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
+        const parsed = saved;
         return parsed.length > 0 ? parsed : [DEFAULT_PERIOD];
       } catch (e) {
         return [DEFAULT_PERIOD];
@@ -22,12 +25,12 @@ export function usePeriods() {
   });
 
   const [currentPeriodId, setCurrentPeriodId] = useState(() => {
-    const savedPeriods = localStorage.getItem('payPeriods');
-    const savedCurrentId = localStorage.getItem('currentPeriodId');
+    const savedPeriods = getUserData('payPeriods');
+    const savedCurrentId = getUserData('currentPeriodId');
     let loadedPeriods = [];
     if (savedPeriods) {
       try {
-        loadedPeriods = JSON.parse(savedPeriods);
+        loadedPeriods = savedPeriods;
       } catch (e) {
         // ignore
       }
@@ -42,14 +45,14 @@ export function usePeriods() {
   });
 
   useEffect(() => {
-    localStorage.setItem('payPeriods', JSON.stringify(periods));
-  }, [periods]);
+    saveUserData('payPeriods', periods);
+  }, [periods, saveUserData]);
 
   useEffect(() => {
     if (currentPeriodId) {
-      localStorage.setItem('currentPeriodId', currentPeriodId);
+      saveUserData('currentPeriodId', currentPeriodId);
     }
-  }, [currentPeriodId]);
+  }, [currentPeriodId, saveUserData]);
 
   const getCurrentPeriod = useCallback(() => {
     if (!periods || periods.length === 0) return null;

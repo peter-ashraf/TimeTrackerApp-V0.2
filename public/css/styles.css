@@ -2790,7 +2790,9 @@ body.salary-blur .overtime-money-amount {
 
   .btn-theme {
     padding: var(--space-6) var(--space-10);
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-sm);
+    width: 24px;
+    height: 24px;
   }
 
   .screen {
@@ -3256,7 +3258,7 @@ body.salary-blur .overtime-money-amount {
 
 .danger-actions {
   display: grid !important;
-  grid-template-columns: 1fr 1fr 1fr !important;
+  grid-template-columns: 1fr 1fr !important;
   gap: var(--space-12);
 
 }
@@ -4292,6 +4294,34 @@ body.salary-blur .overtime-money-amount {
   display: none;
 }
 
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .username-display {
+    background: var(--color-teal-500);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .logout-btn {
+    background: var(--color-red-500);
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+  }
+
 /* Mobile: Stack toggles */
 @media (max-width: 600px) {
   .timesheet-controls {
@@ -4363,6 +4393,39 @@ body.salary-blur .overtime-money-amount {
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
+  }
+
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .username-display {
+    background: var(--color-teal-500);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .logout-btn {
+    background: var(--color-red-500);
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+  }
+
+  .logout-btn:hover {
+    background: var(--color-red-400);
+    transform: translateY(-1px);
   }
 
   #mobileMenuToggle {

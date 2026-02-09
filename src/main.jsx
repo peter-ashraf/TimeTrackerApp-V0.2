@@ -2,7 +2,9 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import { TimeTrackerProvider } from './context/TimeTrackerContext';
+import { AuthProvider } from './context/AuthContext';
 import LoadingScreen from './components/LoadingScreen.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import './styles/loading-screen.css';
 
 // Register Service Worker for offline support
@@ -38,9 +40,13 @@ const AppLoader = () => {
   }
 
   return (
-    <TimeTrackerProvider>
-      <App />
-    </TimeTrackerProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <TimeTrackerProvider>
+          <App />
+        </TimeTrackerProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 };
 
