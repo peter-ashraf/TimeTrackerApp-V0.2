@@ -11,9 +11,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       strategies: 'networkFirst',
-      // Custom service worker
-      filename: 'sw.js',
-      // ... other options
+      // Let Vite PWA generate the service worker
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: 'TimeTracker App',
         short_name: 'TimeTracker',
@@ -21,15 +20,14 @@ export default defineConfig({
         theme_color: '#208589',
         background_color: '#ffffff',
         display: 'standalone',
-        // FIX THESE TWO LINES:
         scope: '/TimeTrackerApp-V0.2/', 
         start_url: '/TimeTrackerApp-V0.2/',
         icons: [
           {
-            src: 'icons/adaptive-icon.png', // Ensure this path is correct inside /public
+            src: 'icons/adaptive-icon.png',
             sizes: '192x192',
             type: 'image/png',
-            purpose: 'any maskable' // Add this for better Android support
+            purpose: 'any maskable'
           },
           {
             src: 'icons/adaptive-icon.png',
@@ -38,9 +36,21 @@ export default defineConfig({
           }
         ]
       },
-      // Offline support
-      offline: {
-        page: '/offline.html'
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: {
+                maxEntries: 4,
+                maxAgeSeconds: 365 * 24 * 60 * 60 // 365 days
+              }
+            }
+          }
+        ]
       }
     })
   ]

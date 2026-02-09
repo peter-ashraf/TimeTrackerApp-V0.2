@@ -8,7 +8,9 @@ import './styles/loading-screen.css';
 // Register Service Worker for offline support
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
+    navigator.serviceWorker.register('/TimeTrackerApp-V0.2/sw.js', {
+      scope: '/TimeTrackerApp-V0.2/'
+    })
       .then(registration => {
         console.log('SW registered: ', registration);
       })
