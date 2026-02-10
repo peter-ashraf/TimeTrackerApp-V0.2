@@ -680,7 +680,7 @@ body {
   transition: transform 0.1s ease-out;
   margin-bottom: 0;
   padding-bottom: 0;
-  margin-top: 20px;
+
   scroll-behavior: smooth;
   scrollbar-width: none; 
 }
@@ -3725,6 +3725,19 @@ body.salary-blur .overtime-money-amount {
   display: flex;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+/* Mobile: Stack template options vertically */
+@media (max-width: 768px) {
+  .template-type-options {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .template-type-option {
+    flex: none;
+    width: 100%;
+  }
 }
 
 .template-type-option {
