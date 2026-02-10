@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import { useAuth } from '../context/AuthContext'; // ✅ ADDED
+import hapticFeedback from '../utils/hapticFeedback';
 import ExportModal from './ExportModal';
 import ImportModal from './ImportModal';
 import ModalShell from './ModalShell';
@@ -144,10 +145,23 @@ function Settings() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
 
+  // Haptic feedback state
+  const [hapticEnabled, setHapticEnabled] = useState(hapticFeedback.isEnabled());
+
   const handleOpenExport = () => {
     setShowExportModal(true);
     // Mark that user is attempting to backup
     localStorage.setItem('lastBackupDate', new Date().toISOString());
+  };
+
+  // Handle haptic feedback toggle
+  const handleHapticToggle = () => {
+    const newValue = !hapticEnabled;
+    setHapticEnabled(newValue);
+    hapticFeedback.setEnabled(newValue);
+    if (newValue) {
+      hapticFeedback.success(); // Test vibration when enabling
+    }
   };
 
   useEffect(() => {
@@ -663,11 +677,72 @@ function Settings() {
           </div>
 
           {/* Single Save Button */}
-          <button type="submit" className="btn btn-primary">
+          <button type="submit" className="btn btn-primary" onClick={() => hapticFeedback.buttonClick()}>
             💾 Save All Settings
           </button>
         </form>
       </div>
+
+      {/* Haptic Feedback Settings */}
+      <section className="settings-section">
+        <h2>📳 Haptic Feedback</h2>
+        <p className="settings-description">
+          Control vibration feedback for button interactions and other UI actions.
+        </p>
+
+        <div className="form-group">
+          <div className="haptic-feedback-toggle">
+            <label htmlFor="haptic-toggle" className="form-label">Enable Haptic Feedback</label>
+            <div className="toggle-wrapper">
+              <div className="haptic-toggle-switch">
+                <input
+                  type="checkbox"
+                  id="haptic-toggle"
+                  checked={hapticEnabled}
+                  onClick={() => {
+                    hapticFeedback.toggleSwitch();
+                    handleHapticToggle();
+                  }}
+                  disabled={!hapticFeedback.isSupported()}
+                />
+                <label htmlFor="haptic-toggle" className="haptic-toggle-label">
+                  <span className="haptic-toggle-slider"></span>
+                </label>
+              </div>
+              <span className="haptic-toggle-status-text">
+                {hapticEnabled ? 'Enabled' : 'Disabled'}
+              </span>
+            </div>
+          </div>
+          {!hapticFeedback.isSupported() && (
+            <p className="help-text" style={{ color: '#6c757d', marginTop: '8px' }}>
+              ⚠️ Haptic feedback is not supported on this device/browser.
+            </p>
+          )}
+          {hapticFeedback.isSupported() && (
+            <p className="help-text" style={{ color: '#6c757d', marginTop: '8px' }}>
+              💡 Provides vibration feedback for button clicks, check-in/out actions, and other interactions.
+            </p>
+          )}
+        </div>
+
+        {hapticEnabled && hapticFeedback.isSupported() && (
+          <div className="form-group">
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={() => {
+                hapticFeedback.buttonClick();
+                hapticFeedback.testAll();
+              }}
+            >
+              🎯 Test All Vibration Patterns
+            </button>
+            <p className="help-text" style={{ marginTop: '8px' }}>
+              Test different vibration patterns used throughout the app.
+            </p>
+          </div>
+        )}
+      </section>
 
       {/* Pay Periods Management */}
       <section className="settings-section">
@@ -916,7 +991,10 @@ function Settings() {
         <div className="data-management-actions">
           <button
             className="btn btn-primary"
-            onClick={handleOpenExport}
+            onClick={() => {
+              hapticFeedback.buttonClick();
+              handleOpenExport();
+            }}
             data-export-btn
           >
             📥 Export Data
@@ -924,7 +1002,10 @@ function Settings() {
 
           <button
             className="btn btn-secondary"
-            onClick={() => setShowImportModal(true)}
+            onClick={() => {
+              hapticFeedback.buttonClick();
+              setShowImportModal(true);
+            }}
           >
             📤 Import Data
           </button>
@@ -938,7 +1019,10 @@ function Settings() {
         <div className="danger-actions">
           <button
             className="btn btn-danger"
-            onClick={handleClearCurrentDay}
+            onClick={() => {
+              hapticFeedback.error();
+              handleClearCurrentDay();
+            }}
           >
             🗑️ Clear Today's Data
           </button>
@@ -946,7 +1030,10 @@ function Settings() {
 
           <button
             className="btn btn-danger"
-            onClick={handleClearCurrentPeriod}
+            onClick={() => {
+              hapticFeedback.error();
+              handleClearCurrentPeriod();
+            }}
           >
             🗑️ Clear Current Period Data
           </button>
@@ -954,7 +1041,10 @@ function Settings() {
 
           <button
             className="btn btn-danger"
-            onClick={handleClearAllData}
+            onClick={() => {
+              hapticFeedback.error();
+              handleClearAllData();
+            }}
           >
             🗑️ Delete All Data
           </button>
@@ -963,7 +1053,10 @@ function Settings() {
           {/* ✅ NEW: Delete Account */}
           <button
             className="btn btn-danger"
-            onClick={handleDeleteAccount}
+            onClick={() => {
+              hapticFeedback.error();
+              handleDeleteAccount();
+            }}
             style={{ marginTop: '20px', borderTop: '2px solid #dc3545', paddingTop: '20px' }}
           >
             ☠️ Delete Account

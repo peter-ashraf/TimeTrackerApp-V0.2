@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
+import hapticFeedback from '../utils/hapticFeedback';
 import ManualTimeModal from './ManualTimeModal';
 import AddBreakModal from './AddBreakModal';
 import AddDayModal from './AddDayModal';
@@ -102,7 +103,10 @@ const { overtimeMoney, totalSalary } = salaryData;
             <button 
               className="btn-icon" 
               title="Toggle salary visibility"
-              onClick={() => setHideSalary(!hideSalary)}
+              onClick={() => {
+                hapticFeedback.toggleSwitch();
+                setHideSalary(!hideSalary);
+              }}
             >
               <i className={`fa-solid ${hideSalary ? 'fa-eye' : 'fa-eye-slash'}`}></i>
             </button>
@@ -167,19 +171,28 @@ const { overtimeMoney, totalSalary } = salaryData;
       <div className="manual-time-actions">
         <button 
           className="btn btn-secondary manual-check-in-btn"
-          onClick={() => setShowManualIn(true)}
+          onClick={() => {
+            hapticFeedback.buttonClick();
+            setShowManualIn(true);
+          }}
         >
           Manual In
         </button>
         <button 
           className="btn btn-secondary manual-check-out-btn"
-          onClick={() => setShowManualOut(true)}
+          onClick={() => {
+            hapticFeedback.buttonClick();
+            setShowManualOut(true);
+          }}
         >
           Manual Out
         </button>
         <button 
           className="btn btn-secondary add-break-btn"
-          onClick={() => setShowAddBreak(true)}
+          onClick={() => {
+            hapticFeedback.buttonClick();
+            setShowAddBreak(true);
+          }}
         >
           Add Break
         </button>
@@ -187,10 +200,22 @@ const { overtimeMoney, totalSalary } = salaryData;
 
       {/* Quick Actions */}
       <div className="quick-actions">
-        <button className="btn btn-primary" onClick={checkIn}>Check In</button>
-        <button className="btn btn-primary" onClick={checkOut}>Check Out</button>
-        <button className="btn btn-secondary" onClick={() => setShowAddDay(true)}>Add Day</button>
-        <button className="btn btn-outline" onClick={() => setShowViewHours(true)}>View Hours</button>
+        <button className="btn btn-primary" onClick={() => {
+          hapticFeedback.checkIn();
+          checkIn();
+        }}>Check In</button>
+        <button className="btn btn-primary" onClick={() => {
+          hapticFeedback.checkOut();
+          checkOut();
+        }}>Check Out</button>
+        <button className="btn btn-secondary" onClick={() => {
+          hapticFeedback.buttonClick();
+          setShowAddDay(true);
+        }}>Add Day</button>
+        <button className="btn btn-outline" onClick={() => {
+          hapticFeedback.buttonClick();
+          setShowViewHours(true);
+        }}>View Hours</button>
       </div>
 
       {/* Vacation Cards */}

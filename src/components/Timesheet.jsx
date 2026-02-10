@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
+import hapticFeedback from '../utils/hapticFeedback';
 import ManualTimeModal from './ManualTimeModal';
 import AddBreakModal from './AddBreakModal';
 import EditEntryModal from './EditEntryModal';
@@ -156,20 +157,29 @@ function Timesheet() {
       <div className="manual-time-actions">
         <button 
           className="btn btn-secondary manual-check-in-btn"
-          onClick={() => setShowManualIn(true)}
+          onClick={() => {
+            hapticFeedback.buttonClick();
+            setShowManualIn(true);
+          }}
         >
           👈 Manual In
         </button>
         <button 
           className="btn btn-secondary manual-check-out-btn"
-          onClick={() => setShowManualOut(true)}
+          onClick={() => {
+            hapticFeedback.buttonClick();
+            setShowManualOut(true);
+          }}
         >
           👉 Manual Out
         </button>
         <button 
           type="button" 
           className="btn btn-secondary add-break-btn"
-          onClick={() => setShowAddBreak(true)}
+          onClick={() => {
+            hapticFeedback.buttonClick();
+            setShowAddBreak(true);
+          }}
         >
           + Add Break
         </button>
@@ -282,14 +292,20 @@ function Timesheet() {
                         <button 
                           className="btn btn-sm btn-outline action-btn" 
                           title="Edit"
-                          onClick={() => setEditingEntry(entry)}
+                          onClick={() => {
+                            hapticFeedback.buttonClick();
+                            setEditingEntry(entry);
+                          }}
                         >✏️
                           <span className="btn-text"> Edit</span>
                         </button>
                         <button 
                           className="btn btn-sm btn-danger action-btn" 
                           title="Delete"
-                          onClick={() => deleteEntry(entry.date)}
+                          onClick={() => {
+                            hapticFeedback.error();
+                            deleteEntry(entry.date);
+                          }}
                         >🗑️
                           <span className="btn-text"> Delete</span>
                         </button>
