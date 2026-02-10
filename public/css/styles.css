@@ -323,7 +323,7 @@ body,
   top: 0;
   z-index: 100;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  max-height: 100px;;
+  max-height: 140px;
 }
 
 .header-title-content, 
@@ -518,7 +518,7 @@ body,
   align-items: center;
   width: 100vw;
   border-top: 1px solid var(--border-color) !important;
-  max-height: 60px;
+  max-height: 80px;
 }
 
 #navTab.active,
@@ -901,12 +901,7 @@ body {
   }
 }
 
-/* Mobile: Hide tabs */
-@media (max-width: 768px) {
-  .tab-navigation {
-    display: none;
-  }
-}
+/* Mobile: Hide tabs - REMOVED to keep tabs visible */
 
 
 /* Cards/tables always readable */
@@ -1725,9 +1720,8 @@ body {
   display: flex;
   background: var(--color-surface);
   border-bottom: 2px solid var(--color-border);
-  gap: 0;
-  padding: 0;
-  margin: 0;
+  border-top: 1px solid var(--color-border);
+  z-index: 1000;
   box-shadow: var(--shadow-sm);
 }
 
