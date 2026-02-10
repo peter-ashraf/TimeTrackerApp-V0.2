@@ -49,8 +49,20 @@ export default defineConfig({
                 maxAgeSeconds: 365 * 24 * 60 * 60 // 365 days
               }
             }
+          },
+          {
+            urlPattern: /^https:\/\/api\./i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              networkTimeoutSeconds: 3,
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
           }
-        ]
+        ],
+        importScripts: ['/offline-sw.js']
       }
     })
   ],

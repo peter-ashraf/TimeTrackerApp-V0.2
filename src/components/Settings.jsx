@@ -699,7 +699,7 @@ function Settings() {
                   type="checkbox"
                   id="haptic-toggle"
                   checked={hapticEnabled}
-                  onClick={() => {
+                  onChange={() => {
                     hapticFeedback.toggleSwitch();
                     handleHapticToggle();
                   }}

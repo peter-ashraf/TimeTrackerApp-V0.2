@@ -1,6 +1,7 @@
 import React from "react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { useAuth } from "../context/AuthContext";
+import OfflineIndicator from "./OfflineIndicator";
 
 function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
   const { theme, setTheme } = useTimeTracker();
@@ -32,6 +33,7 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
           <h1 id="appName">TimeTracker</h1>
         </div>
         <div id="headerButtons">
+          <OfflineIndicator />
           <button
             id="themeToggle"
             className="btn-theme"
