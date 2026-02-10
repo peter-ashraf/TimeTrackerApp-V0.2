@@ -1,0 +1,75 @@
+/* ===== VIEW HOURS MODAL STYLES ===== */
+
+.view-hours-modal {
+  max-width: 600px;
+  width: 90vw;
+}
+
+.view-hours-modal .modal-body {
+  padding: var(--space-20) 0;
+}
+
+/* Hours Summary */
+.hours-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  margin-bottom: var(--space-20);
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-12) var(--space-16);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+}
+
+.summary-label {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.summary-value {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+}
+
+.summary-value.positive {
+  color: var(--color-success);
+}
+
+.summary-value.negative {
+  color: var(--color-error);
+}
+
+/* Modal Actions */
+.view-hours-modal .modal-actions {
+  display: flex;
+  gap: var(--space-12);
+  justify-content: flex-end;
+  padding-top: var(--space-20);
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-20);
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .view-hours-modal {
+    width: 95vw;
+  }
+  
+  .view-hours-modal .modal-actions {
+    flex-direction: column;
+  }
+  
+  .summary-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+  }
+}

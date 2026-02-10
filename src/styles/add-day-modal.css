@@ -1,0 +1,30 @@
+/* ===== ADD DAY MODAL STYLES ===== */
+
+.add-day-modal {
+  max-width: 500px;
+  width: 90vw;
+}
+
+.add-day-modal .modal-body {
+  padding: var(--space-20) 0;
+}
+
+.add-day-modal .modal-actions {
+  display: flex;
+  gap: var(--space-12);
+  justify-content: flex-end;
+  padding-top: var(--space-20);
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-20);
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .add-day-modal {
+    width: 95vw;
+  }
+  
+  .add-day-modal .modal-actions {
+    flex-direction: column;
+  }
+}

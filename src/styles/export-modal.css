@@ -1,0 +1,339 @@
+/* ===== EXPORT MODAL STYLES ===== */
+
+/* Export Mode Tabs */
+.export-mode-tabs {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-16);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  padding: var(--space-4);
+  background: var(--color-surface);
+}
+
+.export-mode-tab {
+  flex: 1;
+  padding: var(--space-12) var(--space-16);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast) var(--ease-standard);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+}
+
+.export-mode-tab:hover {
+  background: var(--color-secondary);
+  color: var(--color-text);
+}
+
+.export-mode-tab.active {
+  background: var(--color-primary);
+  color: var(--color-btn-primary-text);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Template Type Options */
+.template-type-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.template-type-option {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  padding: var(--space-16);
+  transition: all var(--duration-fast) var(--ease-standard);
+  cursor: pointer;
+}
+
+.template-type-option:hover {
+  background: var(--color-secondary);
+  border-color: var(--color-primary);
+}
+
+.template-type-option label {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-12);
+  cursor: pointer;
+  width: 100%;
+  margin: 0;
+}
+
+.template-type-option input[type="radio"] {
+  margin-top: var(--space-2);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.template-type-content {
+  flex: 1;
+}
+
+.template-type-content strong {
+  display: block;
+  margin-bottom: var(--space-4);
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+}
+
+.template-type-content small {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+/* Custom Date Inputs */
+.custom-date-inputs {
+  display: flex;
+  gap: var(--space-12);
+  margin-top: var(--space-8);
+}
+
+.date-input-group {
+  flex: 1;
+}
+
+.date-input-group label {
+  display: block;
+  margin-bottom: var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.date-input-group input[type="date"] {
+  width: 100%;
+}
+
+/* Export Preview Box */
+.export-preview-box {
+  background: var(--color-bg-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  padding: var(--space-16);
+  margin-bottom: var(--space-20);
+  line-height: var(--line-height-normal);
+}
+
+/* Export Info Box */
+.export-info-box {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  padding: var(--space-20);
+  margin-bottom: var(--space-20);
+}
+
+.export-info-box.template-info {
+  background: var(--color-bg-2);
+}
+
+.export-info-box h4 {
+  margin: 0 0 var(--space-12) 0;
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.export-info-box p {
+  margin: 0 0 var(--space-12) 0;
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+.export-info-box ul {
+  margin: 0 0 var(--space-12) 0;
+  padding-left: var(--space-20);
+  color: var(--color-text-secondary);
+}
+
+.export-info-box li {
+  margin-bottom: var(--space-4);
+  line-height: var(--line-height-normal);
+}
+
+.export-info-box strong {
+  color: var(--color-text);
+}
+
+/* Period Checkbox List */
+.period-checkbox-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  background: var(--color-surface);
+}
+
+.period-checkbox-item {
+  padding: var(--space-12) var(--space-16);
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.period-checkbox-item:last-child {
+  border-bottom: none;
+}
+
+.period-checkbox-item:hover {
+  background: var(--color-secondary);
+}
+
+.period-checkbox-item label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  cursor: pointer;
+  margin: 0;
+  width: 100%;
+}
+
+.period-checkbox-item input[type="checkbox"] {
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.period-checkbox-label {
+  flex: 1;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+.period-checkbox-label strong {
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.period-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-8) 0;
+}
+
+/* Toggle Switch */
+.toggle-option {
+  margin-bottom: var(--space-16);
+}
+
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+}
+
+.toggle-switch input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  cursor: pointer;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 48px;
+  height: 24px;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  transition: background-color var(--duration-fast) var(--ease-standard);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: var(--radius-full);
+  transition: transform var(--duration-fast) var(--ease-standard);
+  box-shadow: var(--shadow-sm);
+}
+
+.toggle-switch input[type="checkbox"]:checked + .toggle-slider {
+  background: var(--color-primary);
+}
+
+.toggle-switch input[type="checkbox"]:checked + .toggle-slider::before {
+  transform: translateX(24px);
+}
+
+.toggle-switch:hover .toggle-slider {
+  background: var(--color-secondary-hover);
+}
+
+.toggle-switch input[type="checkbox"]:checked:hover + .toggle-slider {
+  background: var(--color-primary-hover);
+}
+
+.toggle-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Export Summary */
+.export-summary {
+  background: var(--color-bg-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  padding: var(--space-16);
+  margin-bottom: var(--space-20);
+}
+
+.export-summary p {
+  margin: 0;
+  color: var(--color-text);
+  line-height: var(--line-height-normal);
+}
+
+.export-summary strong {
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .export-mode-tabs {
+    flex-direction: column;
+  }
+  
+  .custom-date-inputs {
+    flex-direction: column;
+  }
+  
+  .template-type-options {
+    gap: var(--space-8);
+  }
+  
+  .template-type-option {
+    padding: var(--space-12);
+  }
+  
+  .period-checkbox-list {
+    max-height: 200px;
+  }
+  
+  .export-info-box {
+    padding: var(--space-16);
+  }
+}
