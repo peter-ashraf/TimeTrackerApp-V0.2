@@ -7,7 +7,11 @@ import Timesheet from './components/Timesheet';
 import Settings from './components/Settings';
 import LoginScreen from './components/LoginScreen';
 import AutoSaveIndicator from './components/AutoSaveIndicator';
+import RefreshIndicator from './components/RefreshIndicator';
 import ConfirmModal from './components/ConfirmModal';
+import PullToRefresh from './components/PullToRefresh';
+import './styles/pull-to-refresh.css';
+import './styles/refresh-indicator.css';
 
 
 function App() {
@@ -16,8 +20,8 @@ function App() {
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
   const [swipeDirection, setSwipeDirection] = useState(null);
-  const { lastSaved, entries, theme } = useTimeTracker();
-  const { isAuthenticated, isLoading, currentUser, logout } = useAuth();
+  const { lastSaved, lastRefreshed, entries, theme, setEntries, setLastRefreshed, setRefreshing } = useTimeTracker();
+  const { isAuthenticated, isLoading, currentUser, logout, getUserData, saveUserData } = useAuth();
   
   const containerRef = useRef(null);
   const startXRef = useRef(0);
@@ -109,6 +113,53 @@ function App() {
     setSwipeDirection(null);
   }, [isSwiping, swipeOffset, getNextView, swipeDirection, isMobile]);
 
+  // Refresh data function for pull-to-refresh
+  const refreshData = useCallback(async () => {
+    if (!currentUser || !isAuthenticated) return;
+    
+    try {
+      // Set refresh flag to prevent save updates
+      setRefreshing(true);
+      
+      // Reload user data from storage
+      const loadedEmployee = {
+        name: getUserData('fullName') || '',
+        salary: parseFloat(getUserData('salary')) || 0
+      };
+      
+      const loadedLeaveSettings = {
+        annualVacation: parseFloat(getUserData('annualVacation')) || 10,
+        sickDays: parseFloat(getUserData('sickDays')) || 7
+      };
+      
+      const loadedEntries = getUserData('timeEntries') || [];
+      const loadedPeriods = getUserData('payPeriods') || [{
+        id: 'period-default',
+        label: '23 Jan - 20 Feb 2026',
+        start: '2026-01-23',
+        end: '2026-02-20'
+      }];
+      
+      const loadedCurrentPeriodId = getUserData('currentPeriodId') || (loadedPeriods[0]?.id || 'period-default');
+      
+      // Update context with fresh data
+      setEntries(loadedEntries);
+      
+      // Set refresh timestamp for feedback
+      setLastRefreshed(new Date().toISOString());
+      
+      console.log('✅ Data refreshed successfully for user:', currentUser.username);
+      
+      return Promise.resolve();
+    } catch (error) {
+      console.error('❌ Error refreshing data:', error);
+      throw error;
+    } finally {
+      // Clear refresh flag
+      setRefreshing(false);
+    }
+  }, [currentUser, isAuthenticated, getUserData, setEntries, setLastRefreshed, setRefreshing]);
+
   // ✅ ALL EFFECTS HERE
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -199,39 +250,48 @@ function App() {
   }
 
   return (
-    <div
-      className={`app ${isSwiping ? 'swiping' : ''}`}
-      ref={containerRef}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      <Header 
-        currentView={currentView} 
-        setCurrentView={setCurrentView} 
-        isHeaderCollapsed={isHeaderCollapsed} 
-      />
-      <div
-        className="main-content"
-        style={{
-          transform: isSwiping && isMobile() && swipeDirection === 'horizontal' 
-            ? `translateX(${swipeOffset}px)` 
-            : 'none',
-        }}
+    <PullToRefresh 
+        onRefresh={refreshData}
+        threshold={80}
+        maxPull={120}
+        className="app-pull-to-refresh"
       >
-        <div className={`view-container dashboard-container ${currentView === 'dashboard' ? 'active' : ''}`}>
-          <Dashboard />
-        </div>
-        <div className={`view-container timesheet-container ${currentView === 'timesheet' ? 'active' : ''}`}>
-          <Timesheet />
-        </div>
-        <div className={`view-container settings-container ${currentView === 'settings' ? 'active' : ''}`}>
-          <Settings />
-        </div>
+        <div
+          className={`app ${isSwiping ? 'swiping' : ''}`}
+          ref={containerRef}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <Header 
+            currentView={currentView} 
+            setCurrentView={setCurrentView} 
+            isHeaderCollapsed={isHeaderCollapsed} 
+          />
+          <div
+            className="main-content"
+            data-scrollable
+            style={{
+              transform: isSwiping && isMobile() && swipeDirection === 'horizontal' 
+                ? `translateX(${swipeOffset}px)` 
+                : 'none',
+            }}
+          >
+            <div className={`view-container dashboard-container ${currentView === 'dashboard' ? 'active' : ''}`} data-scrollable>
+              <Dashboard />
+            </div>
+            <div className={`view-container timesheet-container ${currentView === 'timesheet' ? 'active' : ''}`} data-scrollable>
+              <Timesheet />
+            </div>
+            <div className={`view-container settings-container ${currentView === 'settings' ? 'active' : ''}`} data-scrollable>
+              <Settings />
+            </div>
 
-        <AutoSaveIndicator lastSaved={lastSaved} />
-      </div>
-    </div>
+            <AutoSaveIndicator lastSaved={lastSaved} />
+            <RefreshIndicator lastRefreshed={lastRefreshed} />
+          </div>
+        </div>
+      </PullToRefresh>
   );
 }
 

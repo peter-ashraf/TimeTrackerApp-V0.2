@@ -45,6 +45,8 @@ export const TimeTrackerProvider = ({ children }) => {
   
   const [lastSaved, setLastSaved] = useState(null);
   
+  const [lastRefreshed, setLastRefreshed] = useState(null);
+  
   const [use12Hour, setUse12Hour] = useState(() => {
     return localStorage.getItem('use12HourFormat') !== 'false';
   });
@@ -77,6 +79,9 @@ export const TimeTrackerProvider = ({ children }) => {
   
   // Ref to track migration state
   const migrationRef = useRef(false);
+  
+  // Ref to track when we're refreshing (to prevent save updates)
+  const isRefreshingRef = useRef(false);
   
   // ✅ LOAD USER DATA WHEN USER CHANGES
   useEffect(() => {
@@ -141,7 +146,7 @@ export const TimeTrackerProvider = ({ children }) => {
   }, [leaveSettings, currentUser, saveUserData, isContextReady]);
   
   useEffect(() => {
-    if (!currentUser || !isContextReady) return;
+    if (!currentUser || !isContextReady || isRefreshingRef.current) return;
     saveUserData('timeEntries', entries);
   }, [entries, currentUser, saveUserData, isContextReady]);
   
@@ -334,7 +339,10 @@ export const TimeTrackerProvider = ({ children }) => {
   
   const updateEntries = (newEntries) => {
     setEntries(newEntries);
-    setLastSaved(new Date().toISOString());
+    // Only update lastSaved if we're not refreshing
+    if (!isRefreshingRef.current) {
+      setLastSaved(new Date().toISOString());
+    }
   };
   
   const timeToSeconds = (timeStr) => {
@@ -830,6 +838,11 @@ export const TimeTrackerProvider = ({ children }) => {
     setShowBackupReminder(false);
   };
   
+  // Function to set refresh flag (to prevent save updates during refresh)
+  const setRefreshing = (isRefreshing) => {
+    isRefreshingRef.current = isRefreshing;
+  };
+  
   const value = {
     employee,
     leaveSettings,
@@ -875,7 +888,10 @@ export const TimeTrackerProvider = ({ children }) => {
     handleBackupLater,
     handleDismissBackup,
     handleCloseBackup,
+    setRefreshing,
     lastSaved,
+    lastRefreshed,
+    setLastRefreshed,
     setEntries: updateEntries
   };
   
