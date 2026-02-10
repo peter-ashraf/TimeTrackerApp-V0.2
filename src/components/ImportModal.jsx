@@ -56,25 +56,161 @@ function ImportModal({ onClose }) {
     return null;
   };
 
-  // Convert Excel date (serial number) to YYYY-MM-DD
+  // Convert Excel date
   const excelDateToString = (excelDate) => {
-    if (typeof excelDate === 'number') {
+  // Handle null/undefined
+  if (!excelDate && excelDate !== 0) {
+    throw new Error('Date is empty or undefined');
+  }
+
+  // Case 1: Excel Serial Number (numeric)
+  if (typeof excelDate === 'number') {
+    try {
       const date = XLSX.SSF.parse_date_code(excelDate);
       return `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`;
-    } else if (typeof excelDate === 'string') {
-      const dateStr = excelDate.toString().trim();
+    } catch (e) {
+      throw new Error(`Invalid Excel serial number: ${excelDate}`);
+    }
+  }
+
+  // Case 2: Already a Date object
+  if (excelDate instanceof Date) {
+    if (isNaN(excelDate.getTime())) {
+      throw new Error('Invalid Date object');
+    }
+    const year = excelDate.getFullYear();
+    const month = String(excelDate.getMonth() + 1).padStart(2, '0');
+    const day = String(excelDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  // Case 3: String date
+  if (typeof excelDate === 'string') {
+    const dateStr = excelDate.toString().trim();
+
+    // Format 1: YYYY-MM-DD (ISO format - already correct)
+    if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr)) {
+      const [year, month, day] = dateStr.split('-');
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+
+    // Format 2: DD-MM-YYYY
+    if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(dateStr)) {
+      const [day, month, year] = dateStr.split('-');
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+
+    // Format 3: DD/MM/YYYY (your current format)
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
       const parts = dateStr.split('/');
-      
-      if (parts.length === 3) {
-        const day = String(parts[0]).padStart(2, '0');
-        const month = String(parts[1]).padStart(2, '0');
-        const year = String(parts[2]);
+      const part1 = parseInt(parts[0]);
+      const part2 = parseInt(parts[1]);
+      const year = parts[2];
+
+      // Determine if DD/MM/YYYY or MM/DD/YYYY
+      if (part1 > 12 && part2 <= 12) {
+        // part1 must be day, part2 is month -> DD/MM/YYYY
+        return `${year}-${String(part2).padStart(2, '0')}-${String(part1).padStart(2, '0')}`;
+      } else if (part2 > 12 && part1 <= 12) {
+        // part2 must be day, part1 is month -> MM/DD/YYYY
+        return `${year}-${String(part1).padStart(2, '0')}-${String(part2).padStart(2, '0')}`;
+      } else {
+        // Ambiguous - assume DD/MM/YYYY (European format)
+        return `${year}-${String(part2).padStart(2, '0')}-${String(part1).padStart(2, '0')}`;
+      }
+    }
+
+    // Format 4: MM/DD/YYYY (US format with dots)
+    if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(dateStr)) {
+      const parts = dateStr.split('.');
+      const day = String(parts[0]).padStart(2, '0');
+      const month = String(parts[1]).padStart(2, '0');
+      const year = parts[2];
+      return `${year}-${month}-${day}`;
+    }
+
+    // Format 5: "Jan 26, 2026" or "January 26, 2026"
+    const monthTextRegex = /^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/;
+    if (monthTextRegex.test(dateStr)) {
+      const match = dateStr.match(monthTextRegex);
+      const monthStr = match[1];
+      const day = String(match[2]).padStart(2, '0');
+      const year = match[3];
+
+      // Map month names to numbers
+      const monthMap = {
+        'jan': '01', 'january': '01',
+        'feb': '02', 'february': '02',
+        'mar': '03', 'march': '03',
+        'apr': '04', 'april': '04',
+        'may': '05',
+        'jun': '06', 'june': '06',
+        'jul': '07', 'july': '07',
+        'aug': '08', 'august': '08',
+        'sep': '09', 'sept': '09', 'september': '09',
+        'oct': '10', 'october': '10',
+        'nov': '11', 'november': '11',
+        'dec': '12', 'december': '12'
+      };
+
+      const month = monthMap[monthStr.toLowerCase()];
+      if (month) {
         return `${year}-${month}-${day}`;
       }
     }
-    
-    throw new Error(`Invalid date format: ${excelDate}`);
-  };
+
+    // Format 6: "26 Jan 2026" or "26 January 2026"
+    const textDate2 = dateStr.match(/^(\d{1,2})\s+([A-Za-z]+),?\s+(\d{4})$/);
+    if (textDate2) {
+      const monthStr = textDate2[2];
+      const day = String(textDate2[1]).padStart(2, '0');
+      const year = textDate2[3];
+
+      const monthMap = {
+        'jan': '01', 'january': '01',
+        'feb': '02', 'february': '02',
+        'mar': '03', 'march': '03',
+        'apr': '04', 'april': '04',
+        'may': '05',
+        'jun': '06', 'june': '06',
+        'jul': '07', 'july': '07',
+        'aug': '08', 'august': '08',
+        'sep': '09', 'sept': '09', 'september': '09',
+        'oct': '10', 'october': '10',
+        'nov': '11', 'november': '11',
+        'dec': '12', 'december': '12'
+      };
+
+      const month = monthMap[monthStr.toLowerCase()];
+      if (month) {
+        return `${year}-${month}-${day}`;
+      }
+    }
+
+    // Format 7: ISO 8601 with time (2026-01-26T00:00:00)
+    if (dateStr.includes('T')) {
+      const datePart = dateStr.split('T')[0];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+        return datePart;
+      }
+    }
+
+    // Fallback: Try JavaScript Date parsing
+    try {
+      const parsed = new Date(dateStr);
+      if (!isNaN(parsed.getTime())) {
+        const year = parsed.getFullYear();
+        const month = String(parsed.getMonth() + 1).padStart(2, '0');
+        const day = String(parsed.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+    } catch (e) {
+      // Fall through to error
+    }
+  }
+
+  throw new Error(`Unsupported date format: "${excelDate}" (type: ${typeof excelDate})`);
+};
 
   // Extract date range from imported entries
   const extractDateRange = (importedEntries) => {
