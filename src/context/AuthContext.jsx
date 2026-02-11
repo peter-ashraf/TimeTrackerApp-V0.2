@@ -58,8 +58,13 @@ export const AuthProvider = ({ children }) => {
         }
       } else {
         // Plain text data, parse it
-        savedUser = JSON.parse(rawData);
-        console.log(`Loaded plain text user: ${savedUser.username}`);
+        try {
+          savedUser = JSON.parse(rawData);
+          console.log(`Loaded plain text user: ${savedUser.username}`);
+        } catch (parseError) {
+          console.log('Failed to parse as plain text, treating as fresh start');
+          savedUser = null;
+        }
       }
     } catch (error) {
       console.error('Error loading currentUser:', error);
@@ -211,7 +216,12 @@ export const AuthProvider = ({ children }) => {
           }
         } else {
           // Plain text users data
-          users = JSON.parse(usersRaw);
+          try {
+            users = JSON.parse(usersRaw);
+          } catch (parseError) {
+            console.log('Failed to parse users data as plain text, treating as empty');
+            users = {};
+          }
         }
       }
     } catch (error) {
@@ -271,8 +281,13 @@ export const AuthProvider = ({ children }) => {
           }
         } else {
           // Plain text users data
-          users = JSON.parse(usersRaw);
-          console.log('📄 Loaded plain text users data:', Object.keys(users).length, 'users');
+          try {
+            users = JSON.parse(usersRaw);
+            console.log('📄 Loaded plain text users data:', Object.keys(users).length, 'users');
+          } catch (parseError) {
+            console.log('Failed to parse users data as plain text, treating as empty');
+            users = {};
+          }
         }
       }
     } catch (error) {
