@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import '../styles/login-screen.css';
 
@@ -12,6 +12,7 @@ const LoginScreen = () => {
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showError, setShowError] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -67,6 +68,12 @@ const LoginScreen = () => {
       }
     } catch (error) {
       setErrors({ general: error.message });
+      setShowError(true);
+      
+      // Auto-hide error after 5 seconds
+      setTimeout(() => {
+        setShowError(false);
+      }, 5000);
     } finally {
       setIsSubmitting(false);
     }
@@ -101,9 +108,15 @@ const LoginScreen = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
-          {errors.general && (
-            <div className="error-message">
-              {errors.general}
+          {errors.general && showError && (
+            <div className={`error-message ${showError ? 'show' : ''}`}>
+              <div className="error-content">
+                <div className="error-icon">⚠️</div>
+                <div className="error-text">
+                  <strong>Login Error</strong>
+                  <p>{errors.general}</p>
+                </div>
+              </div>
             </div>
           )}
 

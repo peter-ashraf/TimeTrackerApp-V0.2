@@ -12,6 +12,7 @@ import ConfirmModal from './components/ConfirmModal';
 import PullToRefresh from './components/PullToRefresh';
 import './styles/pull-to-refresh.css';
 import './styles/refresh-indicator.css';
+import './styles/app-transitions.css';
 
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
   const [swipeDirection, setSwipeDirection] = useState(null);
   const { lastSaved, lastRefreshed, entries, theme, setEntries, setLastRefreshed, setRefreshing } = useTimeTracker();
   const { isAuthenticated, isLoading, currentUser, logout, getUserData, saveUserData } = useAuth();
+  const [isTransitioning, setIsTransitioning] = useState(false);
   
   const containerRef = useRef(null);
   const startXRef = useRef(0);
@@ -34,6 +36,18 @@ function App() {
   // ✅ MOVE ALL CALLBACKS HERE - BEFORE ANY CONDITIONAL RETURNS
   const isMobile = useCallback(() => window.innerWidth <= 768, []);
 
+  const handleViewChange = useCallback((newView) => {
+    if (newView === currentView || isTransitioning) return;
+    
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentView(newView);
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 100);
+    }, 50);
+  }, [currentView, isTransitioning]);
+
   const getNextView = useCallback((direction) => {
     const currentIndex = views.indexOf(currentView);
     if (direction === 'left') {
@@ -41,6 +55,13 @@ function App() {
     }
     return views[(currentIndex - 1 + views.length) % views.length];
   }, [currentView]);
+
+  const handleNavClick = useCallback((view, event) => {
+    handleViewChange(view);
+    if (event && event.currentTarget) {
+      event.currentTarget.blur();
+    }
+  }, [handleViewChange]);
 
   const handleTouchStart = useCallback((e) => {
     if (!isMobile()) return;
@@ -103,9 +124,9 @@ function App() {
 
     const threshold = 70;
     if (swipeOffset > threshold) {
-      setCurrentView(getNextView('right'));
+      handleViewChange(getNextView('right'));
     } else if (swipeOffset < -threshold) {
-      setCurrentView(getNextView('left'));
+      handleViewChange(getNextView('left'));
     }
     
     setIsSwiping(false);

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import CryptoJS from 'crypto-js';
+import { setEncryptedItem, getEncryptedItem, removeEncryptedItem, needsMigration, migrateToEncrypted, generateEncryptionKey, decryptData } from '../utils/encryption';
 
 const AuthContext = createContext();
 
@@ -23,15 +24,121 @@ export const AuthProvider = ({ children }) => {
 
   // Initialize auth state on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('currentUser');
+    // For currentUser, we need to try both encrypted and plain text approaches
+    // since we don't have the username yet for key generation
+    let savedUser = null;
+    
+    try {
+      // Try to get from localStorage directly first (for plain text or to check if encrypted)
+      const rawData = localStorage.getItem('currentUser');
+      if (rawData) {
+        if (rawData.startsWith('encrypted:')) {
+          // Data is encrypted, we need to try to decrypt it
+          // Try to find the username by checking users data first
+          console.log('🔐 Found encrypted currentUser, attempting to decrypt...');
+          
+          // Try to get users data to find potential usernames
+          let usersData = null;
+          try {
+            const usersRaw = localStorage.getItem('users');
+            if (usersRaw) {
+              if (usersRaw.startsWith('encrypted:')) {
+                // Users data is also encrypted, we'll need to try common approaches
+                console.log('🔐 Users data is also encrypted, trying recovery...');
+                
+                // Try some common usernames or check if there's only one user
+                const allKeys = Object.keys(localStorage);
+                const userSpecificKeys = allKeys.filter(key => 
+                  key.includes('_') && !key.startsWith('__') && !key.includes('encrypted:')
+                );
+                
+                // Extract potential usernames from keys
+                const potentialUsernames = [...new Set(
+                  userSpecificKeys.map(key => {
+                    const parts = key.split('_');
+                    return parts.length > 1 ? parts.slice(1).join('_') : null;
+                  }).filter(Boolean)
+                )];
+                
+                console.log('Potential usernames found:', potentialUsernames);
+                
+                // Try each potential username
+                for (const username of potentialUsernames) {
+                  try {
+                    const key = generateEncryptionKey(username);
+                    const decrypted = decryptData(rawData, key);
+                    if (decrypted && typeof decrypted === 'object' && decrypted.username) {
+                      console.log(`✅ Successfully decrypted currentUser for user: ${username}`);
+                      savedUser = decrypted;
+                      break;
+                    }
+                  } catch (decryptError) {
+                    // Continue trying other usernames
+                    continue;
+                  }
+                }
+              } else {
+                // Users data is plain text
+                usersData = JSON.parse(usersRaw);
+                const usernames = Object.keys(usersData);
+                
+                // Try each username to decrypt currentUser
+                for (const username of usernames) {
+                  try {
+                    const key = generateEncryptionKey(username);
+                    const decrypted = decryptData(rawData, key);
+                    if (decrypted && typeof decrypted === 'object' && decrypted.username) {
+                      console.log(`✅ Successfully decrypted currentUser for user: ${username}`);
+                      savedUser = decrypted;
+                      break;
+                    }
+                  } catch (decryptError) {
+                    // Continue trying other usernames
+                    continue;
+                  }
+                }
+              }
+            }
+          } catch (usersError) {
+            console.error('Error accessing users data:', usersError);
+          }
+          
+          // If still no user, we can't proceed
+          if (!savedUser) {
+            console.error('❌ Could not decrypt currentUser data. You may need to clear localStorage and re-login.');
+            // Optionally, you could clear the corrupted data
+            // localStorage.removeItem('currentUser');
+          }
+        } else {
+          // Plain text data, parse it
+          savedUser = JSON.parse(rawData);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading currentUser:', error);
+      savedUser = null;
+    }
+    
     if (savedUser) {
-      const user = JSON.parse(savedUser);
-      setCurrentUser(user);
+      setCurrentUser(savedUser);
       setIsAuthenticated(true);
       
       // Check for existing data that needs migration
-      checkAndMigrateExistingData(user.username);
+      checkAndMigrateExistingData(savedUser.username);
+      
+      // Check if encryption migration is needed
+      if (needsMigration(savedUser.username)) {
+        console.log('🔐 Encryption migration needed...');
+        migrateToEncrypted(savedUser.username);
+      }
+      
+      // Now that we have the user, we should encrypt their session data if it wasn't already
+      const rawData = localStorage.getItem('currentUser');
+      if (!rawData.startsWith('encrypted:')) {
+        setEncryptedItem('currentUser', savedUser, savedUser.username);
+      }
     }
+    
     setIsLoading(false);
   }, []);
 
@@ -68,32 +175,32 @@ export const AuthProvider = ({ children }) => {
         // User chose to assign existing data
         try {
           if (oldEntries) {
-            localStorage.setItem(`timeEntries_${username}`, oldEntries);
+            setEncryptedItem(`timeEntries_${username}`, oldEntries, username);
             localStorage.removeItem('timeEntries');
           }
 
           if (oldPeriods) {
-            localStorage.setItem(`payPeriods_${username}`, oldPeriods);
+            setEncryptedItem(`payPeriods_${username}`, oldPeriods, username);
             localStorage.removeItem('payPeriods');
           }
 
           if (oldEmployee) {
-            localStorage.setItem(`fullName_${username}`, oldEmployee);
+            setEncryptedItem(`fullName_${username}`, oldEmployee, username);
             localStorage.removeItem('fullName');
           }
 
           if (oldSalary) {
-            localStorage.setItem(`salary_${username}`, oldSalary);
+            setEncryptedItem(`salary_${username}`, oldSalary, username);
             localStorage.removeItem('salary');
           }
 
           if (oldLeaveSettings) {
-            localStorage.setItem(`annualVacation_${username}`, oldLeaveSettings);
+            setEncryptedItem(`annualVacation_${username}`, oldLeaveSettings, username);
             localStorage.removeItem('annualVacation');
           }
 
           if (oldSickDays) {
-            localStorage.setItem(`sickDays_${username}`, oldSickDays);
+            setEncryptedItem(`sickDays_${username}`, oldSickDays, username);
             localStorage.removeItem('sickDays');
           }
 
@@ -132,8 +239,57 @@ export const AuthProvider = ({ children }) => {
 
   // User registration
   const register = (username, password) => {
-    // Get existing users
-    const users = JSON.parse(localStorage.getItem('users') || '{}');
+    // Get existing users (handle both encrypted and plain text)
+    let users = {};
+    
+    try {
+      const usersRaw = localStorage.getItem('users');
+      if (usersRaw) {
+        if (usersRaw.startsWith('encrypted:')) {
+          // Users data is encrypted, try to decrypt with the new username
+          try {
+            const key = generateEncryptionKey(username);
+            const decrypted = decryptData(usersRaw, key);
+            users = decrypted || {};
+          } catch (decryptError) {
+            // If that fails, try to find any existing user that can decrypt it
+            console.log('🔐 Trying to decrypt users data for registration...');
+            
+            const allKeys = Object.keys(localStorage);
+            const userSpecificKeys = allKeys.filter(key => 
+              key.includes('_') && !key.startsWith('__') && key !== 'users' && key !== 'currentUser'
+            );
+            
+            const potentialUsernames = [...new Set(
+              userSpecificKeys.map(key => {
+                const parts = key.split('_');
+                return parts.length > 1 ? parts.slice(1).join('_') : null;
+              }).filter(Boolean)
+            )];
+            
+            for (const potentialUsername of potentialUsernames) {
+              try {
+                const key = generateEncryptionKey(potentialUsername);
+                const decrypted = decryptData(usersRaw, key);
+                if (decrypted && typeof decrypted === 'object') {
+                  users = decrypted;
+                  console.log(`✅ Successfully decrypted users data with username: ${potentialUsername}`);
+                  break;
+                }
+              } catch (error) {
+                continue;
+              }
+            }
+          }
+        } else {
+          // Plain text users data
+          users = JSON.parse(usersRaw);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading users data for registration:', error);
+      users = {};
+    }
 
     // Check if username already exists
     if (users[username]) {
@@ -161,13 +317,67 @@ export const AuthProvider = ({ children }) => {
       createdAt: new Date().toISOString()
     };
 
-    localStorage.setItem('users', JSON.stringify(users));
+    setEncryptedItem('users', users, username);
     return true;
   };
 
   // User login
   const login = (username, password) => {
-    const users = JSON.parse(localStorage.getItem('users') || '{}');
+    // For users data, we need to try a different approach since we don't have a username for key generation
+    let users = {};
+    
+    try {
+      const usersRaw = localStorage.getItem('users');
+      if (usersRaw) {
+        if (usersRaw.startsWith('encrypted:')) {
+          // Users data is encrypted, we need to try to decrypt it
+          // Since we don't have a master username, we'll try the login username first
+          try {
+            const key = generateEncryptionKey(username);
+            const decrypted = decryptData(usersRaw, key);
+            users = decrypted || {};
+          } catch (decryptError) {
+            // If that fails, try to find any user that can decrypt it
+            console.log('🔐 Trying to decrypt users data with available keys...');
+            
+            // Extract potential usernames from localStorage
+            const allKeys = Object.keys(localStorage);
+            const userSpecificKeys = allKeys.filter(key => 
+              key.includes('_') && !key.startsWith('__') && key !== 'users' && key !== 'currentUser'
+            );
+            
+            const potentialUsernames = [...new Set(
+              userSpecificKeys.map(key => {
+                const parts = key.split('_');
+                return parts.length > 1 ? parts.slice(1).join('_') : null;
+              }).filter(Boolean)
+            )];
+            
+            // Try each potential username
+            for (const potentialUsername of potentialUsernames) {
+              try {
+                const key = generateEncryptionKey(potentialUsername);
+                const decrypted = decryptData(usersRaw, key);
+                if (decrypted && typeof decrypted === 'object') {
+                  users = decrypted;
+                  console.log(`✅ Successfully decrypted users data with username: ${potentialUsername}`);
+                  break;
+                }
+              } catch (error) {
+                continue;
+              }
+            }
+          }
+        } else {
+          // Plain text users data
+          users = JSON.parse(usersRaw);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading users data:', error);
+      users = {};
+    }
+    
     const user = users[username];
 
     if (!user) {
@@ -183,7 +393,7 @@ export const AuthProvider = ({ children }) => {
     const userData = { username, createdAt: user.createdAt };
     setCurrentUser(userData);
     setIsAuthenticated(true);
-    localStorage.setItem('currentUser', JSON.stringify(userData));
+    setEncryptedItem('currentUser', userData, username);
     
     console.log(`✅ User logged in: ${username}`);
     return true;
@@ -194,7 +404,7 @@ export const AuthProvider = ({ children }) => {
     console.log(`✅ User logged out: ${currentUser?.username}`);
     setCurrentUser(null);
     setIsAuthenticated(false);
-    localStorage.removeItem('currentUser');
+    removeEncryptedItem('currentUser');
   };
 
   // Get user-specific data key
@@ -208,12 +418,8 @@ export const AuthProvider = ({ children }) => {
     
     const key = getUserDataKey(dataType);
     
-    // Handle different data types
-    if (typeof data === 'string' || typeof data === 'number') {
-      localStorage.setItem(key, String(data));
-    } else {
-      localStorage.setItem(key, JSON.stringify(data));
-    }
+    // Use encryption for sensitive data
+    setEncryptedItem(key, data, currentUser.username);
   };
 
   // Get user-specific data
@@ -246,7 +452,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     const key = getUserDataKey(dataType);
-    const data = localStorage.getItem(key);
+    const data = getEncryptedItem(key, currentUser.username);
 
     if (!data) {
       // Return default values if no data exists
@@ -275,18 +481,13 @@ export const AuthProvider = ({ children }) => {
       }
     }
 
-    // Try to parse as JSON, fallback to raw string
-    try {
-      return JSON.parse(data);
-    } catch (e) {
-      // If parsing fails, return as is (for string/number values)
-      return data;
-    }
+    // Try to return data as-is (already parsed by getEncryptedItem)
+    return data;
   };
 
   // Delete user account
   const deleteUser = (username) => {
-    const users = JSON.parse(localStorage.getItem('users') || '{}');
+    const users = getEncryptedItem('users') || {};
 
     if (!users[username]) {
       throw new Error('User not found');
@@ -295,13 +496,13 @@ export const AuthProvider = ({ children }) => {
     // Delete user data
     Object.keys(localStorage).forEach(key => {
       if (key.includes(`_${username}`)) {
-        localStorage.removeItem(key);
+        removeEncryptedItem(key);
       }
     });
 
     // Delete user account
     delete users[username];
-    localStorage.setItem('users', JSON.stringify(users));
+    setEncryptedItem('users', users, username);
 
     // Logout if deleting current user
     if (currentUser && currentUser.username === username) {

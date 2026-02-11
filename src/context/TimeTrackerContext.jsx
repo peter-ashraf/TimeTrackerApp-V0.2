@@ -40,7 +40,8 @@ export const TimeTrackerProvider = ({ children }) => {
   
   // UI State (these are NOT user-specific, they're app-wide preferences)
   const [hideSalary, setHideSalary] = useState(() => {
-    return localStorage.getItem('hideSalary') === 'true';
+    const saved = localStorage.getItem('hideSalary');
+    return saved === 'true';
   });
   
   const [lastSaved, setLastSaved] = useState(null);
@@ -48,11 +49,13 @@ export const TimeTrackerProvider = ({ children }) => {
   const [lastRefreshed, setLastRefreshed] = useState(null);
   
   const [use12Hour, setUse12Hour] = useState(() => {
-    return localStorage.getItem('use12HourFormat') !== 'false';
+    const saved = localStorage.getItem('use12HourFormat');
+    return saved !== 'false';
   });
   
   const [detailedView, setDetailedView] = useState(() => {
-    return localStorage.getItem('detailedView') === 'true';
+    const saved = localStorage.getItem('detailedView');
+    return saved === 'true';
   });
   
   // State Confirmation

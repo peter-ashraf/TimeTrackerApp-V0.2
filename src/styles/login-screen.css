@@ -6,6 +6,20 @@
   align-items: center;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   padding: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-screen::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  animation: float 20s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .login-container {
@@ -16,7 +30,9 @@
   padding: 2.5rem;
   width: 100%;
   max-width: 400px;
-  animation: slideInUp 0.5s ease-out;
+  animation: slideInUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  z-index: 1;
 }
 
 .login-header {
@@ -92,11 +108,51 @@
 .error-message {
   background: rgba(239, 68, 68, 0.1);
   border: 2px solid #ef4444;
-  border-radius: 8px;
+  border-radius: 12px;
+  padding: 0;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.error-message.show {
+  max-height: 200px;
+  opacity: 1;
+  transform: translateY(0);
   padding: 1rem;
+}
+
+.error-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.error-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  animation: shake 0.6s ease-in-out;
+}
+
+.error-text {
+  flex: 1;
+}
+
+.error-text strong {
+  color: #dc2626;
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 1rem;
+}
+
+.error-text p {
+  margin: 0;
   color: #991b1b;
   font-size: 0.9rem;
-  animation: slideInUp 0.3s ease-out;
+  line-height: 1.4;
 }
 
 .login-btn {
@@ -177,29 +233,38 @@
 @keyframes slideInUp {
   from {
     opacity: 0;
-    transform: translateY(30px);
+    transform: translateY(50px) scale(0.8);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 @keyframes bounceIn {
   0% {
     opacity: 0;
-    transform: scale(0.3);
+    transform: scale(0.3) rotate(-10deg);
   }
   50% {
     opacity: 1;
-    transform: scale(1.05);
+    transform: scale(1.1) rotate(5deg);
   }
   70% {
-    transform: scale(0.9);
+    transform: scale(0.95) rotate(-2deg);
   }
   100% {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(180deg);
   }
 }
 
@@ -207,11 +272,11 @@
   0%, 100% {
     transform: translateX(0);
   }
-  25% {
-    transform: translateX(-5px);
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-3px);
   }
-  75% {
-    transform: translateX(5px);
+  20%, 40%, 60%, 80% {
+    transform: translateX(3px);
   }
 }
 

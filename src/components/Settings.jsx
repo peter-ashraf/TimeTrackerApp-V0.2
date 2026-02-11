@@ -204,9 +204,9 @@ function Settings() {
       return; // Stop - don't save
     }
 
-    // Check what changed
+    // Check what changed (exclude salary if it's hidden)
     const nameChanged = name !== employee.name;
-    const salaryChanged = parsedSalary !== employee.salary;
+    const salaryChanged = !hideSalary && parsedSalary !== employee.salary;
     const vacationChanged = parsedVacation !== leaveSettings.annualVacation;
     const sickDaysChanged = parsedSickDays !== leaveSettings.sickDays;
 
@@ -226,15 +226,19 @@ function Settings() {
       return;
     }
 
-    // Build list of what changed
+    // Build list of what changed (exclude salary if hidden)
     const changedItems = [];
     if (nameChanged) changedItems.push(`• Name: ${employee.name} → ${name}`);
     if (salaryChanged) changedItems.push(`• Salary: ${employee.salary} → ${parsedSalary}`);
     if (vacationChanged) changedItems.push(`• Vacation Days: ${leaveSettings.annualVacation} → ${parsedVacation}`);
     if (sickDaysChanged) changedItems.push(`• Sick Days: ${leaveSettings.sickDays} → ${parsedSickDays}`);
 
-    // Save all data (preserves unchanged values automatically)
-    updateEmployee({ name: name, salary: parsedSalary });
+    // Save all data (preserves unchanged values automatically, excludes salary if hidden)
+    const employeeData = { name: name };
+    if (!hideSalary) {
+      employeeData.salary = parsedSalary;
+    }
+    updateEmployee(employeeData);
     updateLeaveSettings({ annualVacation: parsedVacation, sickDays: parsedSickDays });
 
     // Show success with what changed
@@ -635,18 +639,43 @@ function Settings() {
           </div>
 
           {/* Monthly Salary */}
-          <div className="form-group">
-            <label className="form-label">Monthly Salary (L.E.)</label>
-            <input
-              type="number"
-              className="form-control"
-              value={salary}
-              onChange={(e) => setSalary(e.target.value)}
-              placeholder="Enter monthly salary"
-              min="0"
-              step="0.01"
-            />
-          </div>
+          {!hideSalary && (
+            <div className="form-group">
+              <label className="form-label">Monthly Salary (L.E.)</label>
+              <input
+                type="number"
+                className="form-control"
+                value={salary}
+                onChange={(e) => setSalary(e.target.value)}
+                placeholder="Enter monthly salary"
+                min="0"
+                step="0.01"
+              />
+            </div>
+          )}
+          
+          {hideSalary && (
+            <div className="form-group">
+              <label className="form-label">Monthly Salary (L.E.)</label>
+              <input
+                type="text"
+                className="form-control"
+                value="******"
+                disabled
+                style={{ 
+                  backgroundColor: 'transparent',
+                  color: '#6c757d',
+                  cursor: 'not-allowed',
+                  filter: 'blur(4px)',
+                  userSelect: 'none'
+                }}
+                readOnly
+              />
+              <p className="help-text" style={{ color: '#6c757d', marginTop: '8px', fontSize: '0.875rem' }}>
+                💡 Salary is hidden for privacy. Toggle visibility in Dashboard to edit.
+              </p>
+            </div>
+          )}
 
           {/* Annual Vacation Days */}
           <div className="form-group">

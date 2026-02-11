@@ -1,11 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { useAuth } from "../context/AuthContext";
 import OfflineIndicator from "./OfflineIndicator";
+import LogoutModal from "./LogoutModal";
 
 function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
   const { theme, setTheme } = useTimeTracker();
   const { currentUser, logout } = useAuth();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  const { employee } = useTimeTracker();
 
   const toggleTheme = () => {
     const newTheme = theme === "dark" ? "light" : "dark";
@@ -20,9 +24,16 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
   };
 
   const handleLogout = () => {
-    if (window.confirm('Are you sure you want to logout?')) {
-      logout();
-    }
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = () => {
+    logout();
+    setShowLogoutModal(false);
+  };
+
+  const cancelLogout = () => {
+    setShowLogoutModal(false);
   };
 
   return (
@@ -44,7 +55,7 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
           </button>
           {currentUser && (
             <div className="user-info">
-              <span className="username-display">👤 {currentUser.username}</span>
+              <span className="username-display">👤 {employee.name}</span>
               <button
                 className="logout-btn"
                 onClick={handleLogout}
@@ -56,6 +67,12 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
           )}
         </div>
       </div>
+      
+      <LogoutModal
+        isOpen={showLogoutModal}
+        onClose={cancelLogout}
+        onConfirm={confirmLogout}
+      />
       <nav className="tab-navigation">
         <button
           className={`tab-btn ${currentView === "dashboard" ? "active" : ""}`}

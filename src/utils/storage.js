@@ -1,11 +1,17 @@
+import { setEncryptedItem, getEncryptedItem, removeEncryptedItem, isSensitiveField } from './encryption.js';
+
 /**
- * Save data to localStorage
+ * Save data to localStorage (with encryption for sensitive data)
  */
-export function saveToStorage(key, data) {
+export function saveToStorage(key, data, username = null) {
   try {
-    const jsonData = JSON.stringify(data);
-    localStorage.setItem(key, jsonData);
-    return true;
+    if (isSensitiveField(key) && username) {
+      return setEncryptedItem(key, data, username);
+    } else {
+      const jsonData = JSON.stringify(data);
+      localStorage.setItem(key, jsonData);
+      return true;
+    }
   } catch (error) {
     console.error('Error saving to storage:', error);
     return false;
@@ -13,13 +19,17 @@ export function saveToStorage(key, data) {
 }
 
 /**
- * Load data from localStorage
+ * Load data from localStorage (with decryption for sensitive data)
  */
-export function loadFromStorage(key) {
+export function loadFromStorage(key, username = null) {
   try {
-    const jsonData = localStorage.getItem(key);
-    if (!jsonData) return null;
-    return JSON.parse(jsonData);
+    if (isSensitiveField(key) && username) {
+      return getEncryptedItem(key, username);
+    } else {
+      const jsonData = localStorage.getItem(key);
+      if (!jsonData) return null;
+      return JSON.parse(jsonData);
+    }
   } catch (error) {
     console.error('Error loading from storage:', error);
     return null;
@@ -31,7 +41,7 @@ export function loadFromStorage(key) {
  */
 export function removeFromStorage(key) {
   try {
-    localStorage.removeItem(key);
+    removeEncryptedItem(key);
     return true;
   } catch (error) {
     console.error('Error removing from storage:', error);
