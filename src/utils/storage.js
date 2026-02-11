@@ -54,7 +54,7 @@ export function removeFromStorage(key) {
  */
 export function clearAllStorage() {
   try {
-    const keys = ['timeRecords', 'appConfig', 'currentPeriod'];
+    const keys = ['timeEntries', 'appConfig', 'currentPeriod'];
     keys.forEach(key => localStorage.removeItem(key));
     return true;
   } catch (error) {

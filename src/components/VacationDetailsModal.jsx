@@ -60,7 +60,7 @@ function VacationDetailsModal({ type, onClose }) {
   };
 
   return (
-    <ModalShell onClose={onClose}>
+    <ModalShell onClose={onClose} closeOnOverlay={false}>
       <h2>{getTitle()}</h2>
       <p>{getDescription()}</p>
       

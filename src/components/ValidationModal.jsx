@@ -25,7 +25,8 @@ const ValidationModal = ({ isOpen, onClose, title, message, type = 'warning' }) 
   return (
     <ModalShell 
       isOpen={isOpen} 
-      onClose={onClose} 
+      onClose={onClose}
+      closeOnOverlay={false} 
       contentClassName={getModalClass()}
     >
       <div className="validation-modal-content">

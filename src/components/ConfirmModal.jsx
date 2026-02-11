@@ -26,7 +26,7 @@ function ConfirmModal({
   };
 
   return (
-    <ModalShell onClose={onCancel} contentClassName="confirm-modal">
+    <ModalShell onClose={onCancel} closeOnOverlay={false} contentClassName="confirm-modal">
       {/* Icon and Title Container */}
       <div className="confirm-header">
         <div className={`confirm-icon confirm-icon-${type}`}>

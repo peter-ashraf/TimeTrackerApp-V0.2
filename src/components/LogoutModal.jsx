@@ -5,7 +5,7 @@ const LogoutModal = ({ isOpen, onClose, onConfirm }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="logout-modal-overlay" onClick={onClose}>
+    <div className="logout-modal-overlay">
       <div className="logout-modal" onClick={(e) => e.stopPropagation()}>
         <div className="logout-modal-header">
           <div className="logout-icon">🚪</div>

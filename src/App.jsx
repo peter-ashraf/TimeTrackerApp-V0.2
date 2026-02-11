@@ -184,36 +184,32 @@ function App() {
     }
   }, [swipeDirection, isMobile]);
 
-  const handleTouchEnd = useCallback(() => {
-    if (!isMobile()) return;
-    
-    console.log('Touch End - Resetting all swipe state');
-    
-    // Clear any existing timeout
-    if (swipeTimeoutRef.current) {
-      clearTimeout(swipeTimeoutRef.current);
-      swipeTimeoutRef.current = null;
-    }
-
-    // Handle navigation if it was a horizontal swipe
-    if (swipeDirection === 'horizontal') {
-      const threshold = 70;
-      if (Math.abs(swipeOffset) > threshold) {
-        if (swipeOffset > threshold) {
-          console.log('Navigating right');
-          handleViewChange(getNextView('right'));
-        } else if (swipeOffset < -threshold) {
-          console.log('Navigating left');
-          handleViewChange(getNextView('left'));
-        }
+  const handleTouchEnd = useEffect(() => {
+    const handleResize = () => {
+      console.log('Resize - Resetting swipe state');
+      
+      // IMPORTANT: Don't reset authentication during resize
+      // Only reset UI-related state, not authentication state
+      setIsSwiping(false);
+      setSwipeOffset(0);
+      setSwipeDirection(null);
+      
+      // Clear any existing timeout
+      if (swipeTimeoutRef.current) {
+        clearTimeout(swipeTimeoutRef.current);
+        swipeTimeoutRef.current = null;
       }
     }
     
-    // ALWAYS reset all swipe state immediately
-    setIsSwiping(false);
-    setSwipeOffset(0);
-    setSwipeDirection(null);
-  }, [isMobile, swipeDirection, swipeOffset, getNextView, handleViewChange]);
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      // Clear timeout on cleanup
+      if (swipeTimeoutRef.current) {
+        clearTimeout(swipeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Refresh data function for pull-to-refresh
   const refreshData = useCallback(async () => {
@@ -304,27 +300,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const handleResize = () => {
-      console.log('Resize - Resetting swipe state');
-      setIsSwiping(false);
-      setSwipeOffset(0);
-      setSwipeDirection(null);
-      if (swipeTimeoutRef.current) {
-        clearTimeout(swipeTimeoutRef.current);
-        swipeTimeoutRef.current = null;
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      // Clear timeout on cleanup
-      if (swipeTimeoutRef.current) {
-        clearTimeout(swipeTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     const handleBeforeUnload = (e) => {
       const today = new Date().toISOString().split('T')[0];
       const todayEntry = entries.find(e => e.date === today);
@@ -339,7 +314,7 @@ function App() {
         }
       }
     };
-
+    
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);

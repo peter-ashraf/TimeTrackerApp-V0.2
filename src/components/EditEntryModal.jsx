@@ -172,7 +172,7 @@ function EditEntryModal({ entry, onClose }) {
   };
 
   return (
-    <ModalShell onClose={onClose} contentClassName="edit-entry-modal">
+    <ModalShell onClose={onClose} contentClassName="edit-entry-modal" closeOnOverlay={false}>
       <h2>✏️ Edit Entry - {entry.date}</h2>
       <div className="modal-body">
           <div className="form-group">

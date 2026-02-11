@@ -49,7 +49,7 @@ function AddDayModal({ onClose }) {
   };
 
   return (
-    <ModalShell onClose={onClose}>
+    <ModalShell onClose={onClose} closeOnOverlay={false}>
       <h2>Add Special Day</h2>
       <div className="modal-body">
         <div className="form-group">

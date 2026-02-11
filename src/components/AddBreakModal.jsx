@@ -55,7 +55,7 @@ function AddBreakModal({ onClose }) {
   };
 
   return (
-    <ModalShell onClose={onClose}>
+    <ModalShell onClose={onClose} closeOnOverlay={false}>
       <h2>Add Break</h2>
       <div className="modal-body">
         <div className="form-group">

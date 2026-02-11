@@ -1071,7 +1071,7 @@ function ExportModal({ onClose }) {
 
 
   return (
-    <ModalShell onClose={onClose} contentClassName="export-modal">
+    <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="export-modal">
       <h3>📤 Enhanced Export Timesheet Data</h3>
       <p className="settings-description">
         Export your timesheet data to Excel, PDF reports, or send via email with advanced formatting options.

@@ -696,7 +696,7 @@ function ImportModal({ onClose }) {
   // ===== RENDER =====
   
   return (
-    <ModalShell onClose={onClose} contentClassName="import-modal">
+    <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="import-modal">
       <h3>Import Timesheet Data</h3>
         
         {/* Step Indicator */}

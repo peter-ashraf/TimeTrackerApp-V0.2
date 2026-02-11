@@ -42,7 +42,7 @@ function ViewHoursModal({ onClose }) {
   const overtime = totalHours - expectedHours;
 
   return (
-    <ModalShell onClose={onClose}>
+    <ModalShell onClose={onClose} closeOnOverlay={false}>
       <h2>Hours Summary - {currentPeriod?.label || 'Current Period'}</h2>
       <div className="modal-body">
         <div className="hours-summary">

@@ -939,7 +939,7 @@ function Settings() {
 
         {/* Add Period Modal */}
         {showAddPeriod && (
-          <ModalShell onClose={() => setShowAddPeriod(false)}>
+          <ModalShell onClose={() => setShowAddPeriod(false)} closeOnOverlay={false}>
             <form onSubmit={handleAddPeriod}>
               <h3>{editingPeriodId ? 'Edit Pay Period' : 'Add New Pay Period'}</h3>
               <p className="settings-description">
