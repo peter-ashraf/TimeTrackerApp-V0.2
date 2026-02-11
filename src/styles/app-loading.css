@@ -1,0 +1,290 @@
+.app-loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  z-index: 9999;
+  overflow: hidden;
+}
+
+.app-loading::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  animation: float 20s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.loading-container {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  color: white;
+}
+
+.loading-content {
+  animation: fadeInScale 0.8s ease-out;
+}
+
+.app-logo {
+  margin-bottom: 3rem;
+  animation: bounceIn 1s ease-out;
+}
+
+.logo-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.app-logo h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.loading-animation {
+  margin-bottom: 3rem;
+}
+
+.loading-spinner {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 2rem;
+}
+
+.spinner-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 3px solid transparent;
+  border-radius: 50%;
+  animation: spin 2s linear infinite;
+}
+
+.spinner-ring:nth-child(1) {
+  border-top-color: #ffffff;
+  animation-delay: 0s;
+}
+
+.spinner-ring:nth-child(2) {
+  border-right-color: #ffffff;
+  animation-delay: 0.3s;
+  animation-direction: reverse;
+}
+
+.spinner-ring:nth-child(3) {
+  border-bottom-color: #ffffff;
+  animation-delay: 0.6s;
+}
+
+.loading-text h2 {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.5rem;
+  font-weight: 300;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.loading-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+.loading-step {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  opacity: 0.5;
+  transition: all 0.3s ease;
+}
+
+.loading-step.active {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateX(5px);
+}
+
+.step-icon {
+  font-size: 1.2rem;
+  width: 24px;
+  text-align: center;
+}
+
+.step-text {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.loading-progress {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffffff, #f0f0f0);
+  border-radius: 2px;
+  animation: progressAnimation 2s ease-out forwards;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.progress-text {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.8;
+  font-style: italic;
+}
+
+/* Animations */
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) rotate(-10deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1) rotate(5deg);
+  }
+  70% {
+    transform: scale(0.95) rotate(-2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(180deg);
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes progressAnimation {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+/* Step animations */
+.loading-step:nth-child(1) {
+  animation: stepActivate 2s ease-in-out infinite;
+}
+
+.loading-step:nth-child(2) {
+  animation: stepActivate 2s ease-in-out 0.5s infinite;
+}
+
+.loading-step:nth-child(3) {
+  animation: stepActivate 2s ease-in-out 1s infinite;
+}
+
+.loading-step:nth-child(4) {
+  animation: stepActivate 2s ease-in-out 1.5s infinite;
+}
+
+@keyframes stepActivate {
+  0%, 40% {
+    opacity: 0.5;
+    transform: translateX(0);
+  }
+  10%, 30% {
+    opacity: 1;
+    transform: translateX(5px);
+  }
+  100% {
+    opacity: 0.5;
+    transform: translateX(0);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  .app-logo h1 {
+    font-size: 2rem;
+  }
+  
+  .logo-icon {
+    font-size: 3rem;
+  }
+  
+  .loading-spinner {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .loading-text h2 {
+    font-size: 1.2rem;
+  }
+  
+  .loading-steps {
+    max-width: 250px;
+  }
+  
+  .loading-progress {
+    max-width: 300px;
+  }
+}

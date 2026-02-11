@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import '../styles/login-screen.css';
 
 const LoginScreen = () => {
   const { login, register, isLoading } = useAuth();
+  const loginButtonRef = useRef(null);
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [formData, setFormData] = useState({
     username: '',
@@ -13,10 +14,13 @@ const LoginScreen = () => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showError, setShowError] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
+  const [errorKey, setErrorKey] = useState(0);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    setInputFocused(true);
     // Clear error for this field when user starts typing
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
@@ -67,15 +71,20 @@ const LoginScreen = () => {
         setFormData({ username: formData.username, password: '', confirmPassword: '' });
       }
     } catch (error) {
+      // Force animation on every error by incrementing key
+      setErrorKey(prev => prev + 1);
       setErrors({ general: error.message });
       setShowError(true);
-      
-      // Auto-hide error after 5 seconds
-      setTimeout(() => {
-        setShowError(false);
-      }, 5000);
     } finally {
       setIsSubmitting(false);
+      // Force button blur immediately using ref
+      if (loginButtonRef.current) {
+        loginButtonRef.current.blur();
+      }
+      // Also clear any document focus
+      if (document.activeElement) {
+        document.activeElement.blur();
+      }
     }
   };
 
@@ -83,6 +92,9 @@ const LoginScreen = () => {
     setIsLoginMode(!isLoginMode);
     setErrors({});
     setFormData({ username: '', password: '', confirmPassword: '' });
+    setShowError(false); // Hide error when switching modes
+    setInputFocused(false);
+    setErrorKey(0); // Reset error key when switching modes
   };
 
   if (isLoading) {
@@ -108,8 +120,11 @@ const LoginScreen = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
-          {errors.general && showError && (
-            <div className={`error-message ${showError ? 'show' : ''}`}>
+          {errors.general && (
+            <div 
+              className={`error-message show animate`}
+              key={errorKey}
+            >
               <div className="error-content">
                 <div className="error-icon">⚠️</div>
                 <div className="error-text">
@@ -177,6 +192,7 @@ const LoginScreen = () => {
           )}
 
           <button
+            ref={loginButtonRef}
             type="submit"
             className="btn btn-primary login-btn"
             disabled={isSubmitting}

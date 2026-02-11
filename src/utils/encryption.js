@@ -135,10 +135,8 @@ export function decryptData(encryptedData, key) {
       return decryptedString;
     }
   } catch (error) {
-    console.error('Error decrypting data:', error);
-    // Return the original encrypted data if decryption fails
-    // This prevents data loss if the key changes
-    return encryptedData;
+    // Silently throw error to be caught by getEncryptedItem
+    throw new Error('Malformed UTF-8 data');
   }
 }
 
@@ -180,7 +178,13 @@ export function getEncryptedItem(key, username) {
         return null;
       }
       const encryptionKey = generateEncryptionKey(username);
-      return decryptData(data, encryptionKey);
+      try {
+        return decryptData(data, encryptionKey);
+      } catch (decryptError) {
+        // Silently handle decryption errors - don't even log to console to avoid noise
+        // This prevents corrupted data from breaking the login flow
+        return null;
+      }
     } else {
       // Return non-sensitive data as-is, try to parse JSON
       try {
@@ -190,7 +194,7 @@ export function getEncryptedItem(key, username) {
       }
     }
   } catch (error) {
-    console.error('Error getting encrypted item:', error);
+    // Silently handle all errors
     return null;
   }
 }

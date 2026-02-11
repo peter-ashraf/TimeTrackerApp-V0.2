@@ -1,7 +1,2 @@
 /* Import the complete old CSS */
 @import url('/css/styles.css');
-
-/* Only add React-specific overrides */
-.app {
-  min-height: 100vh;
-}

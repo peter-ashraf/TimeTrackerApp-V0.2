@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import CryptoJS from 'crypto-js';
-import { setEncryptedItem, getEncryptedItem, removeEncryptedItem, needsMigration, migrateToEncrypted, generateEncryptionKey, decryptData } from '../utils/encryption';
+import { setEncryptedItem, getEncryptedItem, removeEncryptedItem, needsMigration, migrateToEncrypted, generateEncryptionKey } from '../utils/encryption';
 
 const AuthContext = createContext();
 
@@ -16,6 +16,7 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAppLoading, setIsAppLoading] = useState(false);
 
   // Password encryption
   const hashPassword = (password) => {
@@ -65,8 +66,7 @@ export const AuthProvider = ({ children }) => {
                 // Try each potential username
                 for (const username of potentialUsernames) {
                   try {
-                    const key = generateEncryptionKey(username);
-                    const decrypted = decryptData(rawData, key);
+                    const decrypted = getEncryptedItem('currentUser', username);
                     if (decrypted && typeof decrypted === 'object' && decrypted.username) {
                       console.log(`✅ Successfully decrypted currentUser for user: ${username}`);
                       savedUser = decrypted;
@@ -85,8 +85,7 @@ export const AuthProvider = ({ children }) => {
                 // Try each username to decrypt currentUser
                 for (const username of usernames) {
                   try {
-                    const key = generateEncryptionKey(username);
-                    const decrypted = decryptData(rawData, key);
+                    const decrypted = getEncryptedItem('currentUser', username);
                     if (decrypted && typeof decrypted === 'object' && decrypted.username) {
                       console.log(`✅ Successfully decrypted currentUser for user: ${username}`);
                       savedUser = decrypted;
@@ -248,9 +247,7 @@ export const AuthProvider = ({ children }) => {
         if (usersRaw.startsWith('encrypted:')) {
           // Users data is encrypted, try to decrypt with the new username
           try {
-            const key = generateEncryptionKey(username);
-            const decrypted = decryptData(usersRaw, key);
-            users = decrypted || {};
+            users = getEncryptedItem('users', username) || {};
           } catch (decryptError) {
             // If that fails, try to find any existing user that can decrypt it
             console.log('🔐 Trying to decrypt users data for registration...');
@@ -269,10 +266,8 @@ export const AuthProvider = ({ children }) => {
             
             for (const potentialUsername of potentialUsernames) {
               try {
-                const key = generateEncryptionKey(potentialUsername);
-                const decrypted = decryptData(usersRaw, key);
-                if (decrypted && typeof decrypted === 'object') {
-                  users = decrypted;
+                users = getEncryptedItem('users', potentialUsername) || {};
+                if (users && typeof users === 'object' && Object.keys(users).length > 0) {
                   console.log(`✅ Successfully decrypted users data with username: ${potentialUsername}`);
                   break;
                 }
@@ -333,9 +328,7 @@ export const AuthProvider = ({ children }) => {
           // Users data is encrypted, we need to try to decrypt it
           // Since we don't have a master username, we'll try the login username first
           try {
-            const key = generateEncryptionKey(username);
-            const decrypted = decryptData(usersRaw, key);
-            users = decrypted || {};
+            users = getEncryptedItem('users', username) || {};
           } catch (decryptError) {
             // If that fails, try to find any user that can decrypt it
             console.log('🔐 Trying to decrypt users data with available keys...');
@@ -356,10 +349,8 @@ export const AuthProvider = ({ children }) => {
             // Try each potential username
             for (const potentialUsername of potentialUsernames) {
               try {
-                const key = generateEncryptionKey(potentialUsername);
-                const decrypted = decryptData(usersRaw, key);
-                if (decrypted && typeof decrypted === 'object') {
-                  users = decrypted;
+                users = getEncryptedItem('users', potentialUsername) || {};
+                if (users && typeof users === 'object' && Object.keys(users).length > 0) {
                   console.log(`✅ Successfully decrypted users data with username: ${potentialUsername}`);
                   break;
                 }
@@ -396,6 +387,15 @@ export const AuthProvider = ({ children }) => {
     setEncryptedItem('currentUser', userData, username);
     
     console.log(`✅ User logged in: ${username}`);
+    
+    // Trigger app loading animation
+    setIsAppLoading(true);
+    
+    // Simulate app loading data
+    setTimeout(() => {
+      setIsAppLoading(false);
+    }, 2000); // 2 seconds loading animation
+    
     return true;
   };
 
@@ -514,6 +514,7 @@ export const AuthProvider = ({ children }) => {
     currentUser,
     isAuthenticated,
     isLoading,
+    isAppLoading,
     register,
     login,
     logout,
