@@ -12,12 +12,12 @@
   --color-charcoal-700: rgba(31, 33, 33, 1);
   --color-charcoal-800: rgba(38, 40, 40, 1);
   --color-slate-900: rgba(19, 52, 59, 1);
-  --color-teal-300: rgba(50, 184, 198, 1);
-  --color-teal-400: rgba(45, 166, 178, 1);
-  --color-teal-500: rgba(33, 128, 141, 1);
-  --color-teal-600: rgba(29, 116, 128, 1);
-  --color-teal-700: rgba(26, 104, 115, 1);
-  --color-teal-800: rgba(41, 150, 161, 1);
+  --color-teal-300: rgba(6, 182, 212, 1);
+  --color-teal-400: rgba(8, 145, 178, 1);
+  --color-teal-500: rgba(14, 165, 233, 1);
+  --color-teal-600: rgba(6, 95, 70, 1);
+  --color-teal-700: rgba(5, 150, 105, 1);
+  --color-teal-800: rgba(20, 184, 166, 1);
   --color-red-400: rgba(255, 84, 89, 1);
   --color-red-500: rgba(192, 21, 47, 1);
   --color-orange-400: rgba(230, 129, 97, 1);
@@ -25,7 +25,7 @@
 
   /* RGB versions for opacity control */
   --color-brown-600-rgb: 94, 82, 64;
-  --color-teal-500-rgb: 33, 128, 141;
+  --color-teal-500-rgb: 14, 165, 233;
   --color-slate-900-rgb: 19, 52, 59;
   --color-slate-500-rgb: 98, 108, 113;
   --color-red-500-rgb: 192, 21, 47;
@@ -171,7 +171,7 @@
 html[data-theme="light"] {
   /* Your exact light mode colors */
   --color-gray-400-rgb: 119, 124, 124;
-  --color-teal-500-rgb: 33, 128, 141;
+  --color-teal-500-rgb: 14, 165, 233;
   --color-slate-900-rgb: 19, 52, 59;
 
   /* Your exact light backgrounds */
@@ -212,7 +212,7 @@ html[data-theme="light"] {
 html[data-theme="dark"] {
   /* Your exact dark mode colors */
   --color-gray-400-rgb: 119, 124, 124;
-  --color-teal-300-rgb: 50, 184, 198;
+  --color-teal-300-rgb: 6, 182, 212;
   --color-gray-300-rgb: 167, 169, 169;
   --color-gray-200-rgb: 245, 245, 245;
 
@@ -319,7 +319,7 @@ body,
   padding: 12px 24px !important;
   gap: 24px !important;
   padding-bottom: 0 !important;
-  position: sticky;
+  position: fixed !important;
   top: 0;
   z-index: 100;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -674,7 +674,6 @@ body {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  height: 100vh;
   width: 100%;
   padding: 12px;
   transition: transform 0.1s ease-out;
@@ -984,7 +983,7 @@ select {
   :root {
     /* RGB versions for opacity control (Dark Mode) */
     --color-gray-400-rgb: 119, 124, 124;
-    --color-teal-300-rgb: 50, 184, 198;
+    --color-teal-300-rgb: 6, 182, 212;
     --color-gray-300-rgb: 167, 169, 169;
     --color-gray-200-rgb: 245, 245, 245;
 
@@ -1530,7 +1529,7 @@ body[data-theme="dark"] {
 body[data-theme="light"] {
   /* RGB versions for opacity control (light mode) */
   --color-brown-600-rgb: 94, 82, 64;
-  --color-teal-500-rgb: 33, 128, 141;
+  --color-teal-500-rgb: 14, 165, 233;
   --color-slate-900-rgb: 19, 52, 59;
 
   /* Semantic Color Tokens (Light Mode) */
@@ -2190,12 +2189,12 @@ body.salary-blur .overtime-money-amount {
 }
 
 .btn-primary {
-  background: var(--color-primary);
-  color: var(--color-btn-primary-text);
+  background: var(--color-primary) !important;
+  color: var(--color-btn-primary-text) !important;
 }
 
 .btn-primary:hover {
-  background: var(--color-primary-hover);
+  background: var(--color-primary-hover) !important;
   box-shadow: var(--shadow-md);
 }
 
