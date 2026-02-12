@@ -1,7 +1,31 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import '../styles/logout-modal.css';
 
 const LogoutModal = ({ isOpen, onClose, onConfirm }) => {
+  useEffect(() => {
+    if (isOpen) {
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.top = '0';
+    } else {
+      // Restore body scroll when modal is closed
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (

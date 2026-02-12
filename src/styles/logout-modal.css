@@ -1,16 +1,22 @@
+/* Ensure logout modal is not affected by parent container positioning */
 .logout-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 10000;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  z-index: 99999 !important;
   animation: fadeIn 0.3s ease-out;
+  overflow: hidden !important;
+  /* Ensure it's not affected by parent transforms */
+  transform: none !important;
+  /* Ensure it's positioned relative to viewport */
+  contain: layout style paint !important;
 }
 
 .logout-modal {
@@ -22,6 +28,10 @@
   width: 90%;
   animation: slideInUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   transform-origin: center;
+  position: relative !important;
+  z-index: 100000 !important;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .logout-modal-header {

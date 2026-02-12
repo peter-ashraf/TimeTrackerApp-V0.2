@@ -6,7 +6,7 @@ import '../styles/user-settings-modal.css';
 
 
 function UserSettingsModal({ isOpen, onClose }) {
-  const { currentUser, updateUsername, updatePassword } = useAuth();
+  const { currentUser, updateUsername, updatePassword, sessionTimeout, saveSessionSettings } = useAuth();
   const { setConfirmModal } = useTimeTracker();
   
   if (!isOpen) return null;
@@ -15,7 +15,8 @@ function UserSettingsModal({ isOpen, onClose }) {
     newUsername: '',
     currentPassword: '',
     newPassword: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    sessionTimeout: sessionTimeout
   });
   
   const [errors, setErrors] = useState({});
@@ -29,7 +30,8 @@ function UserSettingsModal({ isOpen, onClose }) {
       newUsername: '',
       currentPassword: '',
       newPassword: '',
-      confirmPassword: ''
+      confirmPassword: '',
+      sessionTimeout: sessionTimeout
     });
     setErrors({});
   };
@@ -130,6 +132,56 @@ function UserSettingsModal({ isOpen, onClose }) {
     return Object.keys(newErrors).length === 0;
   };
 
+  const validateSessionForm = () => {
+    const newErrors = {};
+    
+    const timeout = parseInt(formData.sessionTimeout);
+    if (isNaN(timeout) || timeout < 0) {
+      newErrors.sessionTimeout = 'Session timeout must be a positive number or 0';
+    } else if (timeout > 480) { // Max 8 hours
+      newErrors.sessionTimeout = 'Session timeout cannot exceed 480 minutes (8 hours)';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSessionSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateSessionForm()) return;
+    
+    const timeout = parseInt(formData.sessionTimeout);
+    const timeoutText = timeout === 0 ? 'never expire' : `expire after ${timeout} minute${timeout !== 1 ? 's' : ''}`;
+    
+    showConfirmationModal(
+      '⏱️ Confirm Session Settings',
+      `Are you sure you want to set your session to ${timeoutText}?\n\n${
+        timeout === 0 
+          ? 'You will stay logged in until you manually log out.' 
+          : 'You will be automatically logged out after the specified period of inactivity.'
+      }`,
+      async () => {
+        setIsSubmitting(true);
+        try {
+          await saveSessionSettings(timeout);
+          showSuccessModal(
+            '✅ Session Settings Updated!',
+            `Your session will now ${timeoutText}.\n\n${
+              timeout === 0 
+                ? 'You will stay logged in until you manually log out.' 
+                : 'Make sure to save your work before leaving your desk.'
+            }`
+          );
+        } catch (error) {
+          setErrors({ submit: error.message });
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+    );
+  };
+
   const handleUsernameSubmit = async (e) => {
     e.preventDefault();
     
@@ -184,7 +236,7 @@ function UserSettingsModal({ isOpen, onClose }) {
     <ModalShell onClose={onClose} contentClassName="user-settings-modal" closeOnOverlay={!isSubmitting}>
       <div className="user-settings-header">
         <div className="user-settings-icon">⚙️ User Settings</div>
-                <p className="user-settings-subtitle">Manage your account credentials</p>
+                <p className="user-settings-subtitle">Manage your account credentials and session</p>
       </div>
 
       <div className="user-settings-tabs">
@@ -201,6 +253,13 @@ function UserSettingsModal({ isOpen, onClose }) {
         >
           <span className="tab-icon">🔒</span>
           <span className="tab-label">Password</span>
+        </button>
+        <button
+          className={`tab-btn ${activeTab === 'session' ? 'active' : ''}`}
+          onClick={() => handleTabSwitch('session')}
+        >
+          <span className="tab-icon">⏱️</span>
+          <span className="tab-label">Session</span>
         </button>
       </div>
 
@@ -288,6 +347,94 @@ function UserSettingsModal({ isOpen, onClose }) {
                   <>
                     <span className="btn-icon">🔄</span>
                     Update Username
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {activeTab === 'session' && (
+          <form onSubmit={handleSessionSubmit} className="user-settings-form">
+            <div className="current-info-card">
+              <div className="info-label">Current Session Timeout</div>
+              <div className="info-value">
+                {sessionTimeout === 0 ? 'Never expires' : `${sessionTimeout} minute${sessionTimeout !== 1 ? 's' : ''}`}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                <span className="label-icon">⏱️</span>
+                Session Timeout (minutes)
+              </label>
+              <select
+                name="sessionTimeout"
+                className={`form-control ${errors.sessionTimeout ? 'error' : ''}`}
+                value={formData.sessionTimeout}
+                onChange={handleInputChange}
+                disabled={isSubmitting}
+              >
+                <option value="0">Never expire (stay logged in)</option>
+                <option value="5">5 minutes</option>
+                <option value="10">10 minutes</option>
+                <option value="15">15 minutes</option>
+                <option value="30">30 minutes (default)</option>
+                <option value="60">1 hour</option>
+                <option value="120">2 hours</option>
+                <option value="240">4 hours</option>
+                <option value="480">8 hours</option>
+              </select>
+              {errors.sessionTimeout && (
+                <div className="error-feedback">
+                  <span className="error-icon">⚠️</span>
+                  {errors.sessionTimeout}
+                </div>
+              )}
+            </div>
+
+            <div className="info-card">
+              <div className="info-title">
+                <span className="info-icon">ℹ️</span>
+                About Session Management
+              </div>
+              <div className="info-content">
+                <p><strong>Session timeout</strong> determines how long you stay logged in after your last activity.</p>
+                <ul>
+                  <li><strong>Activity includes:</strong> Clicking, typing, scrolling, or touching the screen</li>
+                  <li><strong>When expired:</strong> You'll be automatically logged out and need to sign in again</li>
+                  <li><strong>Never expire:</strong> You stay logged in until you manually log out</li>
+                  <li><strong>Tab refresh:</strong> Your session persists across browser refreshes</li>
+                </ul>
+                <p className="security-note">
+                  <strong>Security Tip:</strong> For public computers, consider using a shorter timeout period.
+                </p>
+              </div>
+            </div>
+
+            <div className="form-actions">
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={onClose}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                className="btn btn-primary"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="spinner"></span>
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <span className="btn-icon">⏱️</span>
+                    Update Session
                   </>
                 )}
               </button>

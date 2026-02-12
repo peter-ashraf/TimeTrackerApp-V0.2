@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import CryptoJS from 'crypto-js';
 import { setSimpleEncryptedItem, getSimpleEncryptedItem } from '../utils/simple-encryption';
 import { multiTabSync } from '../utils/multiTabSync';
@@ -18,10 +18,100 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isAppLoading, setIsAppLoading] = useState(false);
+  const [sessionTimeout, setSessionTimeout] = useState(30); // Default 30 minutes
+  const [lastActivity, setLastActivity] = useState(Date.now());
+  const [sessionTimer, setSessionTimer] = useState(null);
+  const lastActivityRef = useRef(lastActivity);
+  
+  // Update ref when lastActivity changes
+  useEffect(() => {
+    lastActivityRef.current = lastActivity;
+  }, [lastActivity]);
 
   // Password encryption
   const hashPassword = (password) => {
     return CryptoJS.SHA256(password).toString();
+  };
+
+  // Session management functions
+  const updateLastActivity = useCallback(() => {
+    const now = Date.now();
+    setLastActivity(now);
+    if (currentUser) {
+      localStorage.setItem(`lastActivity_${currentUser.username}`, now.toString());
+    }
+  }, [currentUser]);
+
+  const isSessionExpired = useCallback(() => {
+    if (!currentUser || sessionTimeout === 0) return false; // 0 means never expire
+    const now = Date.now();
+    const inactiveTime = now - lastActivity;
+    const maxInactiveTime = sessionTimeout * 60 * 1000; // Convert minutes to milliseconds
+    return inactiveTime > maxInactiveTime;
+  }, [currentUser, sessionTimeout, lastActivity]);
+
+  const clearSessionTimer = useCallback(() => {
+    if (sessionTimer) {
+      clearTimeout(sessionTimer);
+      setSessionTimer(null);
+    }
+  }, [sessionTimer]);
+
+  const startSessionTimer = useCallback(() => {
+    clearSessionTimer();
+    if (currentUser && sessionTimeout > 0) {
+      const timer = setTimeout(() => {
+        // Check session expiration directly here and logout inline
+        if (!currentUser || sessionTimeout === 0) return;
+        const now = Date.now();
+        const inactiveTime = now - lastActivityRef.current;
+        const maxInactiveTime = sessionTimeout * 60 * 1000;
+        if (inactiveTime > maxInactiveTime) {
+          console.log('Session expired, logging out user');
+          const username = currentUser?.username;
+          clearSessionTimer();
+          setCurrentUser(null);
+          setIsAuthenticated(false);
+          localStorage.removeItem('currentUser');
+          if (username) {
+            localStorage.removeItem(`lastActivity_${username}`);
+            multiTabSync.notifyUserLogout(username);
+          }
+        }
+      }, sessionTimeout * 60 * 1000);
+      setSessionTimer(timer);
+    }
+  }, [clearSessionTimer, currentUser, sessionTimeout]);
+
+  const loadSessionSettings = (username) => {
+    if (!username) return;
+    
+    try {
+      const settings = getSimpleEncryptedItem(`sessionSettings_${username}`, username);
+      if (settings && settings.timeout !== undefined) {
+        setSessionTimeout(settings.timeout);
+      }
+      
+      const activity = localStorage.getItem(`lastActivity_${username}`);
+      if (activity) {
+        setLastActivity(parseInt(activity, 10));
+      }
+    } catch (error) {
+      console.error('Error loading session settings:', error);
+    }
+  };
+
+  const saveSessionSettings = (timeout) => {
+    if (!currentUser) return;
+    
+    try {
+      const settings = { timeout };
+      setSimpleEncryptedItem(`sessionSettings_${currentUser.username}`, settings, currentUser.username);
+      setSessionTimeout(timeout);
+      // Timer will be restarted by the useEffect when sessionTimeout changes
+    } catch (error) {
+      console.error('Error saving session settings:', error);
+    }
   };
 
   // Initialize auth state on mount
@@ -31,6 +121,7 @@ export const AuthProvider = ({ children }) => {
     
     try {
       const rawData = localStorage.getItem('currentUser');
+      
       if (!rawData) {
         console.log('No user data found in localStorage');
         setIsLoading(false);
@@ -40,43 +131,61 @@ export const AuthProvider = ({ children }) => {
       if (rawData.startsWith('encrypted:')) {
         console.log('Found encrypted currentUser, attempting to decrypt with simple encryption...');
         
-        // Try simple decryption first
-        try {
-          // We need to extract username from localStorage to try decryption
-          const allKeys = Object.keys(localStorage);
-          const userKeys = allKeys.filter(key => key.includes('_') || key === 'users');
+        // Try simple decryption first - we need username but we don't have it yet
+        // Let's try to get it from existing session data
+        const allKeys = Object.keys(localStorage);
+        const sessionKeys = allKeys.filter(key => key.includes('lastActivity_'));
+        
+        if (sessionKeys.length > 0) {
+          // Extract username from lastActivity key
+          const activityKey = sessionKeys[0];
+          const username = activityKey.replace('lastActivity_', '');
           
-          if (userKeys.length > 0) {
-            // Try to extract username from the keys
-            let username = null;
-            
-            // Look for user-specific keys to determine the current user
-            for (const key of userKeys) {
-              if (key.includes('_') && key !== 'users') {
-                const parts = key.split('_');
-                if (parts.length >= 2) {
-                  username = parts[parts.length - 1];
-                  break;
+          try {
+            savedUser = getSimpleEncryptedItem('currentUser', username);
+            if (savedUser && savedUser.username) {
+              console.log(`✅ Successfully decrypted user: ${savedUser.username}`);
+            }
+          } catch (decryptError) {
+            console.log('❌ Decryption failed with username:', username);
+          }
+        }
+        
+        // If still no user, try all possible usernames from user data
+        if (!savedUser) {
+          try {
+            const usersData = localStorage.getItem('users');
+            if (usersData && usersData.startsWith('encrypted:')) {
+              // Try to find any user that can decrypt the data
+              const userKeys = allKeys.filter(key => key.includes('_') && !key.startsWith('__') && key !== 'users' && key !== 'currentUser');
+              const possibleUsernames = [...new Set(
+                userKeys.map(key => {
+                  const parts = key.split('_');
+                  return parts.length > 1 ? parts.slice(1).join('_') : null;
+                }).filter(Boolean)
+              )];
+              
+              for (const username of possibleUsernames) {
+                try {
+                  savedUser = getSimpleEncryptedItem('currentUser', username);
+                  if (savedUser && savedUser.username) {
+                    console.log(`✅ Successfully decrypted with username: ${username}`);
+                    break;
+                  }
+                } catch (error) {
+                  continue;
                 }
               }
             }
-            
-            if (username) {
-              const decryptedData = getSimpleEncryptedItem('currentUser', username);
-              if (decryptedData && decryptedData.username) {
-                savedUser = decryptedData;
-                console.log(`Successfully decrypted user: ${savedUser.username}`);
-              }
-            }
+          } catch (error) {
+            console.log('Failed to get users data');
           }
-        } catch (decryptError) {
-          console.log('Simple decryption failed, treating as fresh start');
         }
       } else {
         // Plain text data, parse it
         try {
           savedUser = JSON.parse(rawData);
-          console.log(`Loaded plain text user: ${savedUser.username}`);
+          console.log(`✅ Loaded plain text user: ${savedUser.username}`);
         } catch (parseError) {
           console.log('Failed to parse as plain text, treating as fresh start');
           savedUser = null;
@@ -88,12 +197,119 @@ export const AuthProvider = ({ children }) => {
     }
     
     if (savedUser) {
-      setCurrentUser(savedUser);
-      setIsAuthenticated(true);
+      // Get session settings synchronously FIRST
+      let timeout = 30; // default
+      let activity = null;
+      
+      try {
+        const settings = getSimpleEncryptedItem(`sessionSettings_${savedUser.username}`, savedUser.username);
+        if (settings && settings.timeout !== undefined) {
+          timeout = settings.timeout;
+        }
+        
+        activity = localStorage.getItem(`lastActivity_${savedUser.username}`);
+      } catch (error) {
+        console.error('Error loading session settings:', error);
+      }
+      
+      // Now check if session has expired
+      const now = Date.now();
+      const lastAct = activity ? parseInt(activity, 10) : now;
+      const inactiveTime = now - lastAct;
+      const maxInactiveTime = timeout * 60 * 1000;
+      
+      if (timeout > 0 && inactiveTime > maxInactiveTime) {
+        console.log('Session expired during initialization, clearing user');
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem(`lastActivity_${savedUser.username}`);
+        savedUser = null;
+      } else {
+        console.log(`✅ Session valid for user: ${savedUser.username}, timeout: ${timeout} minutes`);
+        // Set state after validation
+        setSessionTimeout(timeout);
+        if (activity) {
+          setLastActivity(parseInt(activity, 10));
+        }
+        setCurrentUser(savedUser);
+        setIsAuthenticated(true);
+      }
     }
     
     setIsLoading(false);
   }, []);
+
+  // Session management effect
+  useEffect(() => {
+    if (currentUser && isAuthenticated) {
+      // Check if session is expired on mount
+      const now = Date.now();
+      const inactiveTime = now - lastActivityRef.current;
+      const maxInactiveTime = sessionTimeout * 60 * 1000;
+      
+      if (sessionTimeout > 0 && inactiveTime > maxInactiveTime) {
+        console.log('Session expired on mount, logging out');
+        const username = currentUser?.username;
+        clearSessionTimer();
+        setCurrentUser(null);
+        setIsAuthenticated(false);
+        localStorage.removeItem('currentUser');
+        if (username) {
+          localStorage.removeItem(`lastActivity_${username}`);
+          multiTabSync.notifyUserLogout(username);
+        }
+        return;
+      }
+      
+      // Start session timer
+      startSessionTimer();
+      
+      // Set up activity monitoring
+      const handleActivity = () => {
+        const now = Date.now();
+        setLastActivity(now);
+        if (currentUser) {
+          localStorage.setItem(`lastActivity_${currentUser.username}`, now.toString());
+        }
+        startSessionTimer(); // Restart timer on activity
+      };
+      
+      // Monitor various user activities
+      const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+      events.forEach(event => {
+        document.addEventListener(event, handleActivity);
+      });
+      
+      // Check session expiration periodically
+      const checkInterval = setInterval(() => {
+        const now = Date.now();
+        const inactiveTime = now - lastActivityRef.current;
+        const maxInactiveTime = sessionTimeout * 60 * 1000;
+        if (sessionTimeout > 0 && inactiveTime > maxInactiveTime) {
+          console.log('Session expired during check, logging out');
+          const username = currentUser?.username;
+          clearSessionTimer();
+          setCurrentUser(null);
+          setIsAuthenticated(false);
+          localStorage.removeItem('currentUser');
+          if (username) {
+            localStorage.removeItem(`lastActivity_${username}`);
+            multiTabSync.notifyUserLogout(username);
+          }
+        }
+      }, 60000); // Check every minute
+      
+      return () => {
+        // Cleanup
+        clearSessionTimer();
+        events.forEach(event => {
+          document.removeEventListener(event, handleActivity);
+        });
+        clearInterval(checkInterval);
+      };
+    } else {
+      clearSessionTimer();
+    }
+  }, [currentUser, isAuthenticated, sessionTimeout]); // Removed lastActivity and function dependencies
 
   // Listen for multi-tab authentication events
   useEffect(() => {
@@ -360,6 +576,10 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(true);
     setSimpleEncryptedItem('currentUser', userData, username);
     
+    // Load session settings and update activity
+    loadSessionSettings(username);
+    updateLastActivity();
+    
     // Notify other tabs of login
     multiTabSync.notifyDataChange('user_login', userData, username);
     
@@ -377,36 +597,45 @@ export const AuthProvider = ({ children }) => {
   };
 
   // User logout
-  const logout = () => {
+  const logout = useCallback(() => {
     const username = currentUser?.username;
     console.log(`✅ User logged out: ${username}`);
+    
+    // Clear session timer and data
+    clearSessionTimer();
+    
     setCurrentUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('currentUser');
+    
+    // Clear session activity data
+    if (username) {
+      localStorage.removeItem(`lastActivity_${username}`);
+    }
     
     // Notify other tabs of logout
     if (username) {
       multiTabSync.notifyUserLogout(username);
     }
-  };
+  }, [currentUser, clearSessionTimer]);
 
   // Get user-specific data key
-  const getUserDataKey = (dataType) => {
+  const getUserDataKey = useCallback((dataType) => {
     return currentUser ? `${dataType}_${currentUser.username}` : dataType;
-  };
+  }, [currentUser]);
 
   // ✅ FIXED: Save user-specific data (handle both string and object)
-  const saveUserData = (dataType, data) => {
+  const saveUserData = useCallback((dataType, data) => {
     if (!currentUser) return;
     
     const key = getUserDataKey(dataType);
     
     // Use encryption for sensitive data
     setSimpleEncryptedItem(key, data, currentUser.username);
-  };
+  }, [currentUser, getUserDataKey]);
 
   // Get user-specific data
-  const getUserData = (dataType) => {
+  const getUserData = useCallback((dataType) => {
     if (!currentUser) {
       // Return default values based on data type
       switch(dataType) {
@@ -466,7 +695,7 @@ export const AuthProvider = ({ children }) => {
 
     // Try to return data as-is (already parsed by getSimpleEncryptedItem)
     return data;
-  };
+  }, [currentUser, getUserDataKey]);
 
   // Delete user account
   const deleteUser = (username) => {
@@ -619,6 +848,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     isLoading,
     isAppLoading,
+    sessionTimeout,
     register,
     login,
     logout,
@@ -627,7 +857,9 @@ export const AuthProvider = ({ children }) => {
     saveUserData,
     getUserDataKey,
     updateUsername,
-    updatePassword
+    updatePassword,
+    saveSessionSettings,
+    updateLastActivity
   };
 
   return (

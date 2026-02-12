@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Management Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Session Management Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Instructions</h2>
+        <ol>
+            <li>Open the TimeTracker App in the same browser</li>
+            <li>Log in with any user account</li>
+            <li>Go to User Settings → Session tab</li>
+            <li>Set session timeout to 1 minute for testing</li>
+            <li>Wait 1 minute without any activity</li>
+            <li>You should be automatically logged out</li>
+            <li>Log in again and refresh the page - you should stay logged in</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Results</h2>
+        <div id="results"></div>
+        <button onclick="testSessionStorage()">Test Session Storage</button>
+        <button onclick="testLocalStorage()">Test Local Storage</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Current Storage Status</h2>
+        <div id="storage-status"></div>
+        <button onclick="updateStorageStatus()">Update Status</button>
+    </div>
+
+    <script>
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            results.appendChild(div);
+        }
+
+        function testSessionStorage() {
+            try {
+                sessionStorage.setItem('test', 'value');
+                const value = sessionStorage.getItem('test');
+                if (value === 'value') {
+                    addResult('✅ Session Storage is working', 'success');
+                } else {
+                    addResult('❌ Session Storage failed', 'error');
+                }
+                sessionStorage.removeItem('test');
+            } catch (error) {
+                addResult(`❌ Session Storage error: ${error.message}`, 'error');
+            }
+        }
+
+        function testLocalStorage() {
+            try {
+                localStorage.setItem('test', 'value');
+                const value = localStorage.getItem('test');
+                if (value === 'value') {
+                    addResult('✅ Local Storage is working', 'success');
+                } else {
+                    addResult('❌ Local Storage failed', 'error');
+                }
+                localStorage.removeItem('test');
+            } catch (error) {
+                addResult(`❌ Local Storage error: ${error.message}`, 'error');
+            }
+        }
+
+        function updateStorageStatus() {
+            const status = document.getElementById('storage-status');
+            let html = '<h3>Local Storage:</h3><ul>';
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.includes('currentUser') || key.includes('sessionSettings') || key.includes('lastActivity')) {
+                    const value = localStorage.getItem(key);
+                    html += `<li><strong>${key}:</strong> ${value.substring(0, 50)}${value.length > 50 ? '...' : ''}</li>`;
+                }
+            }
+            html += '</ul>';
+            status.innerHTML = html;
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        // Auto-update storage status on load
+        updateStorageStatus();
+        addResult('Test page loaded. Ready to run session management tests.', 'info');
+    </script>
+</body>
+</html>
