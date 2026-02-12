@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { useOfflineQueue } from '../hooks/useOfflineQueue';
+import { backgroundSync } from '../utils/backgroundSync';
 import '../styles/offline-indicator.css';
 
 const OfflineIndicator = () => {
@@ -30,6 +31,15 @@ const OfflineIndicator = () => {
     setWasOnline(isOnline);
   }, [isOnline, wasOnline]);
 
+  // Handle force sync
+  const handleForceSync = async () => {
+    try {
+      await backgroundSync.forceSync();
+    } catch (error) {
+      console.error('Force sync failed:', error);
+    }
+  };
+
   const getConnectionIcon = () => {
     if (!isOnline) return '📴';
     if (isSlowConnection) return '🐢';
@@ -47,13 +57,19 @@ const OfflineIndicator = () => {
   const getConnectionClass = () => {
     if (!isOnline) return 'offline-status';
     if (isSlowConnection) return 'slow-connection-status';
+    if (isSyncing) return 'syncing-status';
     return 'online-status';
   };
 
   return (
     <>
-      {/* Header indicator */}
-      <div className={`offline-indicator ${getConnectionClass()}`}>
+      {/* Header indicator - Now clickable */}
+      <div 
+        className={`offline-indicator ${getConnectionClass()}`}
+        onClick={handleForceSync}
+        title="Click to force sync"
+        style={{ cursor: 'pointer' }}
+      >
         <span className="connection-icon">{getConnectionIcon()}</span>
         <span className="connection-text">{getConnectionText()}</span>
         {queuedRequests > 0 && (
@@ -78,7 +94,7 @@ const OfflineIndicator = () => {
             {queuedRequests > 0 && (
               <button 
                 className="sync-button" 
-                onClick={triggerSync}
+                onClick={handleForceSync}
                 disabled={!isOnline || isSyncing}
               >
                 {isSyncing ? 'Syncing...' : 'Sync Now'}
@@ -99,7 +115,7 @@ const OfflineIndicator = () => {
             </div>
             <button 
               className="sync-button" 
-              onClick={triggerSync}
+              onClick={handleForceSync}
               disabled={isSyncing}
             >
               {isSyncing ? 'Syncing...' : 'Sync'}

@@ -32,6 +32,13 @@
   color: #fb923c;
 }
 
+.offline-indicator.syncing-status {
+  background-color: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+  animation: pulse 1.5s infinite;
+}
+
 .connection-icon {
   font-size: 14px;
   line-height: 1;

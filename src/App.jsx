@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTimeTracker } from './context/TimeTrackerContext';
 import { useAuth } from './context/AuthContext';
+import { backgroundSync } from './utils/backgroundSync';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import Timesheet from './components/Timesheet';
@@ -30,7 +31,7 @@ function App() {
   const [isHidingScrollTop, setIsHidingScrollTop] = useState(false);
   const swipeTimeoutRef = useRef(null);
   const { lastSaved, lastRefreshed, entries, theme, setEntries, setLastRefreshed, setRefreshing } = useTimeTracker();
-  const { currentUser, isAuthenticated, isAppLoading } = useAuth();
+  const { currentUser, isAuthenticated, getUserData, isAppLoading } = useAuth();
   const [refreshing, setRefreshingState] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
@@ -211,7 +212,7 @@ function App() {
     };
   }, []);
 
-  // Refresh data function for pull-to-refresh
+  // Enhanced refresh data function with offline sync
   const refreshData = useCallback(async () => {
     if (!currentUser || !isAuthenticated) return;
     
@@ -219,26 +220,35 @@ function App() {
       // Set refresh flag to prevent save updates
       setRefreshing(true);
       
-      // Reload user data from storage
+      console.log('🔄 Starting data refresh with offline sync...');
+      
+      // Perform background sync first
+      await backgroundSync.forceSync();
+      
+      // Get sync status
+      const syncStatus = backgroundSync.getStatus();
+      console.log('📊 Sync status:', syncStatus);
+      
+      // Reload user data from storage using the same methods as initial load
       const loadedEmployee = {
-        name: loadFromStorage('fullName') || '',
-        salary: parseFloat(loadFromStorage('salary')) || 0
+        name: getUserData('fullName') || '',
+        salary: parseFloat(getUserData('salary')) || 0
       };
       
       const loadedLeaveSettings = {
-        annualVacation: parseFloat(loadFromStorage('annualVacation')) || 10,
-        sickDays: parseFloat(loadFromStorage('sickDays')) || 7
+        annualVacation: parseFloat(getUserData('annualVacation')) || 10,
+        sickDays: parseFloat(getUserData('sickDays')) || 7
       };
       
-      const loadedEntries = loadFromStorage('timeEntries') || [];
-      const loadedPeriods = loadFromStorage('payPeriods') || [{
+      const loadedEntries = getUserData('timeEntries') || [];
+      const loadedPeriods = getUserData('payPeriods') || [{
         id: 'period-default',
         label: '23 Jan - 20 Feb 2026',
         start: '2026-01-23',
         end: '2026-02-20'
       }];
       
-      const loadedCurrentPeriodId = loadFromStorage('currentPeriodId') || (loadedPeriods[0]?.id || 'period-default');
+      const loadedCurrentPeriodId = getUserData('currentPeriodId') || (loadedPeriods[0]?.id || 'period-default');
       
       // Update context with fresh data
       setEntries(loadedEntries);
@@ -246,20 +256,44 @@ function App() {
       // Set refresh timestamp for feedback
       setLastRefreshed(new Date().toISOString());
       
-      console.log('✅ Data refreshed successfully for user:', currentUser.username);
+      // Log comprehensive refresh results
+      console.log('✅ Data refreshed successfully:', {
+        user: currentUser.username,
+        isOnline: syncStatus.isOnline,
+        entriesLoaded: loadedEntries.length,
+        lastSyncTime: syncStatus.lastSyncTime,
+        queueStatus: syncStatus.queueStatus
+      });
       
-      return Promise.resolve();
+      return Promise.resolve({
+        success: true,
+        entriesCount: loadedEntries.length,
+        syncStatus,
+        isOnline: syncStatus.isOnline
+      });
+      
     } catch (error) {
       console.error('❌ Error refreshing data:', error);
-      throw error;
+      
+      // Return error information for UI feedback
+      return Promise.reject({
+        success: false,
+        error: error.message,
+        isOnline: navigator.onLine
+      });
     } finally {
       // Clear refresh flag
       setRefreshing(false);
     }
-  }, [currentUser, isAuthenticated, loadFromStorage, setEntries, setLastRefreshed, setRefreshing]);
+  }, [currentUser, isAuthenticated, getUserData, setEntries, setLastRefreshed, setRefreshing]);
 
   // ✅ ALL EFFECTS HERE
   useEffect(() => {
+    // Initialize background sync service
+    backgroundSync.init().catch(error => {
+      console.error('❌ Failed to initialize background sync:', error);
+    });
+    
     document.documentElement.setAttribute('data-theme', theme);
     
     const shouldNavigateToExport = localStorage.getItem('navigateToExport');

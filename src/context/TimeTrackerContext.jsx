@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import ConfirmModal from '../components/ConfirmModal';
 import BackupReminderModal from '../components/BackupReminderModal';
 import { useAuth } from './AuthContext';
+import { multiTabSync } from '../utils/multiTabSync';
 
 const TimeTrackerContext = createContext();
 
@@ -140,27 +141,42 @@ export const TimeTrackerProvider = ({ children }) => {
     if (!currentUser || !isContextReady) return;
     saveUserData('fullName', employee.name);
     saveUserData('salary', employee.salary);
+    
+    // Notify other tabs of data change
+    multiTabSync.notifyDataChange('employee', employee, currentUser.username);
   }, [employee, currentUser, saveUserData, isContextReady]);
   
   useEffect(() => {
     if (!currentUser || !isContextReady) return;
     saveUserData('annualVacation', leaveSettings.annualVacation);
     saveUserData('sickDays', leaveSettings.sickDays);
+    
+    // Notify other tabs of data change
+    multiTabSync.notifyDataChange('leaveSettings', leaveSettings, currentUser.username);
   }, [leaveSettings, currentUser, saveUserData, isContextReady]);
   
   useEffect(() => {
     if (!currentUser || !isContextReady || isRefreshingRef.current) return;
     saveUserData('timeEntries', entries);
+    
+    // Notify other tabs of data change
+    multiTabSync.notifyDataChange('timeEntries', entries, currentUser.username);
   }, [entries, currentUser, saveUserData, isContextReady]);
   
   useEffect(() => {
     if (!currentUser || !isContextReady) return;
     saveUserData('payPeriods', periods);
+    
+    // Notify other tabs of data change
+    multiTabSync.notifyDataChange('payPeriods', periods, currentUser.username);
   }, [periods, currentUser, saveUserData, isContextReady]);
   
   useEffect(() => {
     if (!currentUser || !isContextReady) return;
     saveUserData('currentPeriodId', currentPeriodId);
+    
+    // Notify other tabs of data change
+    multiTabSync.notifyDataChange('currentPeriodId', currentPeriodId, currentUser.username);
   }, [currentPeriodId, currentUser, saveUserData, isContextReady]);
   
   // Persist UI preferences (app-wide, not user-specific)
