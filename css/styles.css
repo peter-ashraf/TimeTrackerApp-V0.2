@@ -1839,6 +1839,7 @@ h1 {
   align-items: center;
   gap: 4px;
   padding: 8px 12px;
+  min-height: 0 !important;
 }
 
 .actions-cell .btn .icon {
