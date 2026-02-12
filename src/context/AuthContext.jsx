@@ -493,6 +493,127 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Update username
+  const updateUsername = async (newUsername, currentPassword) => {
+    if (!currentUser) {
+      throw new Error('No user is currently logged in');
+    }
+
+    // Validate current password
+    const users = getSimpleEncryptedItem('users', currentUser.username) || {};
+    const user = users[currentUser.username];
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const passwordHash = hashPassword(currentPassword);
+    if (user.passwordHash !== passwordHash) {
+      throw new Error('Current password is incorrect');
+    }
+
+    // Validate new username
+    if (newUsername.length < 3) {
+      throw new Error('Username must be at least 3 characters');
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(newUsername)) {
+      throw new Error('Username can only contain letters, numbers, and underscores');
+    }
+
+    if (newUsername === currentUser.username) {
+      throw new Error('New username must be different from current username');
+    }
+
+    // Check if new username already exists
+    if (users[newUsername]) {
+      throw new Error('Username already exists');
+    }
+
+    // Update user data with new username as encryption key
+    const updatedUser = {
+      ...user,
+      username: newUsername
+    };
+
+    // Add new user entry
+    users[newUsername] = updatedUser;
+    
+    // Remove old user entry
+    delete users[currentUser.username];
+
+    // Save updated users data with new username as key
+    setSimpleEncryptedItem('users', users, newUsername);
+
+    // Migrate all user data to new username
+    const allKeys = Object.keys(localStorage);
+    const userKeys = allKeys.filter(key => key.includes(`_${currentUser.username}`));
+
+    for (const oldKey of userKeys) {
+      const data = getSimpleEncryptedItem(oldKey, currentUser.username);
+      if (data !== null) {
+        const newKey = oldKey.replace(`_${currentUser.username}`, `_${newUsername}`);
+        setSimpleEncryptedItem(newKey, data, newUsername);
+        localStorage.removeItem(oldKey);
+      }
+    }
+
+    // Update current user session
+    const userData = { username: newUsername, createdAt: user.createdAt };
+    setCurrentUser(userData);
+    setSimpleEncryptedItem('currentUser', userData, newUsername);
+
+    // Notify other tabs
+    multiTabSync.notifyDataChange('user_login', userData, newUsername);
+
+    console.log(`✅ Username updated from ${currentUser.username} to ${newUsername}`);
+    return true;
+  };
+
+  // Update password
+  const updatePassword = async (currentPassword, newPassword) => {
+    if (!currentUser) {
+      throw new Error('No user is currently logged in');
+    }
+
+    // Get users data
+    const users = getSimpleEncryptedItem('users', currentUser.username) || {};
+    const user = users[currentUser.username];
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Validate current password
+    const currentPasswordHash = hashPassword(currentPassword);
+    if (user.passwordHash !== currentPasswordHash) {
+      throw new Error('Current password is incorrect');
+    }
+
+    // Validate new password
+    if (newPassword.length < 6) {
+      throw new Error('Password must be at least 6 characters');
+    }
+
+    if (newPassword === currentPassword) {
+      throw new Error('New password must be different from current password');
+    }
+
+    // Update password
+    const newPasswordHash = hashPassword(newPassword);
+    users[currentUser.username] = {
+      ...user,
+      passwordHash: newPasswordHash,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Save updated users data
+    setSimpleEncryptedItem('users', users, currentUser.username);
+
+    console.log(`✅ Password updated for user: ${currentUser.username}`);
+    return true;
+  };
+
   const value = {
     currentUser,
     isAuthenticated,
@@ -504,7 +625,9 @@ export const AuthProvider = ({ children }) => {
     deleteUser,
     getUserData,
     saveUserData,
-    getUserDataKey
+    getUserDataKey,
+    updateUsername,
+    updatePassword
   };
 
   return (

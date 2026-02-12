@@ -1,3 +1,28 @@
 /* Fixed Header Styles - Override Everything */
 
+.username-display.clickable {
+  background: none;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: inherit;
+  font-family: inherit;
+  color: inherit;
+}
+
+.username-display.clickable:hover {
+  background: rgba(79, 70, 229, 0.1);
+  transform: translateY(-1px);
+}
+
+.username-display.clickable:active {
+  transform: translateY(0);
+}
+
+[data-theme="dark"] .username-display.clickable:hover {
+  background: rgba(129, 140, 248, 0.1);
+}
+
 

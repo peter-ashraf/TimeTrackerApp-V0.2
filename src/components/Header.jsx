@@ -3,12 +3,14 @@ import { useTimeTracker } from "../context/TimeTrackerContext";
 import { useAuth } from "../context/AuthContext";
 import OfflineIndicator from "./OfflineIndicator";
 import LogoutModal from "./LogoutModal";
+import UserSettingsModal from "./UserSettingsModal";
 import '../styles/fixed-header.css';
 
 function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
   const { theme, setTheme } = useTimeTracker();
   const { currentUser, logout } = useAuth();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showUserSettingsModal, setShowUserSettingsModal] = useState(false);
 
   const { employee } = useTimeTracker();
 
@@ -37,6 +39,14 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
     setShowLogoutModal(false);
   };
 
+  const handleUserSettings = () => {
+    setShowUserSettingsModal(true);
+  };
+
+  const closeUserSettings = () => {
+    setShowUserSettingsModal(false);
+  };
+
   return (
     <>
       <header id="header" className={isHeaderCollapsed ? "collapsed" : ""}>
@@ -57,7 +67,13 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
             </button>
             {currentUser && (
               <div className="user-info">
-                <span className="username-display">👤 {employee.name}</span>
+                <button 
+                  className="username-display clickable" 
+                  onClick={handleUserSettings}
+                  title="Click to change username or password"
+                >
+                  👤 {employee.name}
+                </button>
                 <button
                   className="logout-btn"
                   onClick={handleLogout}
@@ -74,6 +90,10 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
           isOpen={showLogoutModal}
           onClose={cancelLogout}
           onConfirm={confirmLogout}
+        />
+        <UserSettingsModal
+          isOpen={showUserSettingsModal}
+          onClose={closeUserSettings}
         />
         <nav className="tab-navigation">
           <button
