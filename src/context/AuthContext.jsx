@@ -21,6 +21,9 @@ export const AuthProvider = ({ children }) => {
   const [sessionTimeout, setSessionTimeout] = useState(30); // Default 30 minutes
   const [lastActivity, setLastActivity] = useState(Date.now());
   const [sessionTimer, setSessionTimer] = useState(null);
+  const [warningTimer, setWarningTimer] = useState(null);
+  const [showSessionWarning, setShowSessionWarning] = useState(false);
+  const [immediateWarningShown, setImmediateWarningShown] = useState(false);
   const lastActivityRef = useRef(lastActivity);
   
   // Update ref when lastActivity changes
@@ -57,9 +60,49 @@ export const AuthProvider = ({ children }) => {
     }
   }, [sessionTimer]);
 
-  const startSessionTimer = useCallback(() => {
+  const clearWarningTimer = useCallback(() => {
+    if (warningTimer) {
+      clearTimeout(warningTimer);
+      setWarningTimer(null);
+    }
+  }, [warningTimer]);
+
+  const clearAllTimers = useCallback(() => {
     clearSessionTimer();
+    clearWarningTimer();
+    setShowSessionWarning(false);
+    setImmediateWarningShown(false); // Reset flag
+  }, [clearSessionTimer, clearWarningTimer]);
+
+  const startSessionTimer = useCallback(() => {
+    clearAllTimers();
+    
     if (currentUser && sessionTimeout > 0) {
+      // Show warning 5 minutes before session expires (for any session with timeout)
+      const warningTime = (sessionTimeout - 5) * 60 * 1000; // 5 minutes before expiry
+      const warningTimerId = setTimeout(() => {
+        const now = Date.now();
+        const inactiveTime = now - lastActivityRef.current;
+        const maxInactiveTime = sessionTimeout * 60 * 1000;
+        
+        // Only show warning if session hasn't been kept alive by activity
+        // and exactly 5 minutes remaining
+        const timeRemaining = maxInactiveTime - inactiveTime;
+        if (timeRemaining <= 5 * 60 * 1000 && timeRemaining > 0) {
+          
+          setShowSessionWarning(true);
+        }
+      }, warningTime);
+      setWarningTimer(warningTimerId);
+      
+      // For sessions <= 5 minutes, show warning immediately after a short delay
+      if (sessionTimeout <= 5) {
+        setTimeout(() => {
+          
+          setShowSessionWarning(true);
+        }, 1500); // Wait 1.5 seconds for UI to settle
+      }
+      
       const timer = setTimeout(() => {
         // Check session expiration directly here and logout inline
         if (!currentUser || sessionTimeout === 0) return;
@@ -70,6 +113,8 @@ export const AuthProvider = ({ children }) => {
           console.log('Session expired, logging out user');
           const username = currentUser?.username;
           clearSessionTimer();
+          clearWarningTimer();
+          setShowSessionWarning(false);
           setCurrentUser(null);
           setIsAuthenticated(false);
           localStorage.removeItem('currentUser');
@@ -81,7 +126,7 @@ export const AuthProvider = ({ children }) => {
       }, sessionTimeout * 60 * 1000);
       setSessionTimer(timer);
     }
-  }, [clearSessionTimer, currentUser, sessionTimeout]);
+  }, [clearAllTimers, currentUser, sessionTimeout]);
 
   const loadSessionSettings = (username) => {
     if (!username) return;
@@ -219,9 +264,16 @@ export const AuthProvider = ({ children }) => {
       const maxInactiveTime = timeout * 60 * 1000;
       
       if (timeout > 0 && inactiveTime > maxInactiveTime) {
-        console.log('Session expired during initialization, clearing user');
+        console.log('Session expired on mount, logging out');
+        const username = savedUser?.username;
+        clearAllTimers();
+        setCurrentUser(null);
+        setIsAuthenticated(false);
         localStorage.removeItem('currentUser');
-        localStorage.removeItem(`lastActivity_${savedUser.username}`);
+        if (username) {
+          localStorage.removeItem(`lastActivity_${username}`);
+          multiTabSync.notifyUserLogout(username);
+        }
         savedUser = null;
       } else {
         console.log(`✅ Session valid for user: ${savedUser.username}, timeout: ${timeout} minutes`);
@@ -250,6 +302,8 @@ export const AuthProvider = ({ children }) => {
         console.log('Session expired on mount, logging out');
         const username = currentUser?.username;
         clearSessionTimer();
+        clearWarningTimer();
+        setShowSessionWarning(false);
         setCurrentUser(null);
         setIsAuthenticated(false);
         localStorage.removeItem('currentUser');
@@ -267,6 +321,7 @@ export const AuthProvider = ({ children }) => {
       const handleActivity = () => {
         const now = Date.now();
         setLastActivity(now);
+        setShowSessionWarning(false); // Hide warning on any activity
         if (currentUser) {
           localStorage.setItem(`lastActivity_${currentUser.username}`, now.toString());
         }
@@ -284,10 +339,19 @@ export const AuthProvider = ({ children }) => {
         const now = Date.now();
         const inactiveTime = now - lastActivityRef.current;
         const maxInactiveTime = sessionTimeout * 60 * 1000;
+        const timeRemaining = maxInactiveTime - inactiveTime;
+        
+        // Show warning when 5 minutes or less remaining
+        if (timeRemaining <= 5 * 60 * 1000 && timeRemaining > 0 && !showSessionWarning) {
+          console.log('⏰ 5 minutes or less remaining - showing warning');
+          console.log('Time remaining:', timeRemaining / 1000 / 60, 'minutes');
+          setShowSessionWarning(true);
+        }
+        
         if (sessionTimeout > 0 && inactiveTime > maxInactiveTime) {
           console.log('Session expired during check, logging out');
           const username = currentUser?.username;
-          clearSessionTimer();
+          clearAllTimers();
           setCurrentUser(null);
           setIsAuthenticated(false);
           localStorage.removeItem('currentUser');
@@ -296,11 +360,13 @@ export const AuthProvider = ({ children }) => {
             multiTabSync.notifyUserLogout(username);
           }
         }
-      }, 60000); // Check every minute
+      }, 10000); // Check every 10 seconds for more precise timing
       
       return () => {
         // Cleanup
         clearSessionTimer();
+        clearWarningTimer();
+        setShowSessionWarning(false);
         events.forEach(event => {
           document.removeEventListener(event, handleActivity);
         });
@@ -308,8 +374,10 @@ export const AuthProvider = ({ children }) => {
       };
     } else {
       clearSessionTimer();
+      clearWarningTimer();
+      setShowSessionWarning(false);
     }
-  }, [currentUser, isAuthenticated, sessionTimeout]); // Removed lastActivity and function dependencies
+  }, [currentUser, isAuthenticated, sessionTimeout, showSessionWarning, immediateWarningShown]); // Added all dependencies
 
   // Listen for multi-tab authentication events
   useEffect(() => {
@@ -601,8 +669,8 @@ export const AuthProvider = ({ children }) => {
     const username = currentUser?.username;
     console.log(`✅ User logged out: ${username}`);
     
-    // Clear session timer and data
-    clearSessionTimer();
+    // Clear all timers and session data
+    clearAllTimers();
     
     setCurrentUser(null);
     setIsAuthenticated(false);
@@ -617,7 +685,7 @@ export const AuthProvider = ({ children }) => {
     if (username) {
       multiTabSync.notifyUserLogout(username);
     }
-  }, [currentUser, clearSessionTimer]);
+  }, [currentUser, clearAllTimers]);
 
   // Get user-specific data key
   const getUserDataKey = useCallback((dataType) => {
@@ -849,6 +917,8 @@ export const AuthProvider = ({ children }) => {
     isLoading,
     isAppLoading,
     sessionTimeout,
+    showSessionWarning,
+    setShowSessionWarning,
     register,
     login,
     logout,

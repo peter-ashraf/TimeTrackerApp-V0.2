@@ -4,13 +4,15 @@ import { useAuth } from "../context/AuthContext";
 import OfflineIndicator from "./OfflineIndicator";
 import LogoutModal from "./LogoutModal";
 import UserSettingsModal from "./UserSettingsModal";
+import SessionToast from "./SessionToast";
 import '../styles/fixed-header.css';
 
 function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
   const { theme, setTheme } = useTimeTracker();
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, showSessionWarning, setShowSessionWarning } = useAuth();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showUserSettingsModal, setShowUserSettingsModal] = useState(false);
+  const [userSettingsDefaultTab, setUserSettingsDefaultTab] = useState('username');
 
   const { employee } = useTimeTracker();
 
@@ -39,12 +41,23 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
     setShowLogoutModal(false);
   };
 
-  const handleUserSettings = () => {
+  const handleUserSettings = (defaultTab = 'username') => {
+    setUserSettingsDefaultTab(defaultTab);
     setShowUserSettingsModal(true);
   };
 
   const closeUserSettings = () => {
     setShowUserSettingsModal(false);
+  };
+
+  const handleToastClick = () => {
+    console.log('🔥 Toast clicked! Opening user settings...');
+    setShowSessionWarning(false);
+    handleUserSettings('session');
+  };
+
+  const handleToastClose = () => {
+    setShowSessionWarning(false);
   };
 
   return (
@@ -94,6 +107,13 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
         <UserSettingsModal
           isOpen={showUserSettingsModal}
           onClose={closeUserSettings}
+          defaultTab={userSettingsDefaultTab}
+        />
+        <SessionToast
+          isVisible={showSessionWarning}
+          message="You will be logged out in 5 minutes, click here to modify the session time"
+          onClose={handleToastClose}
+          onToastClick={handleToastClick}
         />
         <nav className="tab-navigation">
           <button

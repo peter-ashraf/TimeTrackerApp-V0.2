@@ -5,11 +5,9 @@ import ModalShell from './ModalShell';
 import '../styles/user-settings-modal.css';
 
 
-function UserSettingsModal({ isOpen, onClose }) {
+function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
   const { currentUser, updateUsername, updatePassword, sessionTimeout, saveSessionSettings } = useAuth();
   const { setConfirmModal } = useTimeTracker();
-  
-  if (!isOpen) return null;
   
   const [formData, setFormData] = useState({
     newUsername: '',
@@ -20,8 +18,10 @@ function UserSettingsModal({ isOpen, onClose }) {
   });
   
   const [errors, setErrors] = useState({});
-  const [activeTab, setActiveTab] = useState('username');
+  const [activeTab, setActiveTab] = useState(defaultTab);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (!isOpen) return null;
 
   const handleTabSwitch = (tab) => {
     setActiveTab(tab);
@@ -233,7 +233,7 @@ function UserSettingsModal({ isOpen, onClose }) {
   };
 
   return (
-    <ModalShell onClose={onClose} contentClassName="user-settings-modal" closeOnOverlay={!isSubmitting}>
+    <ModalShell onClose={onClose} contentClassName="user-settings-modal" closeOnOverlay={false}>
       <div className="user-settings-header">
         <div className="user-settings-icon">⚙️ User Settings</div>
                 <p className="user-settings-subtitle">Manage your account credentials and session</p>
