@@ -37,7 +37,7 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: [],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -61,8 +61,7 @@ export default defineConfig({
               }
             }
           }
-        ],
-        importScripts: ['/offline-sw.js']
+        ]
       }
     })
   ],

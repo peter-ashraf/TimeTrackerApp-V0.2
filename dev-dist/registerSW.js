@@ -1,1 +1,0 @@
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/TimeTrackerApp-V0.2/dev-sw.js?dev-sw', { scope: '/TimeTrackerApp-V0.2/', type: 'classic' })

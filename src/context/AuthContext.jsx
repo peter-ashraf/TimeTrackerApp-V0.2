@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import CryptoJS from 'crypto-js';
 import { setSimpleEncryptedItem, getSimpleEncryptedItem } from '../utils/simple-encryption';
+import { multiTabSync } from '../utils/multiTabSync';
 
 const AuthContext = createContext();
 
@@ -43,14 +44,29 @@ export const AuthProvider = ({ children }) => {
         try {
           // We need to extract username from localStorage to try decryption
           const allKeys = Object.keys(localStorage);
-          const userKeys = allKeys.filter(key => key.includes('_peter_ashraf') || key === 'users');
+          const userKeys = allKeys.filter(key => key.includes('_') || key === 'users');
           
           if (userKeys.length > 0) {
-            // Try with peter_ashraf username first (most likely)
-            const decryptedData = getSimpleEncryptedItem('currentUser', 'peter_ashraf');
-            if (decryptedData && decryptedData.username) {
-              savedUser = decryptedData;
-              console.log(`Successfully decrypted user: ${savedUser.username}`);
+            // Try to extract username from the keys
+            let username = null;
+            
+            // Look for user-specific keys to determine the current user
+            for (const key of userKeys) {
+              if (key.includes('_') && key !== 'users') {
+                const parts = key.split('_');
+                if (parts.length >= 2) {
+                  username = parts[parts.length - 1];
+                  break;
+                }
+              }
+            }
+            
+            if (username) {
+              const decryptedData = getSimpleEncryptedItem('currentUser', username);
+              if (decryptedData && decryptedData.username) {
+                savedUser = decryptedData;
+                console.log(`Successfully decrypted user: ${savedUser.username}`);
+              }
             }
           }
         } catch (decryptError) {
@@ -78,6 +94,38 @@ export const AuthProvider = ({ children }) => {
     
     setIsLoading(false);
   }, []);
+
+  // Listen for multi-tab authentication events
+  useEffect(() => {
+    const handleMultiTabAuthEvent = (event, data) => {
+      switch (event) {
+        case 'data_change':
+          if (data.dataType === 'user_login') {
+            // Another tab logged in, refresh our state
+            if (data.data && data.data.username) {
+              setCurrentUser(data.data);
+              setIsAuthenticated(true);
+              console.log(`📡 User logged in from another tab: ${data.data.username}`);
+            }
+          }
+          break;
+        case 'user_logout':
+          // Another tab logged out, log out here too
+          if (data.username === currentUser?.username) {
+            setCurrentUser(null);
+            setIsAuthenticated(false);
+            console.log(`📡 User logged out from another tab: ${data.username}`);
+          }
+          break;
+      }
+    };
+
+    multiTabSync.addListener(handleMultiTabAuthEvent);
+    
+    return () => {
+      multiTabSync.removeListener(handleMultiTabAuthEvent);
+    };
+  }, [currentUser]);
 
   // Check and migrate existing data for new users
   const checkAndMigrateExistingData = (username) => {
@@ -312,6 +360,9 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(true);
     setSimpleEncryptedItem('currentUser', userData, username);
     
+    // Notify other tabs of login
+    multiTabSync.notifyDataChange('user_login', userData, username);
+    
     console.log(`✅ User logged in: ${username}`);
     
     // Trigger app loading animation
@@ -327,10 +378,16 @@ export const AuthProvider = ({ children }) => {
 
   // User logout
   const logout = () => {
-    console.log(`✅ User logged out: ${currentUser?.username}`);
+    const username = currentUser?.username;
+    console.log(`✅ User logged out: ${username}`);
     setCurrentUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('currentUser');
+    
+    // Notify other tabs of logout
+    if (username) {
+      multiTabSync.notifyUserLogout(username);
+    }
   };
 
   // Get user-specific data key
