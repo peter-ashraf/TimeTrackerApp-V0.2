@@ -515,35 +515,32 @@ export const AuthProvider = ({ children }) => {
       const usersRaw = localStorage.getItem('users');
       if (usersRaw) {
         if (usersRaw.startsWith('encrypted:')) {
-          // Users data is encrypted, try to decrypt with the new username
-          try {
-            users = getSimpleEncryptedItem('users', username) || {};
-          } catch (decryptError) {
-            // If that fails, try to find any existing user that can decrypt it
-            console.log('🔐 Trying to decrypt users data for registration...');
-            
-            const allKeys = Object.keys(localStorage);
-            const userSpecificKeys = allKeys.filter(key => 
-              key.includes('_') && !key.startsWith('__') && key !== 'users' && key !== 'currentUser'
-            );
-            
-            const potentialUsernames = [...new Set(
-              userSpecificKeys.map(key => {
-                const parts = key.split('_');
-                return parts.length > 1 ? parts.slice(1).join('_') : null;
-              }).filter(Boolean)
-            )];
-            
-            for (const potentialUsername of potentialUsernames) {
-              try {
-                users = getSimpleEncryptedItem('users', potentialUsername) || {};
-                if (users && typeof users === 'object' && Object.keys(users).length > 0) {
-                  console.log(`✅ Successfully decrypted users data with username: ${potentialUsername}`);
-                  break;
-                }
-              } catch (error) {
-                continue;
+          // Users data is encrypted, try to decrypt with ALL possible usernames to find existing users
+          console.log('🔐 Trying to decrypt users data for registration...');
+          
+          const allKeys = Object.keys(localStorage);
+          const userSpecificKeys = allKeys.filter(key => 
+            key.includes('_') && !key.startsWith('__') && key !== 'users' && key !== 'currentUser'
+          );
+          
+          const potentialUsernames = [...new Set(
+            userSpecificKeys.map(key => {
+              const parts = key.split('_');
+              return parts.length > 1 ? parts.slice(1).join('_') : null;
+            }).filter(Boolean)
+          )];
+          
+          // Try all possible usernames to decrypt existing users
+          for (const potentialUsername of potentialUsernames) {
+            try {
+              const decryptedUsers = getSimpleEncryptedItem('users', potentialUsername) || {};
+              if (decryptedUsers && typeof decryptedUsers === 'object' && Object.keys(decryptedUsers).length > 0) {
+                console.log(`✅ Successfully decrypted existing users with username: ${potentialUsername}`);
+                users = decryptedUsers;
+                break;
               }
+            } catch (error) {
+              continue;
             }
           }
         } else {
@@ -587,6 +584,8 @@ export const AuthProvider = ({ children }) => {
       createdAt: new Date().toISOString()
     };
 
+    // Save merged users data with current username as key
+    // This preserves existing users while adding the new one
     setSimpleEncryptedItem('users', users, username);
     return true;
   };
@@ -604,7 +603,56 @@ export const AuthProvider = ({ children }) => {
         if (usersRaw.startsWith('encrypted:')) {
           console.log('🔐 Users data is encrypted, trying to decrypt...');
           try {
+            // First try with current username
             users = getSimpleEncryptedItem('users', username) || {};
+            
+            // If that fails, try all possible usernames from localStorage
+            if (Object.keys(users).length === 0) {
+              console.log('🔄 Current username failed, trying all possible usernames...');
+              const allKeys = Object.keys(localStorage);
+              const userKeys = allKeys.filter(key => key.includes('_') && !key.startsWith('__') && key !== 'users' && key !== 'currentUser');
+              const possibleUsernames = [...new Set(
+                userKeys.map(key => {
+                  const parts = key.split('_');
+                  return parts.length > 1 ? parts.slice(1).join('_') : null;
+                }).filter(Boolean)
+              )];
+              
+              // Add common variations and case-insensitive matches
+              const allVariations = [];
+              possibleUsernames.forEach(username => {
+                if (username) {
+                  allVariations.push(username);
+                  allVariations.push(username.toLowerCase());
+                  allVariations.push(username.toUpperCase());
+                  // Remove common suffixes/prefixes
+                  const baseUsername = username.replace(/_t$/, '');
+                  allVariations.push(baseUsername);
+                  allVariations.push(baseUsername.toLowerCase());
+                  allVariations.push(baseUsername.toUpperCase());
+                }
+              });
+              
+              const uniqueUsernames = [...new Set(allVariations)];
+              
+              for (const tryUsername of uniqueUsernames) {
+                try {
+                  users = getSimpleEncryptedItem('users', tryUsername) || {};
+                  if (users && typeof users === 'object' && Object.keys(users).length > 0) {
+                    console.log(`✅ Successfully decrypted users with username: ${tryUsername}`);
+                    console.log('👥 Decrypted users object:', JSON.stringify(users, null, 2));
+                    console.log('👥 User keys found:', Object.keys(users));
+                    Object.keys(users).forEach(username => {
+                      console.log(`👤 User ${username}:`, users[username]);
+                    });
+                    break;
+                  }
+                } catch (error) {
+                  continue;
+                }
+              }
+            }
+            
             console.log('🔑 Decrypted users data:', Object.keys(users).length, 'users');
           } catch (decryptError) {
             console.log('❌ Failed to decrypt users data:', decryptError.message);

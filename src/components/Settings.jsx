@@ -117,7 +117,8 @@ function Settings() {
     clearCurrentMonth,
     clearAllData,
     confirmModal,
-    setConfirmModal
+    setConfirmModal,
+    setEntries
   } = useTimeTracker();
 
   // ✅ ADDED: Get auth functions
@@ -490,7 +491,9 @@ function Settings() {
       cancelText: 'Cancel',
       showCancel: true,
       onConfirm: () => {
-        clearCurrentMonth();
+        // Clear the data directly
+        const newEntries = entries.filter(e => e.date < currentPeriod.start || e.date > currentPeriod.end);
+        setEntries(newEntries);
         setConfirmModal({
           isOpen: true,
           title: '✓ Period Cleared',

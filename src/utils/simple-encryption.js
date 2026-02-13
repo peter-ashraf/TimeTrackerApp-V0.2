@@ -99,10 +99,14 @@ export function getSimpleEncryptedItem(key, username) {
     }
 
     if (data.startsWith('encrypted:')) {
+      console.log(`🔑 Attempting to decrypt ${key} with username: ${username}`);
       try {
-        return simpleDecrypt(data, username);
+        const result = simpleDecrypt(data, username);
+        console.log(`🎉 Decryption result for ${key}:`, result);
+        return result;
       } catch (decryptError) {
         console.log(`⚠️ Failed to decrypt ${key} with simple encryption, returning default value`);
+        console.log(`❌ Decryption error:`, decryptError.message);
         // Return default values for known data types instead of throwing error
         if (key.includes('timeEntries')) return [];
         if (key.includes('payPeriods')) return [{
@@ -116,18 +120,24 @@ export function getSimpleEncryptedItem(key, username) {
         if (key.includes('annualVacation')) return 10;
         if (key.includes('sickDays')) return 7;
         if (key.includes('currentPeriodId')) return 'period-default';
+        // For users key, don't return default - let the error propagate so we can try other usernames
+        if (key === 'users') {
+          console.log(`🚨 Users key decryption failed, re-throwing error for fallback logic`);
+          throw decryptError; // Re-throw to allow fallback logic in AuthContext
+        }
         return null;
       }
     } else {
-      // Return non-encrypted data as-is
+      // Plain text data
       try {
         return JSON.parse(data);
       } catch (parseError) {
-        return data;
+        console.error(`Failed to parse plain text data for key ${key}:`, parseError);
+        return null;
       }
     }
   } catch (error) {
-    console.error('Error getting encrypted item:', error);
+    console.error(`Error getting encrypted item ${key}:`, error);
     return null;
   }
 }

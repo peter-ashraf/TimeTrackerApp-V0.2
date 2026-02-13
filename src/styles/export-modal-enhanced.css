@@ -19,6 +19,166 @@
   font-size: 0.9rem;
 }
 
+/* Recovery Modal Specific Button Styles */
+.recovery-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+}
+
+.recovery-btn-primary {
+  background: var(--color-primary);
+  color: white;
+  border: 2px solid var(--color-primary);
+}
+
+.recovery-btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
+}
+
+.recovery-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.recovery-btn-secondary {
+  background: transparent;
+  color: var(--color-text);
+  border: 2px solid var(--color-border);
+}
+
+.recovery-btn-secondary:hover:not(:disabled) {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.recovery-btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.recovery-btn-warning {
+  background: linear-gradient(135deg, var(--color-warning), #f59e0b);
+  color: white;
+  border: 2px solid var(--color-warning);
+}
+
+.recovery-btn-warning:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d97706, var(--color-warning));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.recovery-btn-warning:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.recovery-btn-large {
+  padding: 12px 24px;
+  font-size: 1rem;
+  min-height: 48px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.recovery-btn-small {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  min-height: 36px;
+}
+
+/* Recovery Button Spinner */
+.recovery-btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: recovery-spin 1s linear infinite;
+}
+
+@keyframes recovery-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Recovery Mode Tabs */
+.recovery-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.recovery-mode-tab {
+  background: transparent;
+  border: 2px solid var(--color-border);
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  color: var(--color-gray-500);
+  font-weight: 500;
+  text-align: center;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.recovery-mode-tab:hover:not(:disabled) {
+  color: var(--color-text);
+  background: rgba(var(--color-primary-rgb), 0.05);
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.2);
+}
+
+.recovery-mode-tab.active {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.15);
+}
+
+.recovery-mode-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.recovery-mode-tab .tab-icon {
+  font-size: 1.2rem;
+  margin-bottom: 2px;
+}
+
+.recovery-mode-tab .tab-text {
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
 /* Export Mode Tabs */
 .export-mode-tabs {
   display: flex;
@@ -260,6 +420,55 @@
   font-size: 0.85rem;
   color: var(--color-primary);
   line-height: 1.4;
+}
+
+.data-count-info {
+  background: rgba(var(--color-warning-rgb), 0.1);
+  border: 1px solid rgba(var(--color-warning-rgb), 0.3);
+  border-radius: 6px;
+  padding: 12px;
+  margin: 12px 0;
+  text-align: center;
+}
+
+.data-count-info strong {
+  color: var(--color-warning);
+  font-size: 1.1rem;
+}
+
+.alternative-option {
+  background: rgba(var(--color-info-rgb), 0.1);
+  border: 1px solid rgba(var(--color-info-rgb), 0.3);
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 12px;
+}
+
+.alternative-option p {
+  margin: 0;
+  color: var(--color-info);
+  font-size: 0.9rem;
+}
+
+.alternative-option strong {
+  color: var(--color-info-dark);
+}
+
+.no-users-found {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--color-gray-500);
+}
+
+.no-users-found p {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+}
+
+.no-users-found p:first-of-type {
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 12px;
 }
 
 /* Period Checkbox Styles (enhanced) */

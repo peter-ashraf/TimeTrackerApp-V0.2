@@ -794,10 +794,7 @@ export const TimeTrackerProvider = ({ children }) => {
   
   const clearCurrentMonth = () => {
     const period = getCurrentPeriod();
-    if (window.confirm(`Are you sure you want to clear all data for ${period.label}? This cannot be undone!`)) {
-      updateEntries(entries.filter(e => e.date < period.start || e.date > period.end));
-      alert(`Data for ${period.label} cleared!`);
-    }
+    updateEntries(entries.filter(e => e.date < period.start || e.date > period.end));
   };
   
   const clearAllData = () => {
