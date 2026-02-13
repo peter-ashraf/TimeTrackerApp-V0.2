@@ -584,7 +584,14 @@ const RecoveryModal = ({ onClose }) => {
             
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Time Entries');
           } else if (items.length > 0) {
-            // Create a simple sheet for other data types
+            // Create a simple sheet for other data types (EXCLUDE SENSITIVE DATA)
+            // Skip sensitive data types like salary, passwordHash, etc.
+            const sensitiveDataTypes = ['salary', 'passwordHash', 'users', 'currentUser'];
+            if (sensitiveDataTypes.includes(dataType)) {
+              console.log(`🔒 Skipping sensitive data type: ${dataType}`);
+              return; // Skip this data type entirely
+            }
+            
             const sheetData = [[`Data Type: ${dataType}`, 'Key', 'Username', 'Data Preview', 'Full Data']];
             
             items.forEach(item => {
@@ -645,6 +652,13 @@ const RecoveryModal = ({ onClose }) => {
           }
           
           if (decrypted) {
+            // Skip sensitive data types in PDF export too
+            const sensitiveDataTypes = ['salary', 'passwordHash', 'users', 'currentUser'];
+            if (sensitiveDataTypes.includes(dataType)) {
+              console.log(`🔒 Skipping sensitive data type in PDF: ${dataType}`);
+              return; // Skip this data type entirely
+            }
+            
             if (!dataByType[dataType]) {
               dataByType[dataType] = [];
             }
@@ -763,7 +777,7 @@ const RecoveryModal = ({ onClose }) => {
       
       // Show success message
       setTimeout(() => {
-        alert(`✅ All data exported successfully!\n\nFile: ${filename}\nUsers: ${recoveryResults.length}\n\nNext steps:\n1. Create a new account\n2. Use the Import feature to restore your data`);
+        setError(`✅ All data exported successfully!\n\nFile: ${filename}\nUsers: ${recoveryResults.length}\n\nNext steps:\n1. Create a new account\n2. Use the Import feature to restore your data`);
       }, 500);
 
     } catch (error) {
@@ -803,12 +817,12 @@ const RecoveryModal = ({ onClose }) => {
       
       // Show success message
       setTimeout(() => {
-        alert(`✅ Data exported successfully!\n\nFile: ${filename}\n\nNext steps:\n1. Create a new account\n2. Use the Import feature to restore your data`);
+        setError(`✅ Data exported successfully!\n\nFile: ${filename}\n\nNext steps:\n1. Create a new account\n2. Use the Import feature to restore your data`);
       }, 500);
 
     } catch (error) {
       hapticFeedback.error();
-      alert(`❌ Export failed: ${error.message}`);
+      setError(`❌ Export failed: ${error.message}`);
     } finally {
       setIsExporting(false);
       setSelectedUser(null);
