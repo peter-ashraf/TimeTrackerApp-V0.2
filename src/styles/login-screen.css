@@ -261,6 +261,22 @@
   color: #1a6b3c;
 }
 
+.forgot-password {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f3f4f6;
+}
+
+.forgot-link {
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.forgot-link:hover {
+  color: #208589;
+}
+
 .loading-spinner {
   text-align: center;
   color: white;

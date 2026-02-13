@@ -314,8 +314,8 @@ function ImportModal({ onClose }) {
           const typeCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('type'));
           const checkInCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('check in'));
           const checkOutCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('check out'));
-          const breakOutCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('break out times'));
-          const breakInCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('break in times'));
+          const breakOutCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('break in times'));
+          const breakInCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('break out times'));
 
           if (dateCol === -1 || typeCol === -1) {
             errors.push(`Sheet "${sheetName}": Missing required columns (Date and Type)`);

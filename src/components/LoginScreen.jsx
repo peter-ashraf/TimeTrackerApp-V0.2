@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import RecoveryModal from './RecoveryModal';
 import '../styles/login-screen.css';
 
 const LoginScreen = () => {
@@ -16,6 +17,7 @@ const LoginScreen = () => {
   const [showError, setShowError] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const [errorKey, setErrorKey] = useState(0);
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -219,8 +221,24 @@ const LoginScreen = () => {
               {isLoginMode ? 'Sign Up' : 'Sign In'}
             </button>
           </p>
+          {isLoginMode && (
+            <p className="forgot-password">
+              <button
+                type="button"
+                className="link-btn forgot-link"
+                onClick={() => setShowRecoveryModal(true)}
+              >
+                Forgot Password?
+              </button>
+            </p>
+          )}
         </div>
       </div>
+      
+      {/* Recovery Modal */}
+      {showRecoveryModal && (
+        <RecoveryModal onClose={() => setShowRecoveryModal(false)} />
+      )}
     </div>
   );
 };
