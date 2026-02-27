@@ -15,6 +15,19 @@
   <link rel="stylesheet" href="/TimeTrackerApp-V0.2/css/styles.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <title>TimeTracker</title>
+  <script>
+    // Handle redirect from 404.html
+    (function(l) {
+      if (l.search[1] === '/' ) {
+        var decoded = l.search.slice(1).split('&').map(function(s) { 
+          return s.replace(/~and~/g, '&');
+        }).join('?');
+        window.history.replaceState(null, null,
+          l.pathname.slice(0, -1) + decoded + l.hash
+        );
+      }
+    }(window.location))
+  </script>
   <script type="module" crossorigin src="/TimeTrackerApp-V0.2/assets/index-Czvo7ehx.js"></script>
   <link rel="stylesheet" crossorigin href="/TimeTrackerApp-V0.2/assets/index-CZSV7gaM.css">
 <link rel="manifest" href="/TimeTrackerApp-V0.2/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/TimeTrackerApp-V0.2/registerSW.js"></script></head>
