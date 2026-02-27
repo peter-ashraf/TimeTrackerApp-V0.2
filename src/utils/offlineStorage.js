@@ -25,14 +25,14 @@ class OfflineStorage {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
       request.onerror = () => {
-        console.error('Failed to open IndexedDB:', request.error);
+        
         reject(request.error);
       };
 
       request.onsuccess = () => {
         this.db = request.result;
         this.isInitialized = true;
-        console.log('✅ IndexedDB initialized successfully');
+        
         resolve(this.db);
       };
 
@@ -44,7 +44,7 @@ class OfflineStorage {
           const store = db.createObjectStore(STORE_NAME, { keyPath: 'key' });
           store.createIndex('username', 'username', { unique: false });
           store.createIndex('timestamp', 'timestamp', { unique: false });
-          console.log('✅ Created IndexedDB object store');
+          
         }
       };
     });
@@ -73,17 +73,17 @@ class OfflineStorage {
         const request = store.put(item);
 
         request.onsuccess = () => {
-          console.log(`✅ Stored ${key} in IndexedDB`);
+          
           resolve(true);
         };
 
         request.onerror = () => {
-          console.error(`❌ Failed to store ${key}:`, request.error);
+          
           reject(request.error);
         };
       });
     } catch (error) {
-      console.error('❌ IndexedDB set error:', error);
+      
       throw error;
     }
   }
@@ -115,12 +115,12 @@ class OfflineStorage {
         };
 
         request.onerror = () => {
-          console.error(`❌ Failed to get ${key}:`, request.error);
+          
           reject(request.error);
         };
       });
     } catch (error) {
-      console.error('❌ IndexedDB get error:', error);
+      
       return null;
     }
   }
@@ -148,12 +148,12 @@ class OfflineStorage {
         };
 
         request.onerror = () => {
-          console.error(`❌ Failed to get all data for ${username}:`, request.error);
+          
           reject(request.error);
         };
       });
     } catch (error) {
-      console.error('❌ IndexedDB getAllForUser error:', error);
+      
       return {};
     }
   }
@@ -171,17 +171,17 @@ class OfflineStorage {
         const request = store.delete(key);
 
         request.onsuccess = () => {
-          console.log(`✅ Deleted ${key} from IndexedDB`);
+          
           resolve(true);
         };
 
         request.onerror = () => {
-          console.error(`❌ Failed to delete ${key}:`, request.error);
+          
           reject(request.error);
         };
       });
     } catch (error) {
-      console.error('❌ IndexedDB delete error:', error);
+      
       throw error;
     }
   }
@@ -205,18 +205,18 @@ class OfflineStorage {
             cursor.delete();
             cursor.continue();
           } else {
-            console.log(`✅ Cleared all data for ${username}`);
+            
             resolve(true);
           }
         };
 
         request.onerror = () => {
-          console.error(`❌ Failed to clear data for ${username}:`, request.error);
+          
           reject(request.error);
         };
       });
     } catch (error) {
-      console.error('❌ IndexedDB clearUserData error:', error);
+      
       throw error;
     }
   }
@@ -244,7 +244,7 @@ class OfflineStorage {
         };
       });
     } catch (error) {
-      console.error('❌ IndexedDB getStorageSize error:', error);
+      
       return 0;
     }
   }

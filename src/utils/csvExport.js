@@ -1,7 +1,11 @@
 // CSV import/export functionality (exact copy from app.csv.js)
-export const exportToCSV = (entries) => {
+export const exportToCSV = (entries, onAlert = null) => {
   if (!entries || entries.length === 0) {
-    alert('No data to export');
+    if (onAlert) {
+      onAlert('No data to export', 'warning');
+    } else {
+      
+    }
     return;
   }
 
@@ -33,7 +37,7 @@ export const exportToCSV = (entries) => {
   document.body.removeChild(link);
 };
 
-export const triggerFileInput = (onFileRead) => {
+export const triggerFileInput = (onFileRead, onAlert = null) => {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.csv';
@@ -49,7 +53,11 @@ export const triggerFileInput = (onFileRead) => {
         const entries = parseCSV(csv);
         onFileRead(entries);
       } catch (error) {
-        alert('Error parsing CSV file: ' + error.message);
+        if (onAlert) {
+          onAlert('Error parsing CSV file: ' + error.message, 'danger');
+        } else {
+          
+        }
       }
     };
     reader.readAsText(file);

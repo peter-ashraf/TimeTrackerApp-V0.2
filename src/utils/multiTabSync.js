@@ -28,7 +28,7 @@ class MultiTabSync {
       this.startHeartbeat();
       this.announceTab();
     } catch (error) {
-      console.error('❌ Failed to initialize multi-tab sync:', error);
+      
     }
   }
 
@@ -77,7 +77,7 @@ class MultiTabSync {
         this.handleSyncComplete(data, senderTabId);
         break;
       default:
-        console.warn(`📡 Unknown message type: ${type}`);
+        
     }
   }
 
@@ -171,7 +171,7 @@ class MultiTabSync {
         timestamp: Date.now()
       });
     } catch (error) {
-      console.error('❌ Failed to broadcast message:', error);
+      
     }
   }
 
@@ -195,7 +195,7 @@ class MultiTabSync {
     try {
       this.notifyListeners('data_synced', { source: 'multi_tab', data });
     } catch (error) {
-      console.error('❌ Failed to sync data from other tab:', error);
+      
     }
   }
 
@@ -264,7 +264,7 @@ class MultiTabSync {
    * Handle sync completion from other tabs
    */
   handleSyncComplete(data, senderTabId) {
-    console.log(`📡 Sync completion from ${senderTabId}`);
+    
     this.notifyListeners('sync_complete', data);
   }
 
@@ -303,7 +303,7 @@ class MultiTabSync {
       try {
         callback(event, data, this.getStatus());
       } catch (error) {
-        console.error('❌ Multi-tab sync listener error:', error);
+        
       }
     });
   }

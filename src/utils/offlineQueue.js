@@ -22,9 +22,9 @@ class OfflineQueue {
     try {
       const stored = await offlineStorage.get(QUEUE_KEY);
       this.queue = stored || [];
-      console.log(`📋 Loaded ${this.queue.length} items from offline queue`);
+      
     } catch (error) {
-      console.error('❌ Failed to initialize offline queue:', error);
+      
       this.queue = [];
     }
   }
@@ -60,7 +60,7 @@ class OfflineQueue {
     await this.saveQueue();
     this.notifyListeners('added', queueItem);
     
-    console.log(`➕ Added to queue: ${action} (ID: ${queueItem.id})`);
+    
     return queueItem.id;
   }
 
@@ -76,7 +76,7 @@ class OfflineQueue {
     let processed = 0;
     let failed = 0;
 
-    console.log(`🔄 Processing ${this.queue.length} queued actions...`);
+    
 
     try {
       const pendingItems = this.queue.filter(item => item.status === 'pending');
@@ -93,7 +93,7 @@ class OfflineQueue {
           item.completedAt = Date.now();
           processed++;
           
-          console.log(`✅ Processed: ${item.action} (ID: ${item.id})`);
+          
           
         } catch (error) {
           item.retries++;
@@ -102,10 +102,10 @@ class OfflineQueue {
           if (item.retries >= item.maxRetries) {
             item.status = 'failed';
             failed++;
-            console.error(`❌ Failed permanently: ${item.action} (ID: ${item.id})`, error);
+            
           } else {
             item.status = 'pending';
-            console.warn(`⚠️ Retry ${item.retries}/${item.maxRetries}: ${item.action} (ID: ${item.id})`);
+            
           }
         }
 
@@ -120,7 +120,7 @@ class OfflineQueue {
       this.isProcessing = false;
     }
 
-    console.log(`🏁 Queue processing complete: ${processed} processed, ${failed} failed`);
+    
     return { processed, failed };
   }
 
@@ -158,7 +158,7 @@ class OfflineQueue {
   async clearCompleted() {
     this.queue = this.queue.filter(item => item.status !== 'completed');
     await this.saveQueue();
-    console.log('🧹 Cleared completed items from queue');
+    
   }
 
   /**
@@ -172,7 +172,7 @@ class OfflineQueue {
       item.lastError = null;
     });
     await this.saveQueue();
-    console.log(`🔄 Reset ${failedItems.length} failed items to pending`);
+    
   }
 
   /**
@@ -182,7 +182,7 @@ class OfflineQueue {
     try {
       await offlineStorage.set(QUEUE_KEY, this.queue);
     } catch (error) {
-      console.error('❌ Failed to save queue:', error);
+      
     }
   }
 
@@ -202,7 +202,7 @@ class OfflineQueue {
 
     if (this.queue.length !== originalLength) {
       await this.saveQueue();
-      console.log(`🧹 Cleaned up ${originalLength - this.queue.length} old completed items`);
+      
     }
   }
 
@@ -228,7 +228,7 @@ class OfflineQueue {
       try {
         callback(event, item, this.getStatus());
       } catch (error) {
-        console.error('❌ Queue listener error:', error);
+        
       }
     });
   }
@@ -256,7 +256,7 @@ class OfflineQueue {
   async clearQueue() {
     this.queue = [];
     await this.saveQueue();
-    console.log('🗑️ Cleared entire queue');
+    
   }
 }
 

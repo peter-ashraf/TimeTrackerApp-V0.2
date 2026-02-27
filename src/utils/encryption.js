@@ -65,7 +65,7 @@ export function generateEncryptionKey(username, useLegacyKey = false) {
     
     return key;
   } catch (error) {
-    console.error('Error generating encryption key:', error);
+    
     // Fallback to username-only key generation
     return CryptoJS.SHA256(`${username}@fallback`).toString();
   }
@@ -109,7 +109,7 @@ export function encryptData(data, key) {
     // Add a prefix to identify encrypted data
     return `encrypted:${encrypted}`;
   } catch (error) {
-    console.error('Error encrypting data:', error);
+    
     throw new Error('Failed to encrypt data');
   }
 }
@@ -168,7 +168,7 @@ export function setEncryptedItem(key, data, username) {
     }
     return true;
   } catch (error) {
-    console.error('Error setting encrypted item:', error);
+    
     return false;
   }
 }
@@ -186,13 +186,13 @@ export function getEncryptedItem(key, username) {
     if (isSensitiveField(key)) {
       // For sensitive data, username is required (except for 'users' key which we handle specially)
       if (!username && key !== 'users') {
-        console.warn(`Username required for sensitive key: ${key}`);
+        
         return null;
       }
       
       // Special handling for 'users' key - try multiple approaches
       if (key === 'users') {
-        console.log('🔍 Special handling for users data...');
+        
         
         // Try the provided username first
         if (username) {
@@ -200,11 +200,11 @@ export function getEncryptedItem(key, username) {
           try {
             const result = decryptData(data, newKey);
             if (result !== data) {
-              console.log(`✅ Users data decrypted with username: ${username}`);
+              
               return result;
             }
           } catch (decryptError) {
-            console.log(`❌ Failed to decrypt users with ${username}`);
+            
           }
           
           // Try legacy key for this username
@@ -212,13 +212,13 @@ export function getEncryptedItem(key, username) {
           try {
             const result = decryptData(data, legacyKey);
             if (result !== data) {
-              console.log(`✅ Users data decrypted with legacy key for: ${username}`);
+              
               // Re-encrypt with new key
               setEncryptedItem(key, result, username);
               return result;
             }
           } catch (legacyDecryptError) {
-            console.log(`❌ Failed legacy key for ${username}`);
+            
           }
         }
         
@@ -235,7 +235,7 @@ export function getEncryptedItem(key, username) {
           }).filter(Boolean)
         )];
         
-        console.log('🔍 Trying usernames for users data:', potentialUsernames);
+        
         
         for (const potentialUsername of potentialUsernames) {
           // Try new key first
@@ -243,7 +243,7 @@ export function getEncryptedItem(key, username) {
           try {
             const result = decryptData(data, newKey);
             if (result !== data) {
-              console.log(`✅ Users data decrypted with username: ${potentialUsername}`);
+              
               // Re-encrypt with this username
               setEncryptedItem(key, result, potentialUsername);
               return result;
@@ -254,7 +254,7 @@ export function getEncryptedItem(key, username) {
             try {
               const result = decryptData(data, legacyKey);
               if (result !== data) {
-                console.log(`✅ Users data decrypted with legacy key for: ${potentialUsername}`);
+                
                 // Re-encrypt with new key
                 setEncryptedItem(key, result, potentialUsername);
                 return result;
@@ -265,7 +265,7 @@ export function getEncryptedItem(key, username) {
           }
         }
         
-        console.log('❌ Could not decrypt users data with any available key');
+        
         return null;
       }
       
@@ -286,7 +286,7 @@ export function getEncryptedItem(key, username) {
       try {
         const result = decryptData(data, legacyKey);
         if (result !== data) { // Successfully decrypted with legacy key
-          console.log(`🔓 Successfully decrypted ${key} with legacy key, migrating to new key...`);
+          
           // Re-encrypt with new key for future use
           setEncryptedItem(key, result, username);
           return result;
@@ -320,7 +320,7 @@ export function removeEncryptedItem(key) {
     localStorage.removeItem(key);
     return true;
   } catch (error) {
-    console.error('Error removing encrypted item:', error);
+    
     return false;
   }
 }
@@ -330,7 +330,7 @@ export function removeEncryptedItem(key) {
  */
 export function migrateToEncrypted(username) {
   try {
-    console.log('🔐 Starting migration to encrypted storage...');
+    
     
     const encryptionKey = generateEncryptionKey(username);
     const migratedKeys = [];
@@ -356,10 +356,10 @@ export function migrateToEncrypted(username) {
           localStorage.setItem(key, encryptedData);
           
           migratedKeys.push(key);
-          console.log(`✅ Migrated: ${key}`);
+          
         }
       } catch (error) {
-        console.error(`❌ Failed to migrate ${key}:`, error);
+        
         failedKeys.push(key);
       }
     }
@@ -367,9 +367,9 @@ export function migrateToEncrypted(username) {
     // Set migration version to track that encryption has been applied
     localStorage.setItem('migrationVersion', '1.0.0');
     
-    console.log(`🔐 Migration complete. Migrated ${migratedKeys.length} keys.`);
+    
     if (failedKeys.length > 0) {
-      console.warn(`⚠️ Failed to migrate ${failedKeys.length} keys:`, failedKeys);
+      
     }
     
     return {
@@ -379,7 +379,7 @@ export function migrateToEncrypted(username) {
       totalMigrated: migratedKeys.length
     };
   } catch (error) {
-    console.error('❌ Migration failed:', error);
+    
     return {
       success: false,
       error: error.message,
@@ -423,7 +423,7 @@ export function needsMigration(username) {
     
     return false;
   } catch (error) {
-    console.error('Error checking migration status:', error);
+    
     return false;
   }
 }
@@ -443,7 +443,7 @@ export function getSensitiveKeysForUser(username) {
  */
 export function resetEncryptedDataForUser(username) {
   try {
-    console.log(`🔄 Creating backup before resetting encrypted data for user: ${username}`);
+    
     
     // First, create backups of all data
     const keysToBackup = [];
@@ -457,24 +457,24 @@ export function resetEncryptedDataForUser(username) {
           keysToBackup.push(key);
           // Create backup
           localStorage.setItem(`backup_${key}`, data);
-          console.log(`💾 Backed up: ${key}`);
+          
         }
       }
     }
     
-    console.log(`💾 Created ${keysToBackup.length} backups`);
+    
     
     // Now remove the problematic encrypted data
     for (const key of keysToBackup) {
       localStorage.removeItem(key);
-      console.log(`🗑️ Removed encrypted key: ${key}`);
+      
     }
     
-    console.log(`✅ Reset complete. Removed ${keysToBackup.length} encrypted keys. Backups created with 'backup_' prefix.`);
-    console.log(`🔄 To restore data, use: restoreFromBackup('${username}')`);
+    
+    
     return true;
   } catch (error) {
-    console.error('Error resetting encrypted data:', error);
+    
     return false;
   }
 }
@@ -484,7 +484,7 @@ export function resetEncryptedDataForUser(username) {
  */
 export function restoreFromBackup(username) {
   try {
-    console.log(`🔄 Restoring data from backups for user: ${username}`);
+    
     
     const allKeys = Object.keys(localStorage);
     const backupKeys = allKeys.filter(key => key.startsWith('backup_'));
@@ -497,15 +497,15 @@ export function restoreFromBackup(username) {
       
       if (backupData) {
         localStorage.setItem(originalKey, backupData);
-        console.log(`✅ Restored: ${originalKey}`);
+        
         restoredCount++;
       }
     }
     
-    console.log(`✅ Restore complete. Restored ${restoredCount} keys.`);
+    
     return restoredCount > 0;
   } catch (error) {
-    console.error('Error restoring from backup:', error);
+    
     return false;
   }
 }
@@ -535,7 +535,7 @@ export function validateEncryptionKey(username, key) {
     // If decryption returns the original encrypted data, key is invalid
     return decrypted !== encryptedData;
   } catch (error) {
-    console.error('Error validating encryption key:', error);
+    
     return false;
   }
 }

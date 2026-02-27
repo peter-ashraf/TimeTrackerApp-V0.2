@@ -110,7 +110,7 @@ export const AuthProvider = ({ children }) => {
         const inactiveTime = now - lastActivityRef.current;
         const maxInactiveTime = sessionTimeout * 60 * 1000;
         if (inactiveTime > maxInactiveTime) {
-          console.log('Session expired, logging out user');
+          
           const username = currentUser?.username;
           clearSessionTimer();
           clearWarningTimer();
@@ -142,7 +142,7 @@ export const AuthProvider = ({ children }) => {
         setLastActivity(parseInt(activity, 10));
       }
     } catch (error) {
-      console.error('Error loading session settings:', error);
+      
     }
   };
 
@@ -155,7 +155,7 @@ export const AuthProvider = ({ children }) => {
       setSessionTimeout(timeout);
       // Timer will be restarted by the useEffect when sessionTimeout changes
     } catch (error) {
-      console.error('Error saving session settings:', error);
+      
     }
   };
 
@@ -168,13 +168,13 @@ export const AuthProvider = ({ children }) => {
       const rawData = localStorage.getItem('currentUser');
       
       if (!rawData) {
-        console.log('No user data found in localStorage');
+        
         setIsLoading(false);
         return;
       }
       
       if (rawData.startsWith('encrypted:')) {
-        console.log('Found encrypted currentUser, attempting to decrypt with simple encryption...');
+        
         
         // Try simple decryption first - we need username but we don't have it yet
         // Let's try to get it from existing session data
@@ -189,10 +189,10 @@ export const AuthProvider = ({ children }) => {
           try {
             savedUser = getSimpleEncryptedItem('currentUser', username);
             if (savedUser && savedUser.username) {
-              console.log(`✅ Successfully decrypted user: ${savedUser.username}`);
+              
             }
           } catch (decryptError) {
-            console.log('❌ Decryption failed with username:', username);
+            
           }
         }
         
@@ -214,7 +214,7 @@ export const AuthProvider = ({ children }) => {
                 try {
                   savedUser = getSimpleEncryptedItem('currentUser', username);
                   if (savedUser && savedUser.username) {
-                    console.log(`✅ Successfully decrypted with username: ${username}`);
+                    
                     break;
                   }
                 } catch (error) {
@@ -223,21 +223,21 @@ export const AuthProvider = ({ children }) => {
               }
             }
           } catch (error) {
-            console.log('Failed to get users data');
+            
           }
         }
       } else {
         // Plain text data, parse it
         try {
           savedUser = JSON.parse(rawData);
-          console.log(`✅ Loaded plain text user: ${savedUser.username}`);
+          
         } catch (parseError) {
-          console.log('Failed to parse as plain text, treating as fresh start');
+          
           savedUser = null;
         }
       }
     } catch (error) {
-      console.error('Error loading currentUser:', error);
+      
       savedUser = null;
     }
     
@@ -254,7 +254,7 @@ export const AuthProvider = ({ children }) => {
         
         activity = localStorage.getItem(`lastActivity_${savedUser.username}`);
       } catch (error) {
-        console.error('Error loading session settings:', error);
+        
       }
       
       // Now check if session has expired
@@ -264,7 +264,7 @@ export const AuthProvider = ({ children }) => {
       const maxInactiveTime = timeout * 60 * 1000;
       
       if (timeout > 0 && inactiveTime > maxInactiveTime) {
-        console.log('Session expired on mount, logging out');
+        
         const username = savedUser?.username;
         clearAllTimers();
         setCurrentUser(null);
@@ -276,7 +276,7 @@ export const AuthProvider = ({ children }) => {
         }
         savedUser = null;
       } else {
-        console.log(`✅ Session valid for user: ${savedUser.username}, timeout: ${timeout} minutes`);
+        
         // Set state after validation
         setSessionTimeout(timeout);
         if (activity) {
@@ -299,7 +299,7 @@ export const AuthProvider = ({ children }) => {
       const maxInactiveTime = sessionTimeout * 60 * 1000;
       
       if (sessionTimeout > 0 && inactiveTime > maxInactiveTime) {
-        console.log('Session expired on mount, logging out');
+        
         const username = currentUser?.username;
         clearSessionTimer();
         clearWarningTimer();
@@ -343,13 +343,13 @@ export const AuthProvider = ({ children }) => {
         
         // Show warning when 5 minutes or less remaining
         if (timeRemaining <= 5 * 60 * 1000 && timeRemaining > 0 && !showSessionWarning) {
-          console.log('⏰ 5 minutes or less remaining - showing warning');
-          console.log('Time remaining:', timeRemaining / 1000 / 60, 'minutes');
+          
+          
           setShowSessionWarning(true);
         }
         
         if (sessionTimeout > 0 && inactiveTime > maxInactiveTime) {
-          console.log('Session expired during check, logging out');
+          
           const username = currentUser?.username;
           clearAllTimers();
           setCurrentUser(null);
@@ -389,7 +389,7 @@ export const AuthProvider = ({ children }) => {
             if (data.data && data.data.username) {
               setCurrentUser(data.data);
               setIsAuthenticated(true);
-              console.log(`📡 User logged in from another tab: ${data.data.username}`);
+              
             }
           }
           break;
@@ -398,7 +398,7 @@ export const AuthProvider = ({ children }) => {
           if (data.username === currentUser?.username) {
             setCurrentUser(null);
             setIsAuthenticated(false);
-            console.log(`📡 User logged out from another tab: ${data.username}`);
+            
           }
           break;
       }
@@ -473,10 +473,10 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem('sickDays');
           }
 
-          console.log(`✅ Migrated existing data to user: ${username}`);
+          
           return true;
         } catch (error) {
-          console.error('Error migrating data:', error);
+          
         }
       } else {
         // User chose to start fresh - remove old data
@@ -487,10 +487,10 @@ export const AuthProvider = ({ children }) => {
           localStorage.removeItem('salary');
           localStorage.removeItem('annualVacation');
           localStorage.removeItem('sickDays');
-          console.log(`✅ User chose to start fresh - old data removed`);
+          
           return false;
         } catch (error) {
-          console.error('Error removing old data:', error);
+          
         }
       }
     }
@@ -516,7 +516,7 @@ export const AuthProvider = ({ children }) => {
       if (usersRaw) {
         if (usersRaw.startsWith('encrypted:')) {
           // Users data is encrypted, try to decrypt with ALL possible usernames to find existing users
-          console.log('🔐 Trying to decrypt users data for registration...');
+          
           
           const allKeys = Object.keys(localStorage);
           const userSpecificKeys = allKeys.filter(key => 
@@ -535,7 +535,7 @@ export const AuthProvider = ({ children }) => {
             try {
               const decryptedUsers = getSimpleEncryptedItem('users', potentialUsername) || {};
               if (decryptedUsers && typeof decryptedUsers === 'object' && Object.keys(decryptedUsers).length > 0) {
-                console.log(`✅ Successfully decrypted existing users with username: ${potentialUsername}`);
+                
                 users = decryptedUsers;
                 break;
               }
@@ -548,13 +548,13 @@ export const AuthProvider = ({ children }) => {
           try {
             users = JSON.parse(usersRaw);
           } catch (parseError) {
-            console.log('Failed to parse users data as plain text, treating as empty');
+            
             users = {};
           }
         }
       }
     } catch (error) {
-      console.error('Error loading users data for registration:', error);
+      
       users = {};
     }
 
@@ -597,18 +597,18 @@ export const AuthProvider = ({ children }) => {
     
     try {
       const usersRaw = localStorage.getItem('users');
-      console.log('🔍 Raw users data:', usersRaw ? usersRaw.substring(0, 50) + '...' : 'null');
+      
       
       if (usersRaw) {
         if (usersRaw.startsWith('encrypted:')) {
-          console.log('🔐 Users data is encrypted, trying to decrypt...');
+          
           try {
             // First try with current username
             users = getSimpleEncryptedItem('users', username) || {};
             
             // If that fails, try all possible usernames from localStorage
             if (Object.keys(users).length === 0) {
-              console.log('🔄 Current username failed, trying all possible usernames...');
+              
               const allKeys = Object.keys(localStorage);
               const userKeys = allKeys.filter(key => key.includes('_') && !key.startsWith('__') && key !== 'users' && key !== 'currentUser');
               const possibleUsernames = [...new Set(
@@ -639,11 +639,11 @@ export const AuthProvider = ({ children }) => {
                 try {
                   users = getSimpleEncryptedItem('users', tryUsername) || {};
                   if (users && typeof users === 'object' && Object.keys(users).length > 0) {
-                    console.log(`✅ Successfully decrypted users with username: ${tryUsername}`);
-                    console.log('👥 Decrypted users object:', JSON.stringify(users, null, 2));
-                    console.log('👥 User keys found:', Object.keys(users));
+                    
+                    
+                    
                     Object.keys(users).forEach(username => {
-                      console.log(`👤 User ${username}:`, users[username]);
+                      
                     });
                     break;
                   }
@@ -653,9 +653,9 @@ export const AuthProvider = ({ children }) => {
               }
             }
             
-            console.log('🔑 Decrypted users data:', Object.keys(users).length, 'users');
+            
           } catch (decryptError) {
-            console.log('❌ Failed to decrypt users data:', decryptError.message);
+            
             // If decryption fails, treat as no users
             users = {};
           }
@@ -663,15 +663,15 @@ export const AuthProvider = ({ children }) => {
           // Plain text users data
           try {
             users = JSON.parse(usersRaw);
-            console.log('📄 Loaded plain text users data:', Object.keys(users).length, 'users');
+            
           } catch (parseError) {
-            console.log('Failed to parse users data as plain text, treating as empty');
+            
             users = {};
           }
         }
       }
     } catch (error) {
-      console.error('Error loading users data:', error);
+      
       users = {};
     }
     
@@ -699,7 +699,7 @@ export const AuthProvider = ({ children }) => {
     // Notify other tabs of login
     multiTabSync.notifyDataChange('user_login', userData, username);
     
-    console.log(`✅ User logged in: ${username}`);
+    
     
     // Trigger app loading animation
     setIsAppLoading(true);
@@ -715,7 +715,7 @@ export const AuthProvider = ({ children }) => {
   // User logout
   const logout = useCallback(() => {
     const username = currentUser?.username;
-    console.log(`✅ User logged out: ${username}`);
+    
     
     // Clear all timers and session data
     clearAllTimers();
@@ -758,14 +758,9 @@ export const AuthProvider = ({ children }) => {
         case 'timeEntries':
           return [];
         case 'payPeriods':
-          return [{
-            id: 'period-default',
-            label: '23 Jan - 20 Feb 2026',
-            start: '2026-01-23',
-            end: '2026-02-20'
-          }];
+          return [];
         case 'currentPeriodId':
-          return 'period-default';
+          return null;
         case 'fullName':
           return '';
         case 'salary':
@@ -788,14 +783,9 @@ export const AuthProvider = ({ children }) => {
         case 'timeEntries':
           return [];
         case 'payPeriods':
-          return [{
-            id: 'period-default',
-            label: '23 Jan - 20 Feb 2026',
-            start: '2026-01-23',
-            end: '2026-02-20'
-          }];
+          return [];
         case 'currentPeriodId':
-          return 'period-default';
+          return null;
         case 'fullName':
           return '';
         case 'salary':
@@ -911,7 +901,7 @@ export const AuthProvider = ({ children }) => {
     // Notify other tabs
     multiTabSync.notifyDataChange('user_login', userData, newUsername);
 
-    console.log(`✅ Username updated from ${currentUser.username} to ${newUsername}`);
+    
     return true;
   };
 
@@ -955,7 +945,7 @@ export const AuthProvider = ({ children }) => {
     // Save updated users data
     setSimpleEncryptedItem('users', users, currentUser.username);
 
-    console.log(`✅ Password updated for user: ${currentUser.username}`);
+    
     return true;
   };
 

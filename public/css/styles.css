@@ -679,7 +679,7 @@ body {
   transition: transform 0.1s ease-out;
   margin-bottom: 0;
   padding-bottom: 0;
-
+  margin-top: 20px;
   scroll-behavior: smooth;
   scrollbar-width: none; 
 }
@@ -717,6 +717,7 @@ body {
 .view-container .main-content {
   min-height: auto;
   padding: var(--space-20);
+  margin-top: 20px;
 }
 
 /* Swipe feedback */
@@ -1848,6 +1849,12 @@ h1 {
 
 .actions-cell .btn .btn-text {
   display: inline;
+}
+
+@media (max-width: 1160px) {
+  .actions-cell .btn .btn-text {
+    display: none;
+  }
 }
 
 /* Mobile: Hide labels */

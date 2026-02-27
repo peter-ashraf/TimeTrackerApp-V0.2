@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
-import { useAuth } from '../context/AuthContext'; // ✅ ADDED
+import { useSupabaseAuth } from '../context/SupabaseAuthContext';
+import { supabaseData } from '../utils/supabaseData';
 import hapticFeedback from '../utils/hapticFeedback';
 import ExportModal from './ExportModal';
 import ImportModal from './ImportModal';
@@ -86,8 +87,8 @@ const validatePeriodDates = (start, end, existingPeriods, editingId = null) => {
   const periodsToCheck = existingPeriods.filter(p => p.id !== editingId);
 
   for (const period of periodsToCheck) {
-    const periodStart = new Date(period.start);
-    const periodEnd = new Date(period.end);
+    const periodStart = new Date(period.start_date || period.start);
+    const periodEnd = new Date(period.end_date || period.end);
 
     // Check overlap: two periods overlap if one starts before the other ends
     const overlaps = startDate <= periodEnd && endDate >= periodStart;
@@ -112,6 +113,7 @@ function Settings() {
     updateEmployee,
     updateLeaveSettings,
     setCurrentPeriodId,
+    setCurrentPeriod,
     setPeriods,
     clearCurrentDay,
     clearCurrentMonth,
@@ -122,7 +124,7 @@ function Settings() {
   } = useTimeTracker();
 
   // ✅ ADDED: Get auth functions
-  const { currentUser, deleteUser } = useAuth();
+  const { currentUser, deleteUser } = useSupabaseAuth();
 
   // Employee form
   const [name, setName] = useState(employee.name);
@@ -266,12 +268,20 @@ function Settings() {
 
   const categorizePeriods = () => {
     const today = new Date().toISOString().split('T')[0];
-    const current = periods.find(p => p.id === currentPeriodId);
-    const otherPeriods = periods.filter(p => p.id !== currentPeriodId);
+    
+    // First try to find current period using is_current flag
+    let current = periods.find(p => p.is_current === true);
+    
+    // Fallback to currentPeriodId if no is_current flag found
+    if (!current) {
+      current = periods.find(p => p.id === currentPeriodId);
+    }
+    
+    const otherPeriods = periods.filter(p => p.id !== current?.id);
 
-    const upcoming = otherPeriods.filter(p => p.start > today);
-    const previous = otherPeriods.filter(p => p.end < today);
-    const other = otherPeriods.filter(p => p.start <= today && p.end >= today);
+    const upcoming = otherPeriods.filter(p => (p.start_date || p.start) > today);
+    const previous = otherPeriods.filter(p => (p.end_date || p.end) < today);
+    const other = otherPeriods.filter(p => (p.start_date || p.start) <= today && (p.end_date || p.end) >= today);
 
     return { current, upcoming, previous: [...previous, ...other] };
   };
@@ -333,7 +343,7 @@ function Settings() {
       // Edit existing period
       setPeriods(periods.map(p =>
         p.id === editingPeriodId
-          ? { ...p, label: autoLabel, start: newPeriodStart, end: newPeriodEnd }
+          ? { ...p, label: autoLabel, start_date: newPeriodStart, end_date: newPeriodEnd }
           : p
       ));
     } else {
@@ -341,8 +351,8 @@ function Settings() {
       const newPeriod = {
         id: `period-${Date.now()}`,
         label: autoLabel,
-        start: newPeriodStart,
-        end: newPeriodEnd
+        start_date: newPeriodStart,
+        end_date: newPeriodEnd
       };
       setPeriods([...periods, newPeriod]);
     }
@@ -390,26 +400,57 @@ function Settings() {
       confirmText: 'Delete',
       cancelText: 'Cancel',
       showCancel: true,
-      onConfirm: () => {
-        const newPeriods = periods.filter(p => p.id !== periodId);
-        setPeriods(newPeriods);
+      onConfirm: async () => {
+        try {
+          // Delete from Supabase first
+          if (currentUser) {
+            await supabaseData.deletePayPeriod(currentUser.id, periodId);
+            
+          }
+          
+          // Update local state
+          const newPeriods = periods.filter(p => p.id !== periodId);
+          setPeriods(newPeriods);
 
-        // If deleting current period, switch to first available
-        if (currentPeriodId === periodId) {
-          setCurrentPeriodId(newPeriods[0].id);
+          // If deleting current period, switch to first available
+          if (currentPeriodId === periodId) {
+            setCurrentPeriodId(newPeriods[0]?.id || null);
+          }
+
+          // Show success
+          setConfirmModal({
+            isOpen: true,
+            title: '✓ Period Deleted',
+            message: `Period "${periodToDelete.label}" has been deleted.`,
+            type: 'success',
+            confirmText: 'OK',
+            showCancel: false,
+            onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+          });
+        } catch (error) {
+          
+          
+          // Still delete from local state even if Supabase fails
+          const newPeriods = periods.filter(p => p.id !== periodId);
+          setPeriods(newPeriods);
+
+          // If deleting current period, switch to first available
+          if (currentPeriodId === periodId) {
+            setCurrentPeriodId(newPeriods[0]?.id || null);
+          }
+
+          // Show warning
+          setConfirmModal({
+            isOpen: true,
+            title: '⚠️ Period Deleted (Local Only)',
+            message: `Period "${periodToDelete.label}" deleted locally but there was an error deleting from the cloud. Your local data is safe.`,
+            type: 'warning',
+            confirmText: 'OK',
+            showCancel: false,
+            onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+          });
         }
-
-        // Show success
-        setConfirmModal({
-          isOpen: true,
-          title: '✓ Period Deleted',
-          message: `Period "${periodToDelete.label}" has been deleted.`,
-          type: 'success',
-          confirmText: 'OK',
-          showCancel: false,
-          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
-        });
-      }
+      },
     });
   };
 
@@ -461,7 +502,7 @@ function Settings() {
   const handleClearCurrentPeriod = () => {
     const currentPeriod = periods.find(p => p.id === currentPeriodId);
     const periodEntries = entries.filter(e =>
-      e.date >= currentPeriod.start && e.date <= currentPeriod.end
+      e.date >= (currentPeriod.start_date || currentPeriod.start) && e.date <= (currentPeriod.end_date || currentPeriod.end)
     );
 
     if (periodEntries.length === 0) {
@@ -807,7 +848,7 @@ function Settings() {
                       <div className="period-actions">
                         <button
                           className="btn btn-sm btn-outline"
-                          onClick={() => setCurrentPeriodId(period.id)}
+                          onClick={() => setCurrentPeriod(period.id)}
                         >
                           Set as Current
                         </button>
@@ -815,8 +856,8 @@ function Settings() {
                           className="btn btn-sm btn-outline"
                           onClick={() => {
                             setEditingPeriodId(period.id);
-                            setNewPeriodStart(period.start);
-                            setNewPeriodEnd(period.end);
+                            setNewPeriodStart(period.start_date || period.start);
+                            setNewPeriodEnd(period.end_date || period.end);
                             setShowAddPeriod(true);
                           }}
                         >
@@ -853,8 +894,8 @@ function Settings() {
                       className="btn btn-sm btn-outline"
                       onClick={() => {
                         setEditingPeriodId(current.id);
-                        setNewPeriodStart(current.start);
-                        setNewPeriodEnd(current.end);
+                        setNewPeriodStart(current.start_date || current.start);
+                        setNewPeriodEnd(current.end_date || current.end);
                         setShowAddPeriod(true);
                       }}
                     >
@@ -896,7 +937,7 @@ function Settings() {
                       <div className="period-actions">
                         <button
                           className="btn btn-sm btn-outline"
-                          onClick={() => setCurrentPeriodId(period.id)}
+                          onClick={() => setCurrentPeriod(period.id)}
                         >
                           Set as Current
                         </button>
@@ -904,8 +945,8 @@ function Settings() {
                           className="btn btn-sm btn-outline"
                           onClick={() => {
                             setEditingPeriodId(period.id);
-                            setNewPeriodStart(period.start);
-                            setNewPeriodEnd(period.end);
+                            setNewPeriodStart(period.start_date || period.start);
+                            setNewPeriodEnd(period.end_date || period.end);
                             setShowAddPeriod(true);
                           }}
                         >

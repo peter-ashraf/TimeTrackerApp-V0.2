@@ -14,12 +14,14 @@
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.2",
+    "@supabase/supabase-js": "^2.97.0",
     "crypto-js": "^4.2.0",
     "emailjs-com": "^3.2.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-router-dom": "^7.13.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

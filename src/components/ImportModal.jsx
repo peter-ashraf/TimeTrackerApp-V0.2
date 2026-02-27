@@ -464,10 +464,10 @@ function ImportModal({ onClose }) {
         }
 
         if (errors.length > 0) {
-          console.warn('Import validation errors:', errors);
+          
         }
       } catch (err) {
-        console.error('Error parsing Excel file:', err);
+        
         setConfirmModal({
           isOpen: true,
           title: 'Parse Error',
@@ -664,7 +664,7 @@ function ImportModal({ onClose }) {
         }
       });
     } catch (err) {
-      console.error('Error importing data:', err);
+      
       setConfirmModal({
         isOpen: true,
         title: 'Import Failed',

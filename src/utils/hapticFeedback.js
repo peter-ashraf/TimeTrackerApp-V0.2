@@ -29,7 +29,7 @@ const vibrate = (pattern) => {
     navigator.vibrate(pattern);
     return true;
   } catch (error) {
-    console.warn('Vibration API error:', error);
+    
     return false;
   }
 };
@@ -102,7 +102,7 @@ export const hapticFeedback = {
   testAll: () => {
     Object.entries(hapticPatterns).forEach(([name, pattern]) => {
       setTimeout(() => {
-        console.log(`Testing ${name} pattern:`, pattern);
+        
         vibrate(pattern);
       }, Object.keys(hapticPatterns).indexOf(name) * 500);
     });

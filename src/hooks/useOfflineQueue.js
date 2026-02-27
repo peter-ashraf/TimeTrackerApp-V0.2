@@ -44,7 +44,7 @@ export const useOfflineQueue = () => {
         }
       }
     } catch (error) {
-      console.error('Error getting queued requests count:', error);
+      
     }
   };
 
@@ -56,7 +56,7 @@ export const useOfflineQueue = () => {
           setIsSyncing(true);
           await registration.sync.register('sync-offline-requests');
         } catch (error) {
-          console.error('Error registering sync:', error);
+          
           setIsSyncing(false);
         }
       }
@@ -84,7 +84,7 @@ export const useOfflineQueue = () => {
         }
       }
     } catch (error) {
-      console.error('Error clearing queued requests:', error);
+      
     }
   };
 

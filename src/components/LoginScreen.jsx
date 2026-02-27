@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useSupabaseAuth } from '../context/SupabaseAuthContext';
 import RecoveryModal from './RecoveryModal';
 import '../styles/login-screen.css';
 
 const LoginScreen = () => {
-  const { login, register, isLoading } = useAuth();
+  const { login, register, resetPassword, isLoading } = useSupabaseAuth();
   const loginButtonRef = useRef(null);
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [formData, setFormData] = useState({
+    email: '',
     username: '',
+    fullName: '',
     password: '',
     confirmPassword: ''
   });
@@ -18,6 +20,9 @@ const LoginScreen = () => {
   const [inputFocused, setInputFocused] = useState(false);
   const [errorKey, setErrorKey] = useState(0);
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -32,12 +37,22 @@ const LoginScreen = () => {
   const validateForm = () => {
     const newErrors = {};
 
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    // Username is always required (for both login and registration)
     if (!formData.username.trim()) {
       newErrors.username = 'Username is required';
-    } else if (formData.username.length < 3) {
-      newErrors.username = 'Username must be at least 3 characters';
-    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-      newErrors.username = 'Username can only contain letters, numbers, and underscores';
+    }
+
+    // Full name only required for registration
+    if (!isLoginMode) {
+      if (!formData.fullName.trim()) {
+        newErrors.fullName = 'Full name is required';
+      }
     }
 
     if (!formData.password) {
@@ -65,12 +80,17 @@ const LoginScreen = () => {
 
     try {
       if (isLoginMode) {
-        await login(formData.username, formData.password);
+        await login(formData.email, formData.password, formData.username);
       } else {
-        await register(formData.username, formData.password);
+        await register(formData.username, formData.password, formData.email, formData.fullName);
         // Switch to login mode after successful registration
         setIsLoginMode(true);
-        setFormData({ username: formData.username, password: '', confirmPassword: '' });
+        setFormData(prev => ({ 
+          ...prev, 
+          fullName: '', 
+          password: '', 
+          confirmPassword: '' 
+        }));
       }
     } catch (error) {
       // Force animation on every error by incrementing key
@@ -90,10 +110,43 @@ const LoginScreen = () => {
     }
   };
 
+  const handleResetPassword = async () => {
+    if (!resetEmail.trim()) {
+      setErrors({ reset: 'Email is required for password reset' });
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resetEmail)) {
+      setErrors({ reset: 'Please enter a valid email address' });
+      return;
+    }
+
+    setIsResetting(true);
+    setErrors({});
+
+    try {
+      await resetPassword(resetEmail);
+      setShowPasswordReset(false);
+      setResetEmail('');
+      // Show success message in the main form
+      setErrors({ general: 'Password reset email sent! Check your inbox.' });
+      setShowError(true);
+    } catch (error) {
+      setErrors({ reset: error.message });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const toggleMode = () => {
     setIsLoginMode(!isLoginMode);
     setErrors({});
-    setFormData({ username: '', password: '', confirmPassword: '' });
+    setFormData(prev => ({ 
+      ...prev, 
+      fullName: '', 
+      password: '', 
+      confirmPassword: '' 
+    }));
     setShowError(false); // Hide error when switching modes
     setInputFocused(false);
     setErrorKey(0); // Reset error key when switching modes
@@ -138,7 +191,25 @@ const LoginScreen = () => {
           )}
 
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="email">Email</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              className={`form-input ${errors.email ? 'error' : ''}`}
+              placeholder="Enter your email"
+              autoComplete="email"
+              required
+            />
+            {errors.email && (
+              <span className="field-error">{errors.email}</span>
+            )}
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="username">Username (Display Name)</label>
             <input
               type="text"
               id="username"
@@ -146,7 +217,7 @@ const LoginScreen = () => {
               value={formData.username}
               onChange={handleInputChange}
               className={`form-input ${errors.username ? 'error' : ''}`}
-              placeholder="Enter your username"
+              placeholder="Enter your display name"
               autoComplete="username"
               required
             />
@@ -154,6 +225,26 @@ const LoginScreen = () => {
               <span className="field-error">{errors.username}</span>
             )}
           </div>
+
+          {!isLoginMode && (
+            <div className="form-group">
+              <label htmlFor="fullName">Full Name</label>
+              <input
+                type="text"
+                id="fullName"
+                name="fullName"
+                value={formData.fullName}
+                onChange={handleInputChange}
+                className={`form-input ${errors.fullName ? 'error' : ''}`}
+                placeholder="Enter your full name"
+                autoComplete="name"
+                required
+              />
+              {errors.fullName && (
+                <span className="field-error">{errors.fullName}</span>
+              )}
+            </div>
+          )}
 
           <div className="form-group">
             <label htmlFor="password">Password</label>
@@ -226,10 +317,19 @@ const LoginScreen = () => {
               <button
                 type="button"
                 className="link-btn forgot-link"
-                onClick={() => setShowRecoveryModal(true)}
+                onClick={() => setShowPasswordReset(true)}
               >
                 Forgot Password?
               </button>
+              <span className="recovery-link">
+                <button
+                  type="button"
+                  className="link-btn recovery-link-btn"
+                  onClick={() => setShowRecoveryModal(true)}
+                >
+                  Recover Data
+                </button>
+              </span>
             </p>
           )}
         </div>
@@ -238,6 +338,87 @@ const LoginScreen = () => {
       {/* Recovery Modal */}
       {showRecoveryModal && (
         <RecoveryModal onClose={() => setShowRecoveryModal(false)} />
+      )}
+      
+      {/* Password Reset Modal */}
+      {showPasswordReset && (
+        <div className="modal-overlay">
+          <div className="modal password-reset-modal">
+            <div className="modal-header">
+              <h3>🔒 Reset Password</h3>
+              <button 
+                className="modal-close-btn" 
+                onClick={() => {
+                  setShowPasswordReset(false);
+                  setResetEmail('');
+                  setErrors({});
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <p className="reset-instructions">
+                Enter your email address and we'll send you a link to reset your password.
+              </p>
+              
+              {errors.reset && (
+                <div className="error-message">
+                  <span className="error-icon">⚠️</span>
+                  {errors.reset}
+                </div>
+              )}
+              
+              <div className="form-group">
+                <label htmlFor="reset-email">Email Address</label>
+                <input
+                  type="email"
+                  id="reset-email"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  className={`form-input ${errors.reset ? 'error' : ''}`}
+                  placeholder="Enter your email"
+                  autoComplete="email"
+                  disabled={isResetting}
+                />
+              </div>
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={() => {
+                  setShowPasswordReset(false);
+                  setResetEmail('');
+                  setErrors({});
+                }}
+                disabled={isResetting}
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-primary"
+                onClick={handleResetPassword}
+                disabled={isResetting}
+              >
+                {isResetting ? (
+                  <>
+                    <span className="btn-spinner"></span>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <span className="btn-icon">📧</span>
+                    Send Reset Email
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

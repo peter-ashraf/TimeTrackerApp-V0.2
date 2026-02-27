@@ -203,7 +203,7 @@ export const generatePDFWithCharts = async (chartElements, data, options = {}) =
       pdf.addImage(imgData, 'PNG', 20, yPosition, imgWidth, imgHeight);
       yPosition += imgHeight + 20;
     } catch (error) {
-      console.error('Error capturing chart:', error);
+      
     }
   }
 

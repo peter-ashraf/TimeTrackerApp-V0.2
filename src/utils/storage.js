@@ -13,7 +13,7 @@ export function saveToStorage(key, data, username = null) {
       return true;
     }
   } catch (error) {
-    console.error('Error saving to storage:', error);
+    
     return false;
   }
 }
@@ -31,7 +31,7 @@ export function loadFromStorage(key, username = null) {
       return JSON.parse(jsonData);
     }
   } catch (error) {
-    console.error('Error loading from storage:', error);
+    
     return null;
   }
 }
@@ -44,7 +44,7 @@ export function removeFromStorage(key) {
     removeEncryptedItem(key);
     return true;
   } catch (error) {
-    console.error('Error removing from storage:', error);
+    
     return false;
   }
 }
@@ -58,7 +58,7 @@ export function clearAllStorage() {
     keys.forEach(key => localStorage.removeItem(key));
     return true;
   } catch (error) {
-    console.error('Error clearing storage:', error);
+    
     return false;
   }
 }

@@ -30,9 +30,14 @@ function ManualTimeModal({ mode, onClose }) {
 
     // Check if date is in current period
     const currentPeriod = getCurrentPeriod();
-    if (currentPeriod && (dateToUse < currentPeriod.start || dateToUse > currentPeriod.end)) {
-      const proceed = window.confirm(`Warning: ${dateToUse} is outside the current period (${currentPeriod.label}). Do you want to continue?`);
-      if (!proceed) return;
+    if (currentPeriod) {
+      const periodStart = currentPeriod.start_date || currentPeriod.start;
+      const periodEnd = currentPeriod.end_date || currentPeriod.end;
+      
+      if (dateToUse < periodStart || dateToUse > periodEnd) {
+        const proceed = window.confirm(`Warning: ${dateToUse} is outside the current period (${currentPeriod.label}). Do you want to continue?`);
+        if (!proceed) return;
+      }
     }
 
     const existingEntry = entries.find(e => e.date === dateToUse);

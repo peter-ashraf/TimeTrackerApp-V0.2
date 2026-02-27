@@ -57,7 +57,7 @@ class BackgroundSync {
         this.handleSyncCompleteFromOtherTab(data);
         break;
       case 'master_change':
-        console.log(`📡 Master tab changed: ${status.isMaster ? 'we are master' : 'another tab is master'}`);
+        
         break;
     }
   }
@@ -66,14 +66,14 @@ class BackgroundSync {
    * Handle data change from other tabs
    */
   async handleDataChangeFromOtherTab(data) {
-    console.log(`📡 Processing data change from other tab: ${data.dataType}`);
+    
     
     // Trigger a refresh to sync the data
     try {
       await this.performSync();
       this.notifyListeners('data_synced', { source: 'multi_tab', data });
     } catch (error) {
-      console.error('❌ Failed to sync data from other tab:', error);
+      
     }
   }
 
@@ -81,7 +81,7 @@ class BackgroundSync {
    * Handle refresh request from other tabs
    */
   async handleRefreshRequestFromOtherTab(data) {
-    console.log(`📡 Refresh request from tab: ${data.requesterTabId}`);
+    
     
     // Only master tab should respond to refresh requests
     const syncStatus = multiTabSync.getStatus();
@@ -108,7 +108,7 @@ class BackgroundSync {
    * Handle user logout from other tabs
    */
   handleUserLogoutFromOtherTab(data) {
-    console.log(`📡 User logout from other tab: ${data.username}`);
+    
     this.notifyListeners('user_logout', data);
   }
 
@@ -116,7 +116,7 @@ class BackgroundSync {
    * Handle sync completion from other tabs
    */
   handleSyncCompleteFromOtherTab(data) {
-    console.log(`📡 Sync completion from other tab:`, data);
+    
     this.notifyListeners('sync_complete', data);
   }
 
@@ -175,7 +175,7 @@ class BackgroundSync {
           await this.syncUpdateSettings(data, username);
           break;
         default:
-          console.warn(`⚠️ Unknown queue action: ${action}`);
+          
       }
     };
     
@@ -215,7 +215,7 @@ class BackgroundSync {
       });
       
     } catch (error) {
-      console.error('❌ Background sync failed:', error);
+      
       this.notifyListeners('sync_error', error);
     } finally {
       this.syncInProgress = false;
@@ -251,7 +251,7 @@ class BackgroundSync {
           });
         }
       } catch (error) {
-        console.error(`❌ Failed to sync ${key} to IndexedDB:`, error);
+        
       }
     }
   }
@@ -271,14 +271,14 @@ class BackgroundSync {
           if (localData === null || this.shouldUseRemoteData(key, data, localData)) {
             // Restore from IndexedDB
             saveToStorage(key, data);
-            console.log(`🔄 Restored ${key} from IndexedDB`);
+            
           }
         } catch (error) {
-          console.error(`❌ Failed to restore ${key} from IndexedDB:`, error);
+          
         }
       }
     } catch (error) {
-      console.error('❌ Failed to sync IndexedDB to localStorage:', error);
+      
     }
   }
 
@@ -303,7 +303,7 @@ class BackgroundSync {
       updatedEntries.push(data);
       saveToStorage('timeEntries', updatedEntries, username);
       
-      console.log(`✅ Synced entry for ${data.date}`);
+      
     } catch (error) {
       throw new Error(`Failed to sync entry: ${error.message}`);
     }
@@ -318,7 +318,7 @@ class BackgroundSync {
       const updatedEntries = entries.filter(e => e.date !== data.date);
       saveToStorage('timeEntries', updatedEntries, username);
       
-      console.log(`✅ Synced deletion of entry for ${data.date}`);
+      
     } catch (error) {
       throw new Error(`Failed to sync deletion: ${error.message}`);
     }
@@ -332,7 +332,7 @@ class BackgroundSync {
       const { type, value } = data;
       saveToStorage(type, value, username);
       
-      console.log(`✅ Synced setting ${type} for ${username}`);
+      
     } catch (error) {
       throw new Error(`Failed to sync settings: ${error.message}`);
     }
@@ -379,7 +379,7 @@ class BackgroundSync {
       try {
         callback(event, data, this.getStatus());
       } catch (error) {
-        console.error('❌ Sync listener error:', error);
+        
       }
     });
   }
@@ -398,7 +398,7 @@ class BackgroundSync {
     // Cleanup multi-tab sync
     multiTabSync.destroy();
     
-    console.log('🔄 Background sync service destroyed');
+    
   }
 }
 

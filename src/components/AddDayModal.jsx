@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
+import AlertModal from './AlertModal';
 
 function AddDayModal({ onClose }) {
   const { setEntries, entries, formatDate } = useTimeTracker();
   const [dayType, setDayType] = useState('Vacation Full Day');
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [dayNotes, setDayNotes] = useState('');
+  const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', type: 'info' });
+
+  const showAlert = (message, type = 'info') => {
+    setAlertModal({ isOpen: true, message, type });
+  };
 
   const parseSpecialDayLabel = (label) => {
     if (label.includes('Half')) {
@@ -20,7 +26,7 @@ function AddDayModal({ onClose }) {
 
   const handleSave = () => {
     if (!dayType || !selectedDate) {
-      alert('Please select day type and date');
+      showAlert('Please select day type and date', 'warning');
       return;
     }
 
@@ -32,7 +38,7 @@ function AddDayModal({ onClose }) {
     );
 
     if (exists) {
-      alert('This day type already exists for the selected date');
+      showAlert('This day type already exists for the selected date', 'warning');
       return;
     }
 
@@ -44,12 +50,15 @@ function AddDayModal({ onClose }) {
       notes: dayNotes
     }]);
 
-    alert(`${dayType} added for ${selectedDate}`);
-    onClose();
+    showAlert(`${dayType} added for ${selectedDate}`, 'success');
+    setTimeout(() => {
+      onClose();
+    }, 1500);
   };
 
   return (
-    <ModalShell onClose={onClose} closeOnOverlay={false}>
+    <>
+      <ModalShell onClose={onClose} closeOnOverlay={false}>
       <h2>Add Special Day</h2>
       <div className="modal-body">
         <div className="form-group">
@@ -97,6 +106,14 @@ function AddDayModal({ onClose }) {
         <button className="btn btn-primary" onClick={handleSave}>Add Day</button>
       </div>
     </ModalShell>
+    
+    <AlertModal
+      isOpen={alertModal.isOpen}
+      message={alertModal.message}
+      type={alertModal.type}
+      onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
+    />
+  </>
   );
 }
 

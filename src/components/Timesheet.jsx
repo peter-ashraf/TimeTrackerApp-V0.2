@@ -1,9 +1,10 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import hapticFeedback from '../utils/hapticFeedback';
 import ManualTimeModal from './ManualTimeModal';
 import AddBreakModal from './AddBreakModal';
 import EditEntryModal from './EditEntryModal';
+import NoPeriodPrompt from './NoPeriodPrompt';
 
 function Timesheet() {
   const { 
@@ -26,9 +27,29 @@ function Timesheet() {
   const [showManualOut, setShowManualOut] = useState(false);
   const [showAddBreak, setShowAddBreak] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
+  const [showNoPeriodPrompt, setShowNoPeriodPrompt] = useState(false);
+
+  // Check if there are any periods
+  const hasNoPeriods = periods.length === 0;
 
   // Use local state for viewing period (separate from "current" period)
-  const [viewingPeriodId, setViewingPeriodId] = useState(currentPeriodId);
+  // Initialize with empty string instead of null to avoid React warning
+  const [viewingPeriodId, setViewingPeriodId] = useState('');
+  
+  // Update viewing period when current period changes
+  useEffect(() => {
+    if (currentPeriodId && viewingPeriodId !== currentPeriodId) {
+      setViewingPeriodId(currentPeriodId);
+    }
+  }, [currentPeriodId]);
+  
+  // Initialize on mount
+  useEffect(() => {
+    if (!viewingPeriodId && currentPeriodId) {
+      setViewingPeriodId(currentPeriodId);
+    }
+  }, [currentPeriodId, viewingPeriodId]);
+  
   const viewingPeriod = useMemo(() => {
     return periods.find(p => p.id === viewingPeriodId) || getCurrentPeriod();
   }, [periods, viewingPeriodId, getCurrentPeriod]);
@@ -37,8 +58,11 @@ function Timesheet() {
   const periodEntries = useMemo(() => {
     if (!viewingPeriod) return [...entries].sort((a, b) => a.date.localeCompare(b.date));
     
+    const periodStart = viewingPeriod.start_date || viewingPeriod.start;
+    const periodEnd = viewingPeriod.end_date || viewingPeriod.end;
+    
     return entries
-      .filter(e => e.date >= viewingPeriod.start && e.date <= viewingPeriod.end)
+      .filter(e => e.date >= periodStart && e.date <= periodEnd)
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [entries, viewingPeriod]);
 
@@ -66,7 +90,10 @@ function Timesheet() {
       return { totalHoursWorked: 0, totalExtraHours: 0, totalExtraHoursWithFactor: 0 };
     }
     
-    const result = calculateOvertimeDetails(entries, viewingPeriod.start, viewingPeriod.end);
+    const periodStart = viewingPeriod.start_date || viewingPeriod.start;
+    const periodEnd = viewingPeriod.end_date || viewingPeriod.end;
+    
+    const result = calculateOvertimeDetails(entries, periodStart, periodEnd);
     
     return result;
   }, [entries, viewingPeriod, calculateOvertimeDetails]);
@@ -75,13 +102,18 @@ function Timesheet() {
   const getGroupedPeriods = () => {
     if (!periods || periods.length === 0) return [];
     
-    // Sort all periods by start date (oldest first)
-    const sortedPeriods = [...periods].sort((a, b) => a.start.localeCompare(b.start));
+    // Sort all periods by start date (oldest first) with null checks
+    const sortedPeriods = [...periods].sort((a, b) => {
+      const dateA = a.start_date || a.start || '';
+      const dateB = b.start_date || b.start || '';
+      return dateA.localeCompare(dateB);
+    });
     
     // Group by year
     const grouped = {};
     sortedPeriods.forEach(period => {
-      const year = new Date(period.start).getFullYear();
+      const dateStr = period.start_date || period.start || '';
+      const year = new Date(dateStr).getFullYear();
       if (!grouped[year]) {
         grouped[year] = [];
       }
@@ -99,7 +131,30 @@ function Timesheet() {
 
   return (
     <main className="main-content">
-      <h1>Timesheet</h1>
+      {hasNoPeriods ? (
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <h2>⚠️ No Periods Found</h2>
+          <p style={{ marginBottom: '20px' }}>
+            You need to create a pay period to track your time entries.
+          </p>
+          <button
+            onClick={() => setShowNoPeriodPrompt(true)}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#3498db',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            Create Your First Period
+          </button>
+        </div>
+      ) : (
+        <>
+          <h1>Timesheet</h1>
 
       {/* Timesheet Controls */}
       <div className="timesheet-controls">
@@ -115,7 +170,7 @@ function Timesheet() {
               <optgroup key={year} label={`${year}`}>
                 {yearPeriods.map(period => (
                   <option key={period.id} value={period.id}>
-                    {period.label} {period.id === currentPeriodId && '(Current)'}
+                    {period.label} {period.is_current && '(Current)'}
                   </option>
                 ))}
               </optgroup>
@@ -339,6 +394,9 @@ function Timesheet() {
       {showManualOut && <ManualTimeModal mode="checkOut" onClose={() => setShowManualOut(false)} />}
       {showAddBreak && <AddBreakModal onClose={() => setShowAddBreak(false)} />}
       {editingEntry && <EditEntryModal entry={editingEntry} onClose={() => setEditingEntry(null)} />}
+      {showNoPeriodPrompt && <NoPeriodPrompt onOpenSettings={() => {/* TODO: Open settings */}} onClose={() => setShowNoPeriodPrompt(false)} />}
+        </>
+      )}
     </main>
   );
 }

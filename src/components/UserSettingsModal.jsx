@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useSupabaseAuth } from '../context/SupabaseAuthContext';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 import '../styles/user-settings-modal.css';
 
 
 function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
-  const { currentUser, updateUsername, updatePassword, sessionTimeout, saveSessionSettings } = useAuth();
+  const { currentUser, updateProfile, updatePassword, sessionTimeout, setSessionTimeout } = useSupabaseAuth();
   const { setConfirmModal } = useTimeTracker();
   
   const [formData, setFormData] = useState({
@@ -189,14 +189,14 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
     
     showConfirmationModal(
       '🔄 Confirm Username Change',
-      `Are you sure you want to change your username from "${currentUser.username}" to "${formData.newUsername}"?\n\nThis will migrate all your data to the new username.`,
+      `Are you sure you want to change your username from "${currentUser.username}" to "${formData.newUsername}"?\n\nThis will update your profile information.`,
       async () => {
         setIsSubmitting(true);
         try {
-          await updateUsername(formData.newUsername, formData.currentPassword);
+          await updateProfile({ username: formData.newUsername });
           showSuccessModal(
             '✅ Username Updated Successfully!',
-            `Your username has been changed to "${formData.newUsername}".\n\nAll your data has been migrated to your new username.`
+            `Your username has been changed to "${formData.newUsername}".`
           );
         } catch (error) {
           setErrors({ submit: error.message });

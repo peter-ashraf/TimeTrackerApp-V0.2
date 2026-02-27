@@ -1,7 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import ConfirmModal from '../components/ConfirmModal';
+import AlertModal from '../components/AlertModal';
 import BackupReminderModal from '../components/BackupReminderModal';
-import { useAuth } from './AuthContext';
+import { useSupabaseAuth } from './SupabaseAuthContext';
+import { supabaseData } from '../utils/supabaseData';
+import { dataMigration } from '../utils/dataMigration';
+import { setSimpleEncryptedItem, getSimpleEncryptedItem } from '../utils/simple-encryption';
 import { multiTabSync } from '../utils/multiTabSync';
 
 const TimeTrackerContext = createContext();
@@ -15,12 +19,12 @@ export const useTimeTracker = () => {
 };
 
 export const TimeTrackerProvider = ({ children }) => {
-  const { currentUser, isAuthenticated, getUserData, saveUserData } = useAuth();
+  const { currentUser, isAuthenticated, getUserData, saveUserData } = useSupabaseAuth();
   
   // ✅ CRITICAL: Don't load data until user is authenticated
   const [isContextReady, setIsContextReady] = useState(false);
   
-  // Employee Data - using getUserData/saveUserData from AuthContext
+  // Employee Data - using getUserData/saveUserData from SupabaseAuth
   const [employee, setEmployee] = useState({ name: '', salary: 0 });
   
   // Leave Settings
@@ -30,14 +34,9 @@ export const TimeTrackerProvider = ({ children }) => {
   const [entries, setEntries] = useState([]);
   
   // Pay Periods
-  const [periods, setPeriods] = useState([{
-    id: 'period-default',
-    label: '23 Jan - 20 Feb 2026',
-    start: '2026-01-23',
-    end: '2026-02-20'
-  }]);
+  const [periods, setPeriods] = useState([]);
   
-  const [currentPeriodId, setCurrentPeriodId] = useState('period-default');
+  const [currentPeriodId, setCurrentPeriodId] = useState(null);
   
   // UI State (these are NOT user-specific, they're app-wide preferences)
   const [hideSalary, setHideSalary] = useState(() => {
@@ -81,11 +80,156 @@ export const TimeTrackerProvider = ({ children }) => {
   // Backup reminder state
   const [showBackupReminder, setShowBackupReminder] = useState(false);
   
+  // Alert modal state
+  const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', type: 'info' });
+  
   // Ref to track migration state
   const migrationRef = useRef(false);
   
   // Ref to track when we're refreshing (to prevent save updates)
   const isRefreshingRef = useRef(false);
+
+  const isLoadingRef = useRef(false);  // ← ADD near other refs
+
+  const isSavingPeriodsRef = useRef(false);  // ← ADD near other refs
+  
+  // Load user-specific data from Supabase (now re-enabled after RLS fix)
+  const loadData = useCallback(async () => {
+    if (!currentUser || !isAuthenticated) {
+      
+      return;
+    }
+
+    if (isLoadingRef.current) return;  // ← ADD: prevent double load
+    
+    try {
+      
+      isLoadingRef.current = true;
+      
+      // Load data from Supabase in parallel
+      const [profileData, entriesData, leaveSettingsData, periodsData, currentPeriodData] = await Promise.all([
+        supabaseData.getUserProfile(currentUser.id),
+        supabaseData.getTimeEntries(currentUser.id),
+        supabaseData.getLeaveSettings(currentUser.id),
+        supabaseData.getPayPeriods(currentUser.id),
+        supabaseData.getCurrentPayPeriod(currentUser.id)
+      ]);
+      
+      // Set loaded data with null checks - salary from localStorage only
+      const salaryKey = `salary_${currentUser.id}`;
+      const localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
+      
+      setEmployee({
+        name: profileData?.username || profileData?.full_name || currentUser.username || 'User',
+        salary: localSalary
+      });
+      
+      setEntries(entriesData || []);
+      setLeaveSettings({
+        annualVacation: leaveSettingsData?.annual_vacation || leaveSettingsData?.annualVacation || 10,
+        sickDays: leaveSettingsData?.sick_days || leaveSettingsData?.sickDays || 7,
+        personalDays: leaveSettingsData?.personal_days || leaveSettingsData?.personalDays || 2,
+        usedVacationDays: leaveSettingsData?.used_vacation_days || leaveSettingsData?.usedVacationDays || 0,
+        usedSickDays: leaveSettingsData?.used_sick_days || leaveSettingsData?.usedSickDays || 0,
+        usedPersonalDays: leaveSettingsData?.used_personal_days || leaveSettingsData?.usedPersonalDays || 0
+      });
+      
+      // Only set periods if we have data from Supabase
+      if (periodsData && periodsData.length > 0) {
+        setPeriods(periodsData);
+        
+        // Handle current period logic
+        if (currentPeriodData) {
+          // We have a current period set in database
+          setCurrentPeriodId(currentPeriodData.id);
+          
+        } else {
+          // No current period set, try to auto-set one
+          
+          try {
+            await supabaseData.autoSetCurrentPayPeriod(currentUser.id);
+            // Try to get the current period again
+            const updatedCurrentPeriod = await supabaseData.getCurrentPayPeriod(currentUser.id);
+            if (updatedCurrentPeriod) {
+              setCurrentPeriodId(updatedCurrentPeriod.id);
+              
+            } else {
+              
+              // Set to first period as fallback
+              setCurrentPeriodId(periodsData[0].id);
+            }
+          } catch (error) {
+            
+            // Set to first period as fallback
+            setCurrentPeriodId(periodsData[0].id);
+          }
+        }
+      } else {
+        // Check if we have entries but no periods - prompt user to create periods
+        if (entriesData && entriesData.length > 0) {
+          
+          // Don't auto-create periods, let user handle it manually
+          setConfirmModal({
+            isOpen: true,
+            title: 'No Pay Periods Found',
+            message: `You have ${entriesData.length} time entries but no pay periods. Please create pay periods in Settings to organize your timesheet data.`,
+            type: 'warning',
+            confirmText: 'Go to Settings',
+            cancelText: 'Later',
+            onConfirm: () => {
+              setConfirmModal({ ...confirmModal, isOpen: false });
+              // TODO: Navigate to Settings tab
+              window.location.hash = '#settings';
+            },
+            onCancel: () => setConfirmModal({ ...confirmModal, isOpen: false })
+          });
+        } else {
+          
+        }
+      }
+      
+      
+      setIsContextReady(true);
+      isLoadingRef.current = false;
+      
+    } catch (error) {
+      
+      // Fallback to encrypted localStorage if Supabase fails
+      
+      
+      const salaryKey = `salary_${currentUser.id}`;
+      const entriesKey = `timeEntries_${currentUser.id}`;
+      const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
+      const periodsKey = `payPeriods_${currentUser.id}`;
+      
+      const savedSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
+      const savedEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
+      const savedLeaveSettings = getSimpleEncryptedItem(leaveSettingsKey, currentUser.username) || {
+        annualVacation: 10,
+        sickDays: 7
+      };
+      const savedPeriods = getSimpleEncryptedItem(periodsKey, currentUser.username);
+      
+      // Only use saved periods, never create defaults
+      const periodsToSet = savedPeriods || [];
+      
+      setEmployee({
+        name: currentUser.username || currentUser.email?.split('@')[0] || 'User',
+        salary: savedSalary
+      });
+      
+      setEntries(savedEntries);
+      setLeaveSettings({
+        annualVacation: savedLeaveSettings.annualVacation || 10,
+        sickDays: savedLeaveSettings.sickDays || 7
+      });
+      
+      setPeriods(periodsToSet);
+      
+      
+      setIsContextReady(true);
+    }
+  }, [currentUser, isAuthenticated]);
   
   // ✅ LOAD USER DATA WHEN USER CHANGES
   useEffect(() => {
@@ -94,90 +238,196 @@ export const TimeTrackerProvider = ({ children }) => {
       setEmployee({ name: '', salary: 0 });
       setLeaveSettings({ annualVacation: 10, sickDays: 7 });
       setEntries([]);
-      setPeriods([{
-        id: 'period-default',
-        label: '23 Jan - 20 Feb 2026',
-        start: '2026-01-23',
-        end: '2026-02-20'
-      }]);
-      setCurrentPeriodId('period-default');
+      setPeriods([]);
+      setCurrentPeriodId(null);
       setIsContextReady(false);
       return;
     }
     
-    // Load user-specific data
-    const loadedEmployee = {
-      name: getUserData('fullName') || '',
-      salary: parseFloat(getUserData('salary')) || 0
+    // Async function to handle migrations and data loading
+    const initializeUserData = async () => {
+      try {
+        // Check if data migration is needed
+        const dataMigrationNeeded = dataMigration.isMigrationNeeded(currentUser.id, currentUser.username);
+        
+        if (dataMigrationNeeded) {
+          // Migration needed for user
+          
+          // Perform migrations in parallel
+          const migrationPromises = [];
+          
+          if (dataMigrationNeeded) {
+            migrationPromises.push(
+              dataMigration.migrateUserData(currentUser.id, currentUser.username)
+                .then(result => ({ type: 'data', result }))
+                .catch(error => ({ type: 'data', error }))
+            );
+          }
+          
+          // Wait for all migrations to complete
+          Promise.allSettled(migrationPromises)
+            .then((results) => {
+              results.forEach((result) => {
+                if (result.status === 'fulfilled') {
+                  
+                } else {
+                  
+                }
+              });
+              
+              // Load data after migrations
+              loadData();
+            })
+            .catch((error) => {
+              
+              // Still load data even if migration fails
+              loadData();
+            });
+        } else {
+          // Load data normally
+          loadData();
+        }
+      } catch (error) {
+        
+        // Still load data even if initialization fails
+        loadData();
+      }
     };
     
-    const loadedLeaveSettings = {
-      annualVacation: parseFloat(getUserData('annualVacation')) || 10,
-      sickDays: parseFloat(getUserData('sickDays')) || 7
-    };
-    
-    const loadedEntries = getUserData('timeEntries') || [];
-    const loadedPeriods = getUserData('payPeriods') || [{
-      id: 'period-default',
-      label: '23 Jan - 20 Feb 2026',
-      start: '2026-01-23',
-      end: '2026-02-20'
-    }];
-    
-    const loadedCurrentPeriodId = getUserData('currentPeriodId') || (loadedPeriods[0]?.id || 'period-default');
-    
-    setEmployee(loadedEmployee);
-    setLeaveSettings(loadedLeaveSettings);
-    setEntries(loadedEntries);
-    setPeriods(loadedPeriods);
-    setCurrentPeriodId(loadedCurrentPeriodId);
-    setIsContextReady(true);
-    
-    console.log(`✅ Loaded data for user: ${currentUser.username}`);
-  }, [currentUser, getUserData]);
+    initializeUserData();
+  }, [currentUser, loadData]);
   
-  // ✅ SAVE USER DATA WHEN IT CHANGES (using user-specific keys)
+  // ✅ SAVE USER DATA WHEN IT CHANGES (using Supabase with localStorage fallback)
   useEffect(() => {
     if (!currentUser || !isContextReady) return;
-    saveUserData('fullName', employee.name);
-    saveUserData('salary', employee.salary);
+    
+    const saveEmployeeData = async () => {
+      try {
+        // Save name/username to Supabase only (exclude salary)
+        await supabaseData.saveUserProfile(currentUser.id, {
+          username: employee.name,
+          full_name: employee.name
+        });
+        
+        // Save salary to encrypted localStorage only
+        const salaryKey = `salary_${currentUser.id}`;
+        setSimpleEncryptedItem(salaryKey, employee.salary, currentUser.username);
+        
+        
+      } catch (error) {
+        
+        
+        // Fallback - save salary to localStorage only (name already handled by Supabase sync)
+        const salaryKey = `salary_${currentUser.id}`;
+        setSimpleEncryptedItem(salaryKey, employee.salary, currentUser.username);
+        
+      }
+    };
+    
+    saveEmployeeData();
     
     // Notify other tabs of data change
     multiTabSync.notifyDataChange('employee', employee, currentUser.username);
-  }, [employee, currentUser, saveUserData, isContextReady]);
+  }, [employee, currentUser, isContextReady]);
   
   useEffect(() => {
     if (!currentUser || !isContextReady) return;
-    saveUserData('annualVacation', leaveSettings.annualVacation);
-    saveUserData('sickDays', leaveSettings.sickDays);
+    
+    const saveLeaveSettingsData = async () => {
+      try {
+        // Save to Supabase
+        await supabaseData.saveLeaveSettings(currentUser.id, {
+          annual_vacation: leaveSettings.annualVacation,
+          sick_days: leaveSettings.sickDays,
+          personal_days: leaveSettings.personalDays,
+          used_vacation_days: leaveSettings.usedVacationDays,
+          used_sick_days: leaveSettings.usedSickDays,
+          used_personal_days: leaveSettings.usedPersonalDays
+        });
+        
+        
+      } catch (error) {
+        
+        
+        // Fallback to localStorage
+        const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
+        setSimpleEncryptedItem(leaveSettingsKey, leaveSettings, currentUser.username);
+        
+      }
+    };
+    
+    saveLeaveSettingsData();
     
     // Notify other tabs of data change
     multiTabSync.notifyDataChange('leaveSettings', leaveSettings, currentUser.username);
-  }, [leaveSettings, currentUser, saveUserData, isContextReady]);
+  }, [leaveSettings, currentUser, isContextReady]);
   
   useEffect(() => {
     if (!currentUser || !isContextReady || isRefreshingRef.current) return;
-    saveUserData('timeEntries', entries);
+    
+    const saveTimeEntriesData = async () => {
+      try {
+        // Save each entry to Supabase
+        for (const entry of entries) {
+          await supabaseData.saveTimeEntry(currentUser.id, entry);
+        }
+        
+        
+      } catch (error) {
+        
+        
+        // Fallback to localStorage
+        const entriesKey = `timeEntries_${currentUser.id}`;
+        setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
+        
+      }
+    };
+    
+    saveTimeEntriesData();
     
     // Notify other tabs of data change
     multiTabSync.notifyDataChange('timeEntries', entries, currentUser.username);
-  }, [entries, currentUser, saveUserData, isContextReady]);
-  
+  }, [entries, currentUser, isContextReady, isRefreshingRef]);
+
+  // Pay periods are now user-specific
   useEffect(() => {
-    if (!currentUser || !isContextReady) return;
-    saveUserData('payPeriods', periods);
-    
-    // Notify other tabs of data change
-    multiTabSync.notifyDataChange('payPeriods', periods, currentUser.username);
-  }, [periods, currentUser, saveUserData, isContextReady]);
-  
-  useEffect(() => {
-    if (!currentUser || !isContextReady) return;
-    saveUserData('currentPeriodId', currentPeriodId);
-    
-    // Notify other tabs of data change
-    multiTabSync.notifyDataChange('currentPeriodId', currentPeriodId, currentUser.username);
-  }, [currentPeriodId, currentUser, saveUserData, isContextReady]);
+  if (!currentUser || !isContextReady || isRefreshingRef.current) return;
+  if (isSavingPeriodsRef.current) return;  // ← blocks re-entry
+
+  const savePayPeriodsData = async () => {
+    isSavingPeriodsRef.current = true;  // ← lock
+    try {
+      const updatedPeriods = [];
+      for (const period of periods) {
+        const saved = await supabaseData.savePayPeriod(currentUser.id, period);
+        // Merge: keep local fields, update with Supabase-returned id
+        updatedPeriods.push({ ...period, id: saved.id });
+      }
+
+      // Only update state if ids actually changed (avoids re-trigger)
+      const idsChanged = updatedPeriods.some(
+        (p, i) => p.id !== periods[i]?.id
+      );
+      if (idsChanged) {
+        setPeriods(updatedPeriods);  // ← only fires if UUIDs changed
+      }
+
+      
+    } catch (error) {
+      
+      const periodsKey = `payPeriods_${currentUser.id}`;
+      setSimpleEncryptedItem(periodsKey, periods, currentUser.username);
+      
+    } finally {
+      isSavingPeriodsRef.current = false;  // ← always unlock
+    }
+  };
+
+  savePayPeriodsData();
+  multiTabSync.notifyDataChange('payPeriods', periods, currentUser.username);
+}, [periods, currentUser, isContextReady]);
+
+
   
   // Persist UI preferences (app-wide, not user-specific)
   useEffect(() => {
@@ -262,7 +512,7 @@ export const TimeTrackerProvider = ({ children }) => {
     
     if (needsMigration) {
       migrationRef.current = true;
-      console.log('🔄 Migrating entries for user:', currentUser.username);
+      
       
       const migratedEntries = entries.map(entry => {
         if (
@@ -311,7 +561,13 @@ export const TimeTrackerProvider = ({ children }) => {
         const hoursSpentOutside = calculateHoursSpentOutside(entry.intervals);
         
         return {
-          ...entry,
+          id: entry.id,
+          date: entry.date,
+          intervals: entry.intervals,
+          type: entry.type,
+          duration: entry.duration,
+          doubleHours: entry.doubleHours,
+          notes: entry.notes,
           hoursWorked,
           extraHours,
           extraHoursWithFactor,
@@ -320,7 +576,7 @@ export const TimeTrackerProvider = ({ children }) => {
       });
       
       setEntries(migratedEntries);
-      console.log('✅ Migration complete for user:', currentUser.username);
+      
       
       setTimeout(() => {
         migrationRef.current = false;
@@ -334,14 +590,83 @@ export const TimeTrackerProvider = ({ children }) => {
       return null;
     }
     
-    const found = periods.find(p => p.id === currentPeriodId);
-    
-    if (!found) {
-      return periods[0];
+    // First try to find the period marked as current in the database
+    const currentFromDb = periods.find(p => p.is_current === true);
+    if (currentFromDb) {
+      return currentFromDb;
     }
     
-    return found;
+    // Fallback to currentPeriodId state
+    const found = periods.find(p => p.id === currentPeriodId);
+    if (found) {
+      return found;
+    }
+    
+    // Final fallback to first period
+    return periods[0];
   }, [periods, currentPeriodId]);
+
+  // Ref to track when we're setting current period to prevent duplicates
+  const isSettingCurrentRef = useRef(false);
+  const refreshKeyRef = useRef(0);
+
+  const setCurrentPeriod = async (periodId) => {
+    if (!currentUser || !periodId || isSettingCurrentRef.current) return;
+    
+    isSettingCurrentRef.current = true;
+    
+    try {
+      
+      
+      await supabaseData.setCurrentPayPeriod(currentUser.id, periodId);
+      
+      // Add delay to ensure database trigger completes
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Force complete refresh of user data
+      
+      const [profileData, entriesData, leaveSettingsData, periodsData] = await Promise.all([
+        supabaseData.getUserProfile(currentUser.id),
+        supabaseData.getTimeEntries(currentUser.id),
+        supabaseData.getLeaveSettings(currentUser.id),
+        supabaseData.getPayPeriods(currentUser.id)
+      ]);
+      
+      // Update all context data - salary from localStorage only
+      const salaryKey = `salary_${currentUser.id}`;
+      const localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
+      
+      setEmployee({
+        name: profileData?.username || profileData?.full_name || currentUser.username || 'User',
+        salary: localSalary
+      });
+      
+      setEntries(entriesData || []);
+      setLeaveSettings({
+        annualVacation: leaveSettingsData?.annual_vacation || leaveSettingsData?.annualVacation || 10,
+        sickDays: leaveSettingsData?.sick_days || leaveSettingsData?.sickDays || 7,
+        personalDays: leaveSettingsData?.personal_days || leaveSettingsData?.personalDays || 2,
+        usedVacationDays: leaveSettingsData?.used_vacation_days || leaveSettingsData?.usedVacationDays || 0,
+        usedSickDays: leaveSettingsData?.used_sick_days || leaveSettingsData?.usedSickDays || 0,
+        usedPersonalDays: leaveSettingsData?.used_personal_days || leaveSettingsData?.usedPersonalDays || 0
+      });
+      
+      setPeriods(periodsData || []);
+      setCurrentPeriodId(periodId);
+      
+      // Increment refresh key to trigger Timesheet re-render
+      refreshKeyRef.current += 1;
+      
+      
+      
+      
+      
+    } catch (error) {
+      
+    } finally {
+      isSettingCurrentRef.current = false;
+    }
+  };
   
   const formatDate = (date) => {
     const d = new Date(date);
@@ -440,7 +765,7 @@ export const TimeTrackerProvider = ({ children }) => {
     const ALLOWED_END = 13 * 3600 + 30 * 60;
     
     let hoursSpentOutside = 0;
-    breakIntervals.forEach(interval => {
+    breakIntervals.forEach((interval, index) => {
       if (interval.in && interval.out) {
         const breakStartSeconds = timeToSeconds(interval.in);
         const breakEndSeconds = timeToSeconds(interval.out);
@@ -548,7 +873,13 @@ export const TimeTrackerProvider = ({ children }) => {
   const recalculateEntryFields = (entry) => {
     if (!entry.intervals || entry.intervals.length === 0) {
       return {
-        ...entry,
+        id: entry.id,
+        date: entry.date,
+        intervals: entry.intervals,
+        type: entry.type,
+        duration: entry.duration,
+        doubleHours: entry.doubleHours,
+        notes: entry.notes,
         hoursWorked: 0,
         extraHours: 0,
         extraHoursWithFactor: 0,
@@ -605,7 +936,20 @@ export const TimeTrackerProvider = ({ children }) => {
   const updateEntry = (date, updates) => {
     updateEntries(entries.map(entry => {
       if (entry.date === date) {
-        const updatedEntry = { ...entry, ...updates };
+        const updatedEntry = {
+          id: entry.id,
+          date: entry.date,
+          intervals: Array.isArray(entry.intervals) ? [...entry.intervals] : [],
+          type: entry.type,
+          duration: entry.duration,
+          doubleHours: entry.doubleHours,
+          notes: entry.notes,
+          hoursWorked: entry.hoursWorked,
+          extraHours: entry.extraHours,
+          extraHoursWithFactor: entry.extraHoursWithFactor,
+          hoursSpentOutside: entry.hoursSpentOutside,
+          ...updates
+        };
         return recalculateEntryFields(updatedEntry);
       }
       return entry;
@@ -634,6 +978,24 @@ export const TimeTrackerProvider = ({ children }) => {
   };
   
   const checkIn = () => {
+    // Check if there are any periods
+    if (periods.length === 0) {
+      setConfirmModal({
+        isOpen: true,
+        title: 'No Periods Found',
+        message: 'You need to create a pay period before you can check in. Would you like to create one now?',
+        type: 'warning',
+        confirmText: 'Create Period',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+          setConfirmModal({ ...confirmModal, isOpen: false });
+          // TODO: Open settings modal to create period
+        },
+        onCancel: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
+      return;
+    }
+
     const today = formatDate(new Date());
     const now = new Date();
     const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
@@ -656,7 +1018,7 @@ export const TimeTrackerProvider = ({ children }) => {
         return;
       }
       
-      const updatedIntervals = [...(existingEntry.intervals || []), { in: time, out: null }];
+      const updatedIntervals = [...(Array.isArray(existingEntry.intervals) ? existingEntry.intervals : []), { in: time, out: null }];
       updateEntries(entries.map(e =>
         e.date === today
           ? { ...e, intervals: updatedIntervals }
@@ -758,7 +1120,7 @@ export const TimeTrackerProvider = ({ children }) => {
     });
   };
   
-  const deleteEntry = (date) => {
+  const deleteEntry = async (date) => {
     setConfirmModal({
       isOpen: true,
       title: 'Delete Entry',
@@ -767,18 +1129,42 @@ export const TimeTrackerProvider = ({ children }) => {
       confirmText: 'Delete',
       cancelText: 'Cancel',
       showCancel: true,
-      onConfirm: () => {
-        updateEntries(entries.filter(e => e.date !== date));
-        
-        setConfirmModal({
-          isOpen: true,
-          title: 'Entry Deleted',
-          message: 'Entry deleted successfully!',
-          type: 'success',
-          confirmText: 'OK',
-          showCancel: false,
-          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
-        });
+      onConfirm: async () => {
+        try {
+          // Delete from Supabase first
+          if (currentUser && isAuthenticated) {
+            await supabaseData.deleteTimeEntry(currentUser.id, date);
+            
+          }
+          
+          // Update local state
+          updateEntries(entries.filter(e => e.date !== date));
+          
+          setConfirmModal({
+            isOpen: true,
+            title: 'Entry Deleted',
+            message: 'Entry deleted successfully!',
+            type: 'success',
+            confirmText: 'OK',
+            showCancel: false,
+            onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+          });
+        } catch (error) {
+          
+          
+          // Still delete from local state even if Supabase fails
+          updateEntries(entries.filter(e => e.date !== date));
+          
+          setConfirmModal({
+            isOpen: true,
+            title: 'Entry Deleted (Local Only)',
+            message: 'Entry deleted locally but there was an error deleting from the cloud. Your local data is safe.',
+            type: 'warning',
+            confirmText: 'OK',
+            showCancel: false,
+            onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+          });
+        }
       },
       onCancel: () => setConfirmModal({ ...confirmModal, isOpen: false })
     });
@@ -788,13 +1174,18 @@ export const TimeTrackerProvider = ({ children }) => {
     if (window.confirm('Are you sure you want to clear data for today? This cannot be undone!')) {
       const today = formatDate(new Date());
       updateEntries(entries.filter(e => e.date !== today));
-      alert('Today\'s data cleared!');
+      showAlert('Today\'s data cleared!', 'success');
     }
   };
   
   const clearCurrentMonth = () => {
     const period = getCurrentPeriod();
-    updateEntries(entries.filter(e => e.date < period.start || e.date > period.end));
+    if (!period) return;
+    
+    const periodStart = period.start_date || period.start;
+    const periodEnd = period.end_date || period.end;
+    
+    updateEntries(entries.filter(e => e.date < periodStart || e.date > periodEnd));
   };
   
   const clearAllData = () => {
@@ -815,9 +1206,9 @@ export const TimeTrackerProvider = ({ children }) => {
         setLeaveSettings({ annualVacation: 10, sickDays: 7 });
         setEntries([]);
         setPeriods([]);
-        alert('All data has been cleared!');
+        showAlert('All data has been cleared!', 'success');
       } else {
-        alert('Deletion cancelled');
+        showAlert('Deletion cancelled', 'info');
       }
     }
   };
@@ -854,10 +1245,83 @@ export const TimeTrackerProvider = ({ children }) => {
     setShowBackupReminder(false);
   };
   
+  // Function to show alerts
+  const showAlert = (message, type = 'info') => {
+    setAlertModal({ isOpen: true, message, type });
+  };
+  
   // Function to set refresh flag (to prevent save updates during refresh)
   const setRefreshing = (isRefreshing) => {
     isRefreshingRef.current = isRefreshing;
   };
+
+  const setActivePayPeriod = async (periodId) => {
+  try {
+    // Update all periods locally - deactivate all, activate selected
+    const updatedPeriods = periods.map(p => ({
+      ...p,
+      is_active: p.id === periodId
+    }));
+
+    // Save each updated period to Supabase
+    for (const period of updatedPeriods) {
+      await supabaseData.savePayPeriod(currentUser.id, period);
+    }
+
+    // Update local state
+    setPeriods(updatedPeriods);
+    setCurrentPeriodId(periodId);
+  } catch (error) {
+    
+    throw error;
+  }
+};
+
+  const savePayPeriod = async (period) => {
+    try {
+      // Save to Supabase
+      await supabaseData.savePayPeriod(currentUser.id, period);
+      
+      // Update local state
+      const existingIndex = periods.findIndex(p => p.id === period.id);
+      if (existingIndex >= 0) {
+        // Update existing period
+        const updatedPeriods = [...periods];
+        updatedPeriods[existingIndex] = period;
+        setPeriods(updatedPeriods);
+      } else {
+        // Add new period
+        setPeriods([...periods, period]);
+      }
+      
+      
+    } catch (error) {
+      
+      throw error;
+    }
+  };
+
+  const deletePayPeriod = async (periodId) => {
+    try {
+      // Delete from Supabase first
+      await supabaseData.deletePayPeriod(currentUser.id, periodId);
+      
+      // Update local state
+      const newPeriods = periods.filter(p => p.id !== periodId);
+      setPeriods(newPeriods);
+
+      // If deleting current period, switch to first available
+      if (currentPeriodId === periodId) {
+        setCurrentPeriodId(newPeriods[0]?.id || null);
+      }
+      
+      
+    } catch (error) {
+      
+      throw error;
+    }
+  };
+
   
   const value = {
     employee,
@@ -882,6 +1346,7 @@ export const TimeTrackerProvider = ({ children }) => {
     clearCurrentMonth,
     clearAllData,
     getCurrentPeriod,
+    setCurrentPeriod,
     formatDate,
     formatTime,
     setPeriods,
@@ -908,7 +1373,11 @@ export const TimeTrackerProvider = ({ children }) => {
     lastSaved,
     lastRefreshed,
     setLastRefreshed,
-    setEntries: updateEntries
+    setEntries: updateEntries,
+    savePayPeriod,      
+    deletePayPeriod,    
+    setActivePayPeriod,
+    showAlert,
   };
   
   return (
@@ -931,6 +1400,12 @@ export const TimeTrackerProvider = ({ children }) => {
         onRemindLater={handleBackupLater}
         onDismiss={handleDismissBackup}
         onClose={handleCloseBackup}
+      />
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        message={alertModal.message}
+        type={alertModal.type}
+        onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
       />
     </TimeTrackerContext.Provider>
   );

@@ -76,7 +76,7 @@ export function simpleEncrypt(data, username) {
 
   } catch (error) {
 
-    console.error('Error encrypting data:', error);
+    
 
     throw new Error('Failed to encrypt data');
 
@@ -168,7 +168,7 @@ export function setSimpleEncryptedItem(key, data, username) {
 
   } catch (error) {
 
-    console.error('Error setting encrypted item:', error);
+    
 
     return false;
 
@@ -202,37 +202,37 @@ export function getSimpleEncryptedItem(key, username) {
 
       try {
 
-        return simpleDecrypt(data, username);
+        const decryptedData = simpleDecrypt(data, username);
+
+        // Additional validation for salary data
+
+        if (key.includes('salary')) {
+
+          return validateSalaryData(decryptedData);
+
+        }
+
+        return decryptedData;
 
       } catch (decryptError) {
 
-        console.log(`⚠️ Failed to decrypt ${key} with simple encryption, returning default value`);
+        
 
         // Return default values for known data types instead of throwing error
 
         if (key.includes('timeEntries')) return [];
 
-        if (key.includes('payPeriods')) return [{
+        if (key.includes('payPeriods')) return [];
 
-          id: 'period-default',
+        if (key.includes('sickDays')) return 7;
 
-          label: '23 Jan - 20 Feb 2026',
-
-          start: '2026-01-23',
-
-          end: '2026-02-20'
-
-        }];
-
-        if (key.includes('fullName')) return '';
-
-        if (key.includes('salary')) return 0;
+        if (key.includes('currentPeriodId')) return null;
 
         if (key.includes('annualVacation')) return 10;
 
         if (key.includes('sickDays')) return 7;
 
-        if (key.includes('currentPeriodId')) return 'period-default';
+        if (key.includes('salary')) return 0; // Default salary
 
         return null;
 
@@ -244,9 +244,27 @@ export function getSimpleEncryptedItem(key, username) {
 
       try {
 
-        return JSON.parse(data);
+        const parsedData = JSON.parse(data);
+
+        // Additional validation for salary data
+
+        if (key.includes('salary')) {
+
+          return validateSalaryData(parsedData);
+
+        }
+
+        return parsedData;
 
       } catch (parseError) {
+
+        // For salary, validate even if not JSON
+
+        if (key.includes('salary')) {
+
+          return validateSalaryData(data);
+
+        }
 
         return data;
 
@@ -256,7 +274,7 @@ export function getSimpleEncryptedItem(key, username) {
 
   } catch (error) {
 
-    console.error('Error getting encrypted item:', error);
+    
 
     return null;
 
@@ -264,3 +282,48 @@ export function getSimpleEncryptedItem(key, username) {
 
 }
 
+
+
+/**
+
+ * Validate salary data integrity
+
+ */
+
+function validateSalaryData(salary) {
+
+  if (salary === null || salary === undefined) return 0;
+
+  const numSalary = Number(salary);
+
+  // Check if it's a valid number
+
+  if (isNaN(numSalary)) {
+
+    
+
+    return 0;
+
+  }
+
+  // Check for reasonable salary bounds
+
+  if (numSalary < 0) {
+
+    
+
+    return 0;
+
+  }
+
+  if (numSalary > 10000000) {
+
+    
+
+    return 0;
+
+  }
+
+  return numSalary;
+
+}

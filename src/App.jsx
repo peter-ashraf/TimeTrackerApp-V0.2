@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { useTimeTracker } from './context/TimeTrackerContext';
-import { useAuth } from './context/AuthContext';
+import { useSupabaseAuth } from './context/SupabaseAuthContext';
 import { backgroundSync } from './utils/backgroundSync';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import Timesheet from './components/Timesheet';
 import Settings from './components/Settings';
 import LoginScreen from './components/LoginScreen';
+import PasswordResetPage from './components/PasswordResetPage';
 import AppLoading from './components/AppLoading';
 import AutoSaveIndicator from './components/AutoSaveIndicator';
 import RefreshIndicator from './components/RefreshIndicator';
 import ConfirmModal from './components/ConfirmModal';
 import PullToRefresh from './components/PullToRefresh';
-import { loadFromStorage } from './utils/storage';
 import './styles/pull-to-refresh.css';
 import './styles/refresh-indicator.css';
 import './styles/app-transitions.css';
@@ -31,7 +32,7 @@ function App() {
   const [isHidingScrollTop, setIsHidingScrollTop] = useState(false);
   const swipeTimeoutRef = useRef(null);
   const { lastSaved, lastRefreshed, entries, theme, setEntries, setLastRefreshed, setRefreshing } = useTimeTracker();
-  const { currentUser, isAuthenticated, getUserData, isAppLoading } = useAuth();
+  const { currentUser, isAuthenticated, getUserData, isAppLoading } = useSupabaseAuth();
   const [refreshing, setRefreshingState] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
@@ -162,7 +163,7 @@ function App() {
         const target = e.target.closest('.data-table, .table-container, table, [data-no-swipe], .modal-content, input, textarea, select, button, [contenteditable="true"], .form-group, .entry-form');
         
         if (target && absDeltaX > absDeltaY) {
-          console.log('🚫 Horizontal swipe inside interactive element - blocking screen swipe');
+          
           setSwipeDirection('blocked');
           return;
         }
@@ -181,13 +182,13 @@ function App() {
       // Don't preventDefault - just track the swipe
       const clampedOffset = Math.max(-120, Math.min(120, deltaX));
       setSwipeOffset(clampedOffset);
-      console.log(`Swiping: offset=${clampedOffset}`);
+      
     }
   }, [swipeDirection, isMobile]);
 
   const handleTouchEnd = useEffect(() => {
     const handleResize = () => {
-      console.log('Resize - Resetting swipe state');
+      
       
       // IMPORTANT: Don't reset authentication during resize
       // Only reset UI-related state, not authentication state
@@ -220,14 +221,14 @@ function App() {
       // Set refresh flag to prevent save updates
       setRefreshing(true);
       
-      console.log('🔄 Starting data refresh with offline sync...');
+      
       
       // Perform background sync first
       await backgroundSync.forceSync();
       
       // Get sync status
       const syncStatus = backgroundSync.getStatus();
-      console.log('📊 Sync status:', syncStatus);
+      
       
       // Reload user data from storage using the same methods as initial load
       const loadedEmployee = {
@@ -241,14 +242,9 @@ function App() {
       };
       
       const loadedEntries = getUserData('timeEntries') || [];
-      const loadedPeriods = getUserData('payPeriods') || [{
-        id: 'period-default',
-        label: '23 Jan - 20 Feb 2026',
-        start: '2026-01-23',
-        end: '2026-02-20'
-      }];
+      const loadedPeriods = getUserData('payPeriods') || [];
       
-      const loadedCurrentPeriodId = getUserData('currentPeriodId') || (loadedPeriods[0]?.id || 'period-default');
+      const loadedCurrentPeriodId = getUserData('currentPeriodId') || null;
       
       // Update context with fresh data
       setEntries(loadedEntries);
@@ -256,15 +252,7 @@ function App() {
       // Set refresh timestamp for feedback
       setLastRefreshed(new Date().toISOString());
       
-      // Log comprehensive refresh results
-      console.log('✅ Data refreshed successfully:', {
-        user: currentUser.username,
-        isOnline: syncStatus.isOnline,
-        entriesLoaded: loadedEntries.length,
-        lastSyncTime: syncStatus.lastSyncTime,
-        queueStatus: syncStatus.queueStatus
-      });
-      
+      // Return comprehensive refresh results
       return Promise.resolve({
         success: true,
         entriesCount: loadedEntries.length,
@@ -273,8 +261,6 @@ function App() {
       });
       
     } catch (error) {
-      console.error('❌ Error refreshing data:', error);
-      
       // Return error information for UI feedback
       return Promise.reject({
         success: false,
@@ -291,7 +277,7 @@ function App() {
   useEffect(() => {
     // Initialize background sync service
     backgroundSync.init().catch(error => {
-      console.error('❌ Failed to initialize background sync:', error);
+      
     });
     
     document.documentElement.setAttribute('data-theme', theme);
@@ -367,135 +353,156 @@ function App() {
     );
   }
 
-  if (!isAuthenticated) {
-    return <LoginScreen />;
-  }
-
-  if (isAppLoading) {
-    return <AppLoading />;
-  }
-
+  // Public routes that don't require authentication
   return (
-    <>
-      <PullToRefresh 
-        onRefresh={refreshData}
-        threshold={80}
-        maxPull={120}
-        className="app-pull-to-refresh"
-      >
-        <div
-          className={`app ${isSwiping ? 'swiping' : ''}`}
-          ref={containerRef}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          style={{
-            minHeight: '100vh',
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-        >
-          <Header 
-            currentView={currentView} 
-            setCurrentView={setCurrentView} 
-            isHeaderCollapsed={isHeaderCollapsed}
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              zIndex: 1000,
-              background: 'var(--color-surface)',
-              borderBottom: '1px solid var(--color-border)'
-            }}
-          />
-          <div
-            className="main-content"
-            data-scrollable
-            style={{
-              paddingTop: '140px',
-              flex: 1,
-              overflowY: 'auto',
-              WebkitOverflowScrolling: 'touch'
-            }}
-          >
-            <div className={`view-container dashboard-container ${currentView === 'dashboard' ? 'active' : ''}`} data-scrollable>
-              <Dashboard />
-            </div>
-            <div className={`view-container timesheet-container ${currentView === 'timesheet' ? 'active' : ''}`} data-scrollable>
-              <Timesheet />
-            </div>
-            <div className={`view-container settings-container ${currentView === 'settings' ? 'active' : ''}`} data-scrollable>
-              <Settings />
-            </div>
+    <Routes>
+      <Route path="/reset-password" element={<PasswordResetPage />} />
+      <Route path="/login" element={
+        isAuthenticated ? (
+          <Navigate to="/" replace />
+        ) : (
+          <LoginScreen />
+        )
+      } />
+      <Route path="/" element={
+        isAuthenticated ? (
+          isAppLoading ? (
+            <AppLoading />
+          ) : (
+            <>
+              <PullToRefresh 
+                onRefresh={refreshData}
+                threshold={80}
+                maxPull={120}
+                className="app-pull-to-refresh"
+              >
+                <div
+                  className={`app ${isSwiping ? 'swiping' : ''}`}
+                  ref={containerRef}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  style={{
+                    minHeight: '100vh',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}
+                >
+                  <Header 
+                    currentView={currentView} 
+                    setCurrentView={setCurrentView} 
+                    isHeaderCollapsed={isHeaderCollapsed}
+                    style={{
+                      position: 'fixed',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      zIndex: 1000,
+                      background: 'var(--color-surface)',
+                      borderBottom: '1px solid var(--color-border)'
+                    }}
+                  />
+                  <div
+                    className="main-content"
+                    data-scrollable
+                    style={{
+                      paddingTop: '140px',
+                      flex: 1,
+                      overflowY: 'auto',
+                      WebkitOverflowScrolling: 'touch'
+                    }}
+                  >
+                    <div className={`view-container dashboard-container ${currentView === 'dashboard' ? 'active' : ''}`} data-scrollable>
+                      <Dashboard />
+                    </div>
+                    <div className={`view-container timesheet-container ${currentView === 'timesheet' ? 'active' : ''}`} data-scrollable>
+                      <Timesheet />
+                    </div>
+                    <div className={`view-container settings-container ${currentView === 'settings' ? 'active' : ''}`} data-scrollable>
+                      <Settings />
+                    </div>
+                  </div>
+                </div>
+              </PullToRefresh>
 
-            <AutoSaveIndicator lastSaved={lastSaved} />
-            <RefreshIndicator lastRefreshed={lastRefreshed} />
-          </div>
-        </div>
-      </PullToRefresh>
-      
-      {/* Scroll to Top Button - Completely outside all containers */}
-      {(showScrollTop || isHidingScrollTop) && (
-        <button
-          onClick={scrollToTop}
-          style={{
-            position: 'fixed',
-            bottom: '20px',
-            right: '20px',
-            width: '50px',
-            height: '50px',
-            borderRadius: '50%',
-            backgroundColor: 'var(--color-primary)',
-            color: 'white',
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '20px',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-            transition: 'all 0.3s ease, opacity 0.3s ease',
-            zIndex: 1000,
-            opacity: isHidingScrollTop ? 0 : 0.5,
-            transform: isHidingScrollTop ? 'translateY(20px)' : 'translateY(0)',
-            animation: !isHidingScrollTop ? 'fadeIn 0.3s ease-in' : 'none',
-            pointerEvents: isHidingScrollTop ? 'none' : 'auto'
-          }}
-          onMouseEnter={(e) => {
-            if (!isHidingScrollTop) {
-              e.target.style.transform = 'scale(1.1)';
-              e.target.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.4)';
-              e.target.style.opacity = '0.8';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isHidingScrollTop) {
-              e.target.style.transform = 'scale(1)';
-              e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
-              e.target.style.opacity = '0.5';
-            }
-          }}
-          aria-label="Scroll to top"
-        >
-          ↑
-        </button>
-      )}
-      
-      {/* Add fade-in and fade-out animation styles */}
-      <style>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 0.5;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
-    </>
+              <AutoSaveIndicator lastSaved={lastSaved} />
+              <RefreshIndicator lastRefreshed={lastRefreshed} />
+              
+              {/* Scroll to Top Button - Completely outside all containers */}
+              {(showScrollTop || isHidingScrollTop) && (
+                <button
+                  onClick={() => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    setIsHidingScrollTop(true);
+                    setTimeout(() => setIsHidingScrollTop(false), 300);
+                  }}
+                  style={{
+                    position: 'fixed',
+                    bottom: '30px',
+                    right: '30px',
+                    width: '50px',
+                    height: '50px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    cursor: 'pointer',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '20px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+                    transition: 'all 0.3s ease, opacity 0.3s ease',
+                    zIndex: 1000,
+                    opacity: isHidingScrollTop ? 0 : 0.5,
+                    transform: isHidingScrollTop ? 'translateY(20px)' : 'translateY(0)',
+                    animation: !isHidingScrollTop ? 'fadeIn 0.3s ease-in' : 'none',
+                    pointerEvents: isHidingScrollTop ? 'none' : 'auto'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isHidingScrollTop) {
+                      e.target.style.transform = 'scale(1.1)';
+                      e.target.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.4)';
+                      e.target.style.opacity = '0.8';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isHidingScrollTop) {
+                      e.target.style.transform = 'scale(1)';
+                      e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+                      e.target.style.opacity = '0.5';
+                    }
+                  }}
+                  aria-label="Scroll to top"
+                >
+                  ↑
+                </button>
+              )}
+              
+              {/* Add fade-in and fade-out animation styles */}
+              <style>{`
+                @keyframes fadeIn {
+                  from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                  }
+                  to {
+                    opacity: 0.5;
+                    transform: translateY(0);
+                  }
+                }
+              `}</style>
+            </>
+          )
+        ) : (
+          <Navigate to="/login" replace />
+        )
+      } />
+      <Route path="*" element={
+        isAuthenticated ? (
+          <Navigate to="/" replace />
+        ) : (
+          <Navigate to="/login" replace />
+        )
+      } />
+    </Routes>
   );
 }
 

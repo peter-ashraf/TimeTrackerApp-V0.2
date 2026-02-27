@@ -34,8 +34,12 @@ function Dashboard() {
   // Calculate vacation stats
   const periodEntries = useMemo(() => {
     if (!currentPeriod) return [];
+    
+    const periodStart = currentPeriod.start_date || currentPeriod.start;
+    const periodEnd = currentPeriod.end_date || currentPeriod.end;
+    
     return entries.filter(e => 
-      e.date >= currentPeriod.start && e.date <= currentPeriod.end
+      e.date >= periodStart && e.date <= periodEnd
     );
   }, [entries, currentPeriod]);
 
@@ -74,7 +78,11 @@ function Dashboard() {
     if (!calculateOvertimeDetails || !currentPeriod) {
       return { totalHoursWorked: 0, totalExtraHours: 0, totalExtraHoursWithFactor: 0 };
     }
-    return calculateOvertimeDetails(entries, currentPeriod.start, currentPeriod.end);
+    
+    const periodStart = currentPeriod.start_date || currentPeriod.start;
+    const periodEnd = currentPeriod.end_date || currentPeriod.end;
+    
+    return calculateOvertimeDetails(entries, periodStart, periodEnd);
   }, [entries, currentPeriod, calculateOvertimeDetails]);
 
   const overtime = overtimeDetails.totalExtraHoursWithFactor;

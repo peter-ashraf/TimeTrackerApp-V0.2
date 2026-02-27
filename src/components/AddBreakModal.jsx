@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
+import AlertModal from './AlertModal';
 
 function AddBreakModal({ onClose }) {
   const { entries, formatDate, updateEntry } = useTimeTracker();
@@ -8,27 +9,32 @@ function AddBreakModal({ onClose }) {
   const [breakStart, setBreakStart] = useState('');
   const [breakEnd, setBreakEnd] = useState('');
   const [breakNotes, setBreakNotes] = useState('');
+  const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', type: 'info' });
+
+  const showAlert = (message, type = 'info') => {
+    setAlertModal({ isOpen: true, message, type });
+  };
 
   const handleSave = () => {
     if (!breakStart || !breakEnd) {
-      alert('Please enter both break start and end times');
+      showAlert('Please enter both break start and end times', 'warning');
       return;
     }
 
     if (breakStart >= breakEnd) {
-      alert('Break end time must be after start time');
+      showAlert('Break end time must be after start time', 'warning');
       return;
     }
 
     const entry = entries.find(e => e.date === selectedDate);
     
     if (!entry) {
-      alert('No check-in/out found for this date. Please add working hours first.');
+      showAlert('No check-in/out found for this date. Please add working hours first.', 'warning');
       return;
     }
 
     if (!entry.intervals || entry.intervals.length === 0) {
-      alert('No working hours found for this date. Please add check-in/out times first.');
+      showAlert('No working hours found for this date. Please add check-in/out times first.', 'warning');
       return;
     }
 
@@ -50,12 +56,15 @@ function AddBreakModal({ onClose }) {
       intervals: updatedIntervals
     });
 
-    alert(`Break added for ${selectedDate}`);
-    onClose();
+    showAlert(`Break added for ${selectedDate}`, 'success');
+    setTimeout(() => {
+      onClose();
+    }, 1500);
   };
 
   return (
-    <ModalShell onClose={onClose} closeOnOverlay={false}>
+    <>
+      <ModalShell onClose={onClose} closeOnOverlay={false}>
       <h2>Add Break</h2>
       <div className="modal-body">
         <div className="form-group">
@@ -105,6 +114,14 @@ function AddBreakModal({ onClose }) {
         <button className="btn btn-primary" onClick={handleSave}>Add Break</button>
       </div>
     </ModalShell>
+    
+    <AlertModal
+      isOpen={alertModal.isOpen}
+      message={alertModal.message}
+      type={alertModal.type}
+      onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
+    />
+  </>
   );
 }
 

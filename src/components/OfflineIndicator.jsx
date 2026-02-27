@@ -36,7 +36,7 @@ const OfflineIndicator = () => {
     try {
       await backgroundSync.forceSync();
     } catch (error) {
-      console.error('Force sync failed:', error);
+      
     }
   };
 

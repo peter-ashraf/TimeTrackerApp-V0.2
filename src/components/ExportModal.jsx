@@ -980,7 +980,7 @@ function ExportModal({ onClose }) {
       localStorage.setItem('lastBackupDate', new Date().toISOString());
       
     } catch (error) {
-      console.error('Export error:', error);
+      
       hapticFeedback.error(); // Error vibration
       setConfirmModal({
         isOpen: true,

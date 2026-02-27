@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
-import { useAuth } from "../context/AuthContext";
+import { useSupabaseAuth } from "../context/SupabaseAuthContext";
 import OfflineIndicator from "./OfflineIndicator";
 import LogoutModal from "./LogoutModal";
 import UserSettingsModal from "./UserSettingsModal";
@@ -9,7 +9,7 @@ import '../styles/fixed-header.css';
 
 function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
   const { theme, setTheme } = useTimeTracker();
-  const { currentUser, logout, showSessionWarning, setShowSessionWarning } = useAuth();
+  const { currentUser, logout, showSessionWarning, setShowSessionWarning } = useSupabaseAuth();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showUserSettingsModal, setShowUserSettingsModal] = useState(false);
   const [userSettingsDefaultTab, setUserSettingsDefaultTab] = useState('username');
@@ -51,7 +51,7 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
   };
 
   const handleToastClick = () => {
-    console.log('🔥 Toast clicked! Opening user settings...');
+    
     setShowSessionWarning(false);
     handleUserSettings('session');
   };

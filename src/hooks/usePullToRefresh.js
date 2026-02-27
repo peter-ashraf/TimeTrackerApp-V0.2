@@ -47,7 +47,6 @@ export const usePullToRefresh = ({
         }
       } catch (error) {
         // Silently fail if vibration is blocked
-        console.debug('Vibration blocked or not supported');
       }
     }
   }, []);
@@ -137,7 +136,7 @@ export const usePullToRefresh = ({
         triggerHaptic('success');
         lastRefreshRef.current = Date.now();
       } catch (error) {
-        console.error('Refresh failed:', error);
+        
       } finally {
         setIsRefreshing(false);
         setPullDistance(0);

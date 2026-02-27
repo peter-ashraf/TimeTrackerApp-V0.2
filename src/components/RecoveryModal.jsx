@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ModalShell from './ModalShell';
+import AlertModal from './AlertModal';
 import { getSimpleEncryptedItem, generateSimpleEncryptionKey, simpleDecrypt } from '../utils/simple-encryption';
 import { exportToExcel, generatePDFReport } from '../utils/exportUtils';
 import hapticFeedback from '../utils/hapticFeedback';
@@ -15,6 +16,7 @@ const RecoveryModal = ({ onClose }) => {
   const [exportFormat, setExportFormat] = useState('excel'); // 'excel', 'pdf', 'email'
   const [recoveryMode, setRecoveryMode] = useState('show'); // 'show', 'specific', 'all', 'all-data'
   const [selectedUserForExport, setSelectedUserForExport] = useState('');
+  const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', type: 'info' });
 
   // Extract potential usernames from localStorage (enhanced logic)
   const extractPotentialUsernames = () => {
@@ -588,7 +590,7 @@ const RecoveryModal = ({ onClose }) => {
             // Skip sensitive data types like salary, passwordHash, etc.
             const sensitiveDataTypes = ['salary', 'passwordHash', 'users', 'currentUser'];
             if (sensitiveDataTypes.includes(dataType)) {
-              console.log(`🔒 Skipping sensitive data type: ${dataType}`);
+              
               return; // Skip this data type entirely
             }
             
@@ -655,7 +657,7 @@ const RecoveryModal = ({ onClose }) => {
             // Skip sensitive data types in PDF export too
             const sensitiveDataTypes = ['salary', 'passwordHash', 'users', 'currentUser'];
             if (sensitiveDataTypes.includes(dataType)) {
-              console.log(`🔒 Skipping sensitive data type in PDF: ${dataType}`);
+              
               return; // Skip this data type entirely
             }
             
@@ -782,7 +784,7 @@ const RecoveryModal = ({ onClose }) => {
 
     } catch (error) {
       hapticFeedback.error();
-      alert(`❌ Export failed: ${error.message}`);
+      setAlertModal({ isOpen: true, message: `❌ Export failed: ${error.message}`, type: 'danger' });
     } finally {
       setIsExporting(false);
     }
@@ -864,7 +866,8 @@ const RecoveryModal = ({ onClose }) => {
   };
 
   return (
-    <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="export-modal">
+    <>
+      <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="export-modal">
       <h3>🔐 Data Recovery</h3>
       <p className="settings-description">
         Recover your timesheet data when you've forgotten your password. 
@@ -1188,6 +1191,14 @@ const RecoveryModal = ({ onClose }) => {
         )}
       </div>
     </ModalShell>
+    
+    <AlertModal
+      isOpen={alertModal.isOpen}
+      message={alertModal.message}
+      type={alertModal.type}
+      onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
+    />
+    </>
   );
 };
 

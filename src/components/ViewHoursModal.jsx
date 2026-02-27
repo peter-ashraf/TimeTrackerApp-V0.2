@@ -9,7 +9,11 @@ function ViewHoursModal({ onClose }) {
   // Filter entries for current period
   const periodEntries = entries.filter(e => {
     if (!currentPeriod) return false;
-    return e.date >= currentPeriod.start && e.date <= currentPeriod.end;
+    
+    const periodStart = currentPeriod.start_date || currentPeriod.start;
+    const periodEnd = currentPeriod.end_date || currentPeriod.end;
+    
+    return e.date >= periodStart && e.date <= periodEnd;
   });
 
   // Calculate hours for each entry

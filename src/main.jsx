@@ -1,8 +1,12 @@
+// Force cache bust to ensure updated code loads
+
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { TimeTrackerProvider } from './context/TimeTrackerContext';
-import { AuthProvider } from './context/AuthContext';
+import { SupabaseAuthProvider } from './context/SupabaseAuthContext';
 import LoadingScreen from './components/LoadingScreen.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import './styles/loading-screen.css';
@@ -14,10 +18,10 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
       scope: '/TimeTrackerApp-V0.2/'
     })
       .then(registration => {
-        console.log('SW registered: ', registration);
+        
       })
       .catch(registrationError => {
-        console.log('SW registration failed: ', registrationError);
+        
       });
   });
 }
@@ -41,11 +45,13 @@ const AppLoader = () => {
 
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <TimeTrackerProvider>
-          <App />
-        </TimeTrackerProvider>
-      </AuthProvider>
+      <BrowserRouter>
+        <SupabaseAuthProvider>
+          <TimeTrackerProvider>
+            <App />
+          </TimeTrackerProvider>
+        </SupabaseAuthProvider>
+      </BrowserRouter>
     </ErrorBoundary>
   );
 };
