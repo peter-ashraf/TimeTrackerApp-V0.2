@@ -3,7 +3,7 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { HashRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { TimeTrackerProvider } from './context/TimeTrackerContext';
 import { SupabaseAuthProvider } from './context/SupabaseAuthContext';
@@ -45,13 +45,13 @@ const AppLoader = () => {
 
   return (
     <ErrorBoundary>
-      <BrowserRouter>
+      <HashRouter>
         <SupabaseAuthProvider>
           <TimeTrackerProvider>
             <App />
           </TimeTrackerProvider>
         </SupabaseAuthProvider>
-      </BrowserRouter>
+      </HashRouter>
     </ErrorBoundary>
   );
 };
