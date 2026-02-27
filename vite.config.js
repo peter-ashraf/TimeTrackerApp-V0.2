@@ -5,9 +5,41 @@ import { VitePWA } from 'vite-plugin-pwa'
 // vite.config.js
 export default defineConfig({
   base: '/TimeTrackerApp-V0.2/',
+  publicDir: 'public',
   
   plugins: [
     react(),
+    {
+      name: 'copy-404',
+      closeBundle() {
+        this.emitFile({
+          type: 'asset',
+          fileName: '404.html',
+          source: `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>TimeTracker App</title>
+    <script>
+      // Single Page App for GitHub Pages
+      // Redirect to the main index.html and let React Router handle the routing
+      var segmentCount = 0;
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + segmentCount).join('/') + '/?p=/' +
+        l.pathname.slice(1).split('/').slice(segmentCount).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&q=' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    </script>
+  </head>
+  <body>
+  </body>
+</html>`
+        });
+      }
+    },
     VitePWA({
       registerType: 'autoUpdate',
       strategies: 'networkFirst',
