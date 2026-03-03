@@ -846,11 +846,22 @@ export const TimeTrackerProvider = ({ children }) => {
       e.date <= periodEnd
     );
     
+    
+    
     let totalHoursWorked = 0;
     let totalExtraHours = 0;
     let totalExtraHoursWithFactor = 0;
     
     periodEntries.forEach((entry, index) => {
+      const entryData = {
+        date: entry.date,
+        type: entry.type,
+        hoursWorked: entry.hoursWorked,
+        extraHours: entry.extraHours,
+        extraHoursWithFactor: entry.extraHoursWithFactor,
+        intervals: entry.intervals
+      };
+      
       // Skip entries without complete check-in/check-out data
       if (!entry.intervals || entry.intervals.length === 0) {
         return;
