@@ -124,11 +124,29 @@ export const TimeTrackerProvider = ({ children }) => {
       
       // Set loaded data with null checks - salary from localStorage only
       const salaryKey = `salary_${currentUser.id}`;
-      const localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
+      
+      // Try both encrypted and plain localStorage for salary
+      let localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
+      
+      if (localSalary === 0) {
+        // Fallback to plain localStorage
+        const plainSalary = localStorage.getItem(salaryKey);
+        if (plainSalary && !plainSalary.startsWith('encrypted:')) {
+          localSalary = parseFloat(plainSalary) || 0;
+        } else if (plainSalary && plainSalary.startsWith('encrypted:')) {
+          // If it's encrypted data, try to decrypt it
+          try {
+            const encryptedData = plainSalary.replace('encrypted:', '');
+            localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
+          } catch (error) {
+            localSalary = 0;
+          }
+        }
+      }
       
       // Migration logic: if new fields don't exist in profile, default to full-time
       const migratedEmployeeData = {
-        name: profileData?.username || profileData?.full_name || currentUser.username || 'User',
+        name: localStorage.getItem('userDisplayName') || profileData?.full_name || profileData?.username || currentUser.username || 'User',
         salary: localSalary,
         employeeType: profileData?.employee_type || 'full-time',
         dailyHours: profileData?.daily_hours || 9,
@@ -216,7 +234,15 @@ export const TimeTrackerProvider = ({ children }) => {
       const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
       const periodsKey = `payPeriods_${currentUser.id}`;
       
-      const savedSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
+      // Try both encrypted and plain localStorage for salary
+      let savedSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
+      if (savedSalary === 0) {
+        // Fallback to plain localStorage
+        const plainSalary = localStorage.getItem(salaryKey);
+        if (plainSalary) {
+          savedSalary = parseFloat(plainSalary) || 0;
+        }
+      }
       const savedEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
       const savedLeaveSettings = getSimpleEncryptedItem(leaveSettingsKey, currentUser.username) || {
         annualVacation: 10,
@@ -228,7 +254,7 @@ export const TimeTrackerProvider = ({ children }) => {
       const periodsToSet = savedPeriods || [];
       
       setEmployee({
-        name: currentUser.username || currentUser.email?.split('@')[0] || 'User',
+        name: localStorage.getItem('userDisplayName') || currentUser.username || currentUser.email?.split('@')[0] || 'User',
         salary: savedSalary,
         employeeType: 'full-time',
         dailyHours: 9,
@@ -665,7 +691,7 @@ export const TimeTrackerProvider = ({ children }) => {
       const localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
       
       setEmployee({
-        name: profileData?.username || profileData?.full_name || currentUser.username || 'User',
+        name: localStorage.getItem('userDisplayName') || profileData?.full_name || profileData?.username || currentUser.username || 'User',
         salary: localSalary
       });
       

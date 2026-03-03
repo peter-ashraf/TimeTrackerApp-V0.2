@@ -6,6 +6,7 @@ import hapticFeedback from '../utils/hapticFeedback';
 import ExportModal from './ExportModal';
 import ImportModal from './ImportModal';
 import ModalShell from './ModalShell';
+import { setSimpleEncryptedItem } from '../utils/simple-encryption';
 import '../styles/settings.css';
 
 // Validation helper
@@ -153,7 +154,7 @@ function Settings() {
   const { currentUser, deleteUser } = useSupabaseAuth();
 
   // Employee form
-  const [name, setName] = useState(employee.name);
+  const [name, setName] = useState(localStorage.getItem('userDisplayName') || employee.name);
   const [salary, setSalary] = useState(employee.salary);
   const [employeeType, setEmployeeType] = useState(employee.employeeType);
   const [dailyHours, setDailyHours] = useState(employee.dailyHours);
@@ -308,6 +309,18 @@ function Settings() {
     }
     updateEmployee(employeeData);
     updateLeaveSettings({ annualVacation: parsedVacation, sickDays: parsedSickDays });
+
+    // ✅ NEW: Save display name to localStorage when name changes
+    if (nameChanged && name.trim()) {
+      localStorage.setItem('userDisplayName', name.trim());
+    }
+
+    // ✅ IMMEDIATE SAVE: Force immediate salary save to localStorage
+    if (salaryChanged && !hideSalary && currentUser) {
+      const salaryKey = `salary_${currentUser.id}`;
+      // Save using the same encryption method as the TimeTrackerContext
+      setSimpleEncryptedItem(salaryKey, parsedSalary, currentUser.username);
+    }
 
     // Show success with what changed
     let summaryMessage;
@@ -735,16 +748,19 @@ function Settings() {
         <h2>👤 Employee Information</h2>
 
         <form onSubmit={handleSaveAll}>
-          {/* Full Name */}
+          {/* Full Name (Display Name) */}
           <div className="form-group">
-            <label className="form-label">Full Name</label>
+            <label className="form-label">Display Name</label>
             <input
               type="text"
               className="form-control"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter your full name"
+              placeholder="Enter your display name"
             />
+            <small className="form-help">
+              This is how your name appears throughout the app. Your login username (<strong>{currentUser?.username}</strong>) remains unchanged.
+            </small>
           </div>
 
           {/* Monthly Salary */}

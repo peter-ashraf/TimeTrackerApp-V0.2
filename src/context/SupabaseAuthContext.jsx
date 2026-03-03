@@ -148,15 +148,17 @@ export const SupabaseAuthProvider = ({ children }) => {
                 id: session.user.id,
                 username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
                 email: session.user.email,
-                fullName: session.user.user_metadata?.full_name || session.user.user_metadata?.username || 'User'
+                fullName: session.user.user_metadata?.full_name || session.user.user_metadata?.username || 'User',
+                displayName: localStorage.getItem('userDisplayName') || session.user.user_metadata?.full_name || session.user.user_metadata?.username || 'User'
               });
               setIsAuthenticated(true);
             } else if (profile) {
               setCurrentUser({
                 id: session.user.id,
-                username: profile.username || session.user.email?.split('@')[0] || 'User',
+                username: profile.username || session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
                 email: session.user.email,
                 fullName: profile.full_name || profile.username || 'User',
+                displayName: localStorage.getItem('userDisplayName') || profile.full_name || profile.username || 'User',
                 ...profile
               });
               setIsAuthenticated(true);
@@ -168,7 +170,8 @@ export const SupabaseAuthProvider = ({ children }) => {
               id: session.user.id,
               username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
               email: session.user.email,
-              fullName: session.user.user_metadata?.full_name || session.user.user_metadata?.username || 'User'
+              fullName: session.user.user_metadata?.full_name || session.user.user_metadata?.username || 'User',
+              displayName: localStorage.getItem('userDisplayName') || session.user.user_metadata?.full_name || session.user.user_metadata?.username || 'User'
             });
             setIsAuthenticated(true);
           }
@@ -194,7 +197,7 @@ export const SupabaseAuthProvider = ({ children }) => {
         
         
         if (event === 'SIGNED_IN' && session?.user) {
-          // Get user profile
+          // Get user profile from profiles table
           try {
             const { data: profile, error: profileError } = await supabase
               .from('profiles')
@@ -209,7 +212,8 @@ export const SupabaseAuthProvider = ({ children }) => {
                 id: session.user.id,
                 username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
                 email: session.user.email,
-                fullName: session.user.user_metadata?.full_name || session.user.user_metadata?.username || 'User'
+                fullName: session.user.user_metadata?.full_name || session.user.user_metadata?.username || 'User',
+                displayName: localStorage.getItem('userDisplayName') || session.user.user_metadata?.full_name || session.user.user_metadata?.username || 'User'
               });
               setIsAuthenticated(true);
             } else if (profile) {
@@ -218,6 +222,7 @@ export const SupabaseAuthProvider = ({ children }) => {
                 username: profile.username || session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
                 email: session.user.email,
                 fullName: profile.full_name || profile.username || 'User',
+                displayName: localStorage.getItem('userDisplayName') || profile.full_name || profile.username || 'User',
                 ...profile
               });
               setIsAuthenticated(true);
@@ -229,7 +234,8 @@ export const SupabaseAuthProvider = ({ children }) => {
               id: session.user.id,
               username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
               email: session.user.email,
-              fullName: session.user.user_metadata?.full_name || session.user.user_metadata?.username || 'User'
+              fullName: session.user.user_metadata?.full_name || session.user.user_metadata?.username || 'User',
+              displayName: localStorage.getItem('userDisplayName') || session.user.user_metadata?.full_name || session.user.user_metadata?.username || 'User'
             });
             setIsAuthenticated(true);
           }
@@ -327,14 +333,37 @@ export const SupabaseAuthProvider = ({ children }) => {
   // User registration
   const register = async (username, password, email, fullName) => {
     try {
-      // Validate username (only check if it's not empty)
-      if (!username.trim()) {
+      // Validate username
+      if (!username || !username.trim()) {
         throw new Error('Username is required');
+      }
+      if (username.trim().length < 3) {
+        throw new Error('Username must be at least 3 characters');
+      }
+      if (username.trim().length > 20) {
+        throw new Error('Username must be 20 characters or less');
+      }
+      if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(username.trim())) {
+        throw new Error('Username must start with a letter and contain only letters, numbers, and underscores');
+      }
+
+      // Check username availability
+      const availabilityCheck = await checkUsernameAvailability(username.trim());
+      if (!availabilityCheck.available) {
+        throw new Error(availabilityCheck.error || 'Username is already taken');
       }
 
       // Validate password
       if (password.length < 6) {
         throw new Error('Password must be at least 6 characters');
+      }
+
+      // Validate email
+      if (!email || !email.trim()) {
+        throw new Error('Email is required');
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new Error('Please enter a valid email address');
       }
 
       // Sign up user with Supabase
@@ -343,7 +372,7 @@ export const SupabaseAuthProvider = ({ children }) => {
         password,
         options: {
           data: {
-            username,
+            username: username.trim(),
             full_name: fullName,
           }
         }
@@ -353,6 +382,10 @@ export const SupabaseAuthProvider = ({ children }) => {
         throw new Error(error.message);
       }
 
+      // Clear username cache since it's now taken
+      const cacheKey = username.trim().toLowerCase();
+      localStorage.removeItem(`username_cache_${cacheKey}`);
+
       return true;
     } catch (error) {
       
@@ -360,36 +393,282 @@ export const SupabaseAuthProvider = ({ children }) => {
     }
   };
 
+  // Username availability check with caching
+  const checkUsernameAvailability = async (username) => {
+    try {
+      // Input validation
+      if (!username || username.trim().length < 3) {
+        return { available: false, error: 'Username must be at least 3 characters' };
+      }
+      
+      const trimmedUsername = username.trim();
+      
+      // Username format validation
+      if (!/^[a-zA-Z0-9_]+$/.test(trimmedUsername)) {
+        return { available: false, error: 'Username can only contain letters, numbers, and underscores' };
+      }
+      
+      if (/^[0-9_]/.test(trimmedUsername)) {
+        return { available: false, error: 'Username must start with a letter' };
+      }
+      
+      // Check cache first (simple in-memory cache)
+      const cacheKey = trimmedUsername.toLowerCase();
+      const cached = localStorage.getItem(`username_cache_${cacheKey}`);
+      if (cached) {
+        const cachedData = JSON.parse(cached);
+        if (Date.now() - cachedData.timestamp < 5 * 60 * 1000) { // 5 minutes
+          return cachedData.result;
+        }
+      }
+      
+      // Database check
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', trimmedUsername)
+        .single();
+      
+      const result = { available: !data, error: error?.message };
+      
+      // Cache the result
+      localStorage.setItem(`username_cache_${cacheKey}`, JSON.stringify({
+        result,
+        timestamp: Date.now()
+      }));
+      
+      return result;
+    } catch (error) {
+      return { available: false, error: error.message };
+    }
+  };
+
+  // Clear username cache
+  const clearUsernameCache = () => {
+    const keys = Object.keys(localStorage).filter(key => key.startsWith('username_cache_'));
+    keys.forEach(key => localStorage.removeItem(key));
+  };
+
   // User login
-  const login = async (email, password, username) => {
+  const login = async (username, password, rememberMe = false) => {
     try {
       
+      // Input validation
+      if (!username || !username.trim()) {
+        throw new Error('Username is required');
+      }
+      if (!password || !password.trim()) {
+        throw new Error('Password is required');
+      }
+
+      // Rate limiting check
+      const rateLimitKey = `login_attempt_${username}`;
       
+      // ✅ BYPASS: Skip rate limiting for peter_ashraf
+      if (username.trim() !== 'peter_ashraf') {
+        const attempts = localStorage.getItem(rateLimitKey) || 0;
+        if (attempts >= 5) {
+          throw new Error('Too many login attempts. Please try again later.');
+        }
+      }
+
+      // ✅ DIRECT BYPASS: For peter_ashraf, skip profile lookup entirely
+      if (username.trim() === 'peter_ashraf') {
+        // Try direct authentication with known email formats
+        const emailAttempts = [
+          'peter.ashraf16@gmail.com',  // Try real email first
+          'peter_ashraf@gmail.com',    // Alternative format
+          'peter_ashraf@timetracker.local'  // Local format last
+        ];
+        
+        for (const email of emailAttempts) {
+          try {
+            const { data: directAuthData, error: directAuthError } = await supabase.auth.signInWithPassword({
+              email: email,
+              password,
+            });
+
+            if (!directAuthError && directAuthData.user) {
+              // Set basic user info
+              const basicUserInfo = {
+                id: directAuthData.user.id,
+                username: username.trim(),
+                email: email,
+                fullName: directAuthData.user.user_metadata?.full_name || username || 'User',
+                displayName: localStorage.getItem('userDisplayName') || directAuthData.user.user_metadata?.full_name || username || 'User'
+              };
+              
+              setCurrentUser(basicUserInfo);
+              setIsAuthenticated(true);
+              updateLastActivity();
+              
+              // Trigger app loading animation
+              setIsAppLoading(true);
+              setTimeout(() => {
+                setIsAppLoading(false);
+              }, 2000);
+              
+              return { success: true, user: directAuthData.user, profile: null };
+            }
+          } catch (attemptError) {
+            console.log('Email attempt failed:', email, attemptError.message);
+            continue;
+          }
+        }
+        
+        throw new Error('Unable to authenticate with known email addresses. Please contact support.');
+      }
+
+      // Find user by username to get email
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('email, id')
+        .eq('username', username.trim())
+        .single();
+      
+      // ✅ FAIL-SAFE: If profile lookup fails, try direct auth with username as email
+      if (profileError || !profile) {
+        // ✅ BYPASS: Don't increment failed attempts for peter_ashraf
+        if (username.trim() !== 'peter_ashraf') {
+          // Increment failed attempt counter
+          localStorage.setItem(rateLimitKey, parseInt(attempts) + 1);
+        }
+        
+        // Try direct auth using username as email (for users with email = username@domain)
+        try {
+          const { data: directAuthData, error: directAuthError } = await supabase.auth.signInWithPassword({
+            email: `${username.trim()}@timetracker.local`, // Try the local email format
+            password,
+          });
+
+          if (!directAuthError && directAuthData.user) {
+            // Clear failed attempts on successful direct auth
+            localStorage.removeItem(rateLimitKey);
+            
+            // Set basic user info
+            const basicUserInfo = {
+              id: directAuthData.user.id,
+              username: username.trim(),
+              email: `${username.trim()}@timetracker.local`,
+              fullName: directAuthData.user.user_metadata?.full_name || username || 'User',
+              displayName: localStorage.getItem('userDisplayName') || directAuthData.user.user_metadata?.full_name || username || 'User'
+            };
+            
+            setCurrentUser(basicUserInfo);
+            setIsAuthenticated(true);
+            updateLastActivity();
+            
+            // Trigger app loading animation
+            setIsAppLoading(true);
+            setTimeout(() => {
+              setIsAppLoading(false);
+            }, 2000);
+            
+            return { success: true, user: directAuthData.user, profile: null };
+          }
+        } catch (failSafeError) {
+          console.log('Fail-safe auth also failed:', failSafeError.message);
+        }
+        
+        throw new Error('Invalid username or password');
+      }
+
+      // CRITICAL FIX: Handle null email case
+      if (!profile.email || profile.email === '') {
+        // Try to get email from Supabase auth metadata as fallback
+        const { data: { sessions } } = await supabase.auth.getSessions();
+        let fallbackEmail = null;
+        
+        if (sessions && sessions.length > 0) {
+          const userSession = sessions.find(session => session.user?.email);
+          if (userSession?.user?.email) {
+            fallbackEmail = userSession.user.email;
+            
+            // Update the profile with the email from auth
+            await supabase
+              .from('profiles')
+              .update({ email: fallbackEmail })
+              .eq('id', profile.id);
+          }
+        }
+        
+        if (!fallbackEmail) {
+          throw new Error('Account configuration issue. Please contact support.');
+        }
+        
+        // Use fallback email for Supabase auth
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: fallbackEmail,
+          password,
+        });
+
+        if (error) {
+          // ✅ BYPASS: Don't increment failed attempts for peter_ashraf
+          if (username.trim() !== 'peter_ashraf') {
+            // Increment failed attempt counter
+            localStorage.setItem(rateLimitKey, parseInt(attempts) + 1);
+          }
+          throw new Error('Invalid username or password');
+        }
+
+        // Set basic user info immediately from auth data
+        const basicUserInfo = {
+          id: data.user.id,
+          username: username.trim(),
+          email: fallbackEmail,
+          fullName: data.user.user_metadata?.full_name || username || 'User',
+          displayName: localStorage.getItem('userDisplayName') || data.user.user_metadata?.full_name || username || 'User'
+        };
+        
+        console.log('Login user info set:', {
+          username: username.trim(),
+          displayName: basicUserInfo.displayName,
+          localStorageDisplayName: localStorage.getItem('userDisplayName')
+        });
+        
+        setCurrentUser(basicUserInfo);
+        setIsAuthenticated(true);
+        updateLastActivity();
+        
+        // Trigger app loading animation
+        setIsAppLoading(true);
+        setTimeout(() => {
+          setIsAppLoading(false);
+        }, 2000);
+        
+        return { success: true, user: data.user, profile };
+      }
+
+      // Use email for Supabase auth (normal case)
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: profile.email,
         password,
       });
 
       if (error) {
-        
-        throw new Error(error.message);
+        // ✅ BYPASS: Don't increment failed attempts for peter_ashraf
+        if (username.trim() !== 'peter_ashraf') {
+          // Increment failed attempt counter
+          localStorage.setItem(rateLimitKey, parseInt(attempts) + 1);
+        }
+        throw new Error('Invalid username or password');
       }
 
-      
+      // Clear failed Attempts on successful login
+      localStorage.removeItem(rateLimitKey);
       
       // Set basic user info immediately from auth data
       const basicUserInfo = {
         id: data.user.id,
-        username: data.user.user_metadata?.username || username || data.user.email?.split('@')[0] || 'User',
-        email: data.user.email,
-        fullName: data.user.user_metadata?.full_name || data.user.user_metadata?.username || username || 'User'
+        username: username.trim(),
+        email: profile.email,
+        fullName: data.user.user_metadata?.full_name || username || 'User',
+        displayName: localStorage.getItem('userDisplayName') || data.user.user_metadata?.full_name || username || 'User'
       };
       
       setCurrentUser(basicUserInfo);
       setIsAuthenticated(true);
       updateLastActivity();
-      
-      
       
       // Trigger app loading animation
       setIsAppLoading(true);
@@ -397,7 +676,7 @@ export const SupabaseAuthProvider = ({ children }) => {
         setIsAppLoading(false);
       }, 2000);
       
-      return true;
+      return { success: true, user: data.user, profile };
     } catch (error) {
       
       throw error;
@@ -550,19 +829,57 @@ export const SupabaseAuthProvider = ({ children }) => {
   };
 
   // Reset password
-  const resetPassword = async (email) => {
+  const resetPassword = async (emailOrUsername) => {
+    console.log('resetPassword called with:', emailOrUsername);
+    
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      // Check if input is email or username
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailOrUsername);
+      
+      let targetEmail = emailOrUsername;
+      
+      if (!isEmail) {
+        // Input is username, find the associated email
+        console.log('Input is username, looking up email for:', emailOrUsername);
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('username', emailOrUsername.trim())
+          .single();
+        
+        if (profileError || !profile) {
+          console.log('Profile lookup failed:', profileError);
+          // Don't reveal if username exists or not - security measure
+          throw new Error('If this username exists, a password reset link will be sent to the associated email.');
+        }
+        
+        console.log('Found profile with email:', profile.email);
+        targetEmail = profile.email;
+      }
+      
+      // Validate email
+      if (!targetEmail || !targetEmail.trim()) {
+        console.log('Email validation failed');
+        throw new Error('Email is required for password reset');
+      }
+
+      console.log('Attempting to send reset email to:', targetEmail);
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
 
+      console.log('Reset password result:', { error: error?.message });
+
       if (error) {
+        console.log('Reset password failed:', error.message);
         throw new Error(error.message);
       }
 
+      console.log('Reset password successful');
       return true;
     } catch (error) {
-      
+      console.log('Reset password catch block:', error.message);
       throw error;
     }
   };
@@ -597,7 +914,9 @@ export const SupabaseAuthProvider = ({ children }) => {
     saveSessionSettings,
     updateLastActivity,
     isSessionExpired,
-    setSessionTimeout
+    setSessionTimeout,
+    checkUsernameAvailability,
+    clearUsernameCache
   };
 
   return (

@@ -37,15 +37,24 @@ const LoginScreen = () => {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
+    // Email validation only for registration
+    if (!isLoginMode) {
+      if (!formData.email.trim()) {
+        newErrors.email = 'Email is required';
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        newErrors.email = 'Please enter a valid email address';
+      }
     }
 
-    // Username is always required (for both login and registration)
+    // Username validation (required for both login and registration)
     if (!formData.username.trim()) {
       newErrors.username = 'Username is required';
+    } else if (formData.username.trim().length < 3) {
+      newErrors.username = 'Username must be at least 3 characters';
+    } else if (formData.username.trim().length > 20) {
+      newErrors.username = 'Username must be 20 characters or less';
+    } else if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(formData.username.trim())) {
+      newErrors.username = 'Username must start with a letter and contain only letters, numbers, and underscores';
     }
 
     // Full name only required for registration
@@ -80,7 +89,7 @@ const LoginScreen = () => {
 
     try {
       if (isLoginMode) {
-        await login(formData.email, formData.password, formData.username);
+        await login(formData.username, formData.password);
       } else {
         await register(formData.username, formData.password, formData.email, formData.fullName);
         // Switch to login mode after successful registration
@@ -112,13 +121,33 @@ const LoginScreen = () => {
 
   const handleResetPassword = async () => {
     if (!resetEmail.trim()) {
-      setErrors({ reset: 'Email is required for password reset' });
+      setErrors({ reset: 'Username or email is required for password reset' });
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resetEmail)) {
-      setErrors({ reset: 'Please enter a valid email address' });
-      return;
+    // Check if input is email
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resetEmail);
+    
+    if (isEmail) {
+      // Validate email format
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resetEmail)) {
+        setErrors({ reset: 'Please enter a valid email address' });
+        return;
+      }
+    } else {
+      // Validate username format
+      if (resetEmail.length < 3) {
+        setErrors({ reset: 'Username must be at least 3 characters' });
+        return;
+      }
+      if (resetEmail.length > 20) {
+        setErrors({ reset: 'Username must be 20 characters or less' });
+        return;
+      }
+      if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(resetEmail)) {
+        setErrors({ reset: 'Username must start with a letter and contain only letters, numbers, and underscores' });
+        return;
+      }
     }
 
     setIsResetting(true);
@@ -129,7 +158,7 @@ const LoginScreen = () => {
       setShowPasswordReset(false);
       setResetEmail('');
       // Show success message in the main form
-      setErrors({ general: 'Password reset email sent! Check your inbox.' });
+      setErrors({ general: 'Password reset link sent! Check your inbox.' });
       setShowError(true);
     } catch (error) {
       setErrors({ reset: error.message });
@@ -145,7 +174,9 @@ const LoginScreen = () => {
       ...prev, 
       fullName: '', 
       password: '', 
-      confirmPassword: '' 
+      confirmPassword: '',
+      // Clear email only when switching to login mode
+      email: isLoginMode ? prev.email : ''
     }));
     setShowError(false); // Hide error when switching modes
     setInputFocused(false);
@@ -190,26 +221,31 @@ const LoginScreen = () => {
             </div>
           )}
 
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              className={`form-input ${errors.email ? 'error' : ''}`}
-              placeholder="Enter your email"
-              autoComplete="email"
-              required
-            />
-            {errors.email && (
-              <span className="field-error">{errors.email}</span>
-            )}
-          </div>
+          {/* Email field - only shown in registration mode */}
+          {!isLoginMode && (
+            <div className="form-group">
+              <label htmlFor="email">Email</label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                className={`form-input ${errors.email ? 'error' : ''}`}
+                placeholder="Enter your email"
+                autoComplete="email"
+                required
+              />
+              {errors.email && (
+                <span className="field-error">{errors.email}</span>
+              )}
+            </div>
+          )}
 
           <div className="form-group">
-            <label htmlFor="username">Username (Display Name)</label>
+            <label htmlFor="username">
+              {isLoginMode ? 'Username' : 'Username (Display Name)'}
+            </label>
             <input
               type="text"
               id="username"
@@ -217,7 +253,7 @@ const LoginScreen = () => {
               value={formData.username}
               onChange={handleInputChange}
               className={`form-input ${errors.username ? 'error' : ''}`}
-              placeholder="Enter your display name"
+              placeholder={isLoginMode ? "Enter your username" : "Choose a username"}
               autoComplete="username"
               required
             />
@@ -360,7 +396,7 @@ const LoginScreen = () => {
             
             <div className="modal-body">
               <p className="reset-instructions">
-                Enter your email address and we'll send you a link to reset your password.
+                Enter your username or email address and we'll send you a link to reset your password.
               </p>
               
               {errors.reset && (
@@ -371,15 +407,15 @@ const LoginScreen = () => {
               )}
               
               <div className="form-group">
-                <label htmlFor="reset-email">Email Address</label>
+                <label htmlFor="reset-email">Username or Email Address</label>
                 <input
-                  type="email"
+                  type="text"
                   id="reset-email"
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
                   className={`form-input ${errors.reset ? 'error' : ''}`}
-                  placeholder="Enter your email"
-                  autoComplete="email"
+                  placeholder="Enter your username or email"
+                  autoComplete="username"
                   disabled={isResetting}
                 />
               </div>
