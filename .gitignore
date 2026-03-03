@@ -30,5 +30,8 @@ npm-debug.log*
 
 
 # Readme files
-
 implementation-plan.md
+
+# Internal development files (keep private)
+database/
+implementation-plan/
