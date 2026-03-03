@@ -25,7 +25,7 @@ const LoginScreen = () => {
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [isResetting, setIsResetting] = useState(false);
-  
+
   // Username validation hook - only used in registration mode
   const usernameValidation = useUsernameValidation(
     !isLoginMode ? formData.username : '',
@@ -34,10 +34,10 @@ const LoginScreen = () => {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
+
     // Handle checkboxes differently than text inputs
     const fieldValue = type === 'checkbox' ? checked : value;
-    
+
     setFormData(prev => ({ ...prev, [name]: fieldValue }));
     setInputFocused(true);
     // Clear error for this field when user starts typing
@@ -68,7 +68,7 @@ const LoginScreen = () => {
     } else if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(formData.username.trim())) {
       newErrors.username = 'Username must start with a letter and contain only letters, numbers, and underscores';
     }
-    
+
     // For registration, check if username is available
     if (!isLoginMode && usernameValidation.isAvailable === false) {
       newErrors.username = usernameValidation.error || 'Username is not available';
@@ -97,7 +97,7 @@ const LoginScreen = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -111,11 +111,11 @@ const LoginScreen = () => {
         await register(formData.username, formData.password, formData.email, formData.fullName);
         // Switch to login mode after successful registration
         setIsLoginMode(true);
-        setFormData(prev => ({ 
-          ...prev, 
-          fullName: '', 
-          password: '', 
-          confirmPassword: '' 
+        setFormData(prev => ({
+          ...prev,
+          fullName: '',
+          password: '',
+          confirmPassword: ''
         }));
       }
     } catch (error) {
@@ -144,7 +144,7 @@ const LoginScreen = () => {
 
     // Check if input is email
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resetEmail);
-    
+
     if (isEmail) {
       // Validate email format
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resetEmail)) {
@@ -172,11 +172,18 @@ const LoginScreen = () => {
 
     try {
       await resetPassword(resetEmail);
-      setShowPasswordReset(false);
-      setResetEmail('');
-      // Show success message in the main form
-      setErrors({ general: 'Password reset link sent! Check your inbox.' });
-      setShowError(true);
+
+      // Clear specific reset errors
+      setErrors({});
+
+      // Delay closing modal slightly for better UX
+      setTimeout(() => {
+        setShowPasswordReset(false);
+        setResetEmail('');
+        // Show success message in the main form
+        setErrors({ general: '✅ Password reset link sent! Check your inbox.' });
+        setShowError(true);
+      }, 500);
     } catch (error) {
       setErrors({ reset: error.message });
     } finally {
@@ -187,10 +194,10 @@ const LoginScreen = () => {
   const toggleMode = () => {
     setIsLoginMode(!isLoginMode);
     setErrors({});
-    setFormData(prev => ({ 
-      ...prev, 
-      fullName: '', 
-      password: '', 
+    setFormData(prev => ({
+      ...prev,
+      fullName: '',
+      password: '',
       confirmPassword: '',
       // Clear email only when switching to login mode
       email: isLoginMode ? prev.email : ''
@@ -224,7 +231,7 @@ const LoginScreen = () => {
 
         <form onSubmit={handleSubmit} className="login-form">
           {errors.general && (
-            <div 
+            <div
               className={`error-message show animate`}
               key={errorKey}
             >
@@ -426,20 +433,20 @@ const LoginScreen = () => {
           )}
         </div>
       </div>
-      
+
       {/* Recovery Modal */}
       {showRecoveryModal && (
         <RecoveryModal onClose={() => setShowRecoveryModal(false)} />
       )}
-      
+
       {/* Password Reset Modal */}
       {showPasswordReset && (
         <div className="modal-overlay">
           <div className="modal password-reset-modal">
             <div className="modal-header">
               <h3>🔒 Reset Password</h3>
-              <button 
-                className="modal-close-btn" 
+              <button
+                className="modal-close-btn"
                 onClick={() => {
                   setShowPasswordReset(false);
                   setResetEmail('');
@@ -449,19 +456,19 @@ const LoginScreen = () => {
                 ✕
               </button>
             </div>
-            
+
             <div className="modal-body">
               <p className="reset-instructions">
                 Enter your username or email address and we'll send you a link to reset your password.
               </p>
-              
+
               {errors.reset && (
                 <div className="error-message">
                   <span className="error-icon">⚠️</span>
                   {errors.reset}
                 </div>
               )}
-              
+
               <div className="form-group">
                 <label htmlFor="reset-email">Username or Email Address</label>
                 <input
@@ -476,11 +483,11 @@ const LoginScreen = () => {
                 />
               </div>
             </div>
-            
+
             <div className="modal-footer">
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
+              <button
+                type="button"
+                className="btn btn-secondary"
                 onClick={() => {
                   setShowPasswordReset(false);
                   setResetEmail('');
@@ -490,8 +497,8 @@ const LoginScreen = () => {
               >
                 Cancel
               </button>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="btn btn-primary"
                 onClick={handleResetPassword}
                 disabled={isResetting}

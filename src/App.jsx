@@ -63,7 +63,7 @@ function App() {
   useEffect(() => {
     const handleScroll = () => {
       const scrollY = window.scrollY;
-      
+
       if (scrollY > 90) {
         if (!showScrollTop && !isHidingScrollTop) {
           setShowScrollTop(true);
@@ -105,7 +105,7 @@ function App() {
 
   const handleViewChange = useCallback((newView) => {
     if (newView === currentView || isTransitioning) return;
-    
+
     setIsTransitioning(true);
     setTimeout(() => {
       setCurrentView(newView);
@@ -133,12 +133,12 @@ function App() {
   const handleTouchStart = useCallback((e) => {
     if (!isMobile()) return;
     if (!e.touches || e.touches.length === 0) return;
-    
+
     // Clear any existing timeout
     if (swipeTimeoutRef.current) {
       clearTimeout(swipeTimeoutRef.current);
     }
-    
+
     startXRef.current = e.touches[0].clientX;
     startYRef.current = e.touches[0].clientY;
     setSwipeDirection(null);
@@ -161,13 +161,13 @@ function App() {
     if (swipeDirection === null) {
       if (absDeltaX > swipeThreshold || absDeltaY > swipeThreshold) {
         const target = e.target.closest('.data-table, .table-container, table, [data-no-swipe], .modal-content, input, textarea, select, button, [contenteditable="true"], .form-group, .entry-form');
-        
+
         if (target && absDeltaX > absDeltaY) {
-          
+
           setSwipeDirection('blocked');
           return;
         }
-        
+
         if (absDeltaX > absDeltaY && absDeltaX > swipeThreshold) {
           setSwipeDirection('horizontal');
           setIsSwiping(true);
@@ -182,27 +182,27 @@ function App() {
       // Don't preventDefault - just track the swipe
       const clampedOffset = Math.max(-120, Math.min(120, deltaX));
       setSwipeOffset(clampedOffset);
-      
+
     }
   }, [swipeDirection, isMobile]);
 
   const handleTouchEnd = useEffect(() => {
     const handleResize = () => {
-      
-      
+
+
       // IMPORTANT: Don't reset authentication during resize
       // Only reset UI-related state, not authentication state
       setIsSwiping(false);
       setSwipeOffset(0);
       setSwipeDirection(null);
-      
+
       // Clear any existing timeout
       if (swipeTimeoutRef.current) {
         clearTimeout(swipeTimeoutRef.current);
         swipeTimeoutRef.current = null;
       }
     }
-    
+
     window.addEventListener('resize', handleResize);
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -219,26 +219,26 @@ function App() {
       console.warn('Invalid timeEntries data: not an array', entries);
       return [];
     }
-    
+
     return entries.filter(entry => {
       // Check if entry has required fields
       if (!entry || typeof entry !== 'object') {
         console.warn('Invalid entry: not an object', entry);
         return false;
       }
-      
+
       if (!entry.date || typeof entry.date !== 'string') {
         console.warn('Invalid entry: missing or invalid date', entry);
         return false;
       }
-      
+
       // Validate date format
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (!dateRegex.test(entry.date)) {
         console.warn('Invalid entry: invalid date format', entry);
         return false;
       }
-      
+
       // Check for valid hours (can be null/undefined for unpaid days)
       if (entry.hours !== null && entry.hours !== undefined) {
         if (typeof entry.hours !== 'number' || entry.hours < 0 || entry.hours > 24) {
@@ -246,7 +246,7 @@ function App() {
           return false;
         }
       }
-      
+
       // Validate entry type if present - handle both lowercase and capitalized versions
       if (entry.type) {
         const validTypes = ['regular', 'vacation', 'sick', 'unpaid', 'holiday', 'Regular', 'Leave'];
@@ -255,7 +255,7 @@ function App() {
           return false;
         }
       }
-      
+
       return true;
     });
   };
@@ -291,7 +291,7 @@ function App() {
         // Both exist - use the most recently modified one
         const currentModified = new Date(currentEntry.lastModified || 0);
         const loadedModified = new Date(loadedEntry.lastModified || 0);
-        
+
         if (currentModified >= loadedModified) {
           mergedEntries.push(currentEntry);
         } else {
@@ -315,47 +315,47 @@ function App() {
   // Enhanced refresh data function with offline sync
   const refreshData = useCallback(async () => {
     if (!currentUser || !isAuthenticated) return;
-    
+
     try {
       // Set refresh flag to prevent save updates
       setRefreshing(true);
-      
+
       // Capture current entries before sync to preserve data
       const currentEntries = [...entries];
-      
+
       // Perform background sync first
       await backgroundSync.forceSync();
-      
+
       // Get sync status
       const syncStatus = backgroundSync.getStatus();
-      
+
       // Reload user data from storage using the same methods as initial load
       const loadedEmployee = {
         name: getUserData('fullName') || '',
         salary: parseFloat(getUserData('salary')) || 0
       };
-      
+
       const loadedLeaveSettings = {
         annualVacation: parseFloat(getUserData('annualVacation')) || 10,
         sickDays: parseFloat(getUserData('sickDays')) || 7
       };
-      
+
       let loadedEntries = getUserData('timeEntries') || [];
       const loadedPeriods = getUserData('payPeriods') || [];
       const loadedCurrentPeriodId = getUserData('currentPeriodId') || null;
-      
+
       // Validate loaded entries before using them
       const validatedLoadedEntries = validateTimeEntries(loadedEntries);
-      
+
       // Merge current entries with validated loaded entries to prevent data loss
       const mergedEntries = mergeEntries(currentEntries, validatedLoadedEntries);
-      
+
       // Update context with merged data
       setEntries(mergedEntries);
-      
+
       // Set refresh timestamp for feedback
       setLastRefreshed(new Date().toISOString());
-      
+
       // Return comprehensive refresh results
       return Promise.resolve({
         success: true,
@@ -364,7 +364,7 @@ function App() {
         isOnline: syncStatus.isOnline,
         mergedEntriesCount: mergedEntries.length !== loadedEntries.length ? mergedEntries.length - loadedEntries.length : 0
       });
-      
+
     } catch (error) {
       // Return error information for UI feedback
       return Promise.reject({
@@ -382,11 +382,11 @@ function App() {
   useEffect(() => {
     // Initialize background sync service
     backgroundSync.init().catch(error => {
-      
+
     });
-    
+
     document.documentElement.setAttribute('data-theme', theme);
-    
+
     const shouldNavigateToExport = localStorage.getItem('navigateToExport');
     if (shouldNavigateToExport === 'true') {
       localStorage.removeItem('navigateToExport');
@@ -428,10 +428,10 @@ function App() {
     const handleBeforeUnload = (e) => {
       const today = new Date().toISOString().split('T')[0];
       const todayEntry = entries.find(e => e.date === today);
-      
+
       if (todayEntry && todayEntry.intervals && todayEntry.intervals.length > 0) {
         const lastInterval = todayEntry.intervals[todayEntry.intervals.length - 1];
-        
+
         if (lastInterval.in && !lastInterval.out) {
           e.preventDefault();
           e.returnValue = '';
@@ -439,7 +439,7 @@ function App() {
         }
       }
     };
-    
+
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -475,7 +475,7 @@ function App() {
             <AppLoading />
           ) : (
             <>
-              <PullToRefresh 
+              <PullToRefresh
                 onRefresh={refreshData}
                 threshold={80}
                 maxPull={120}
@@ -493,9 +493,9 @@ function App() {
                     flexDirection: 'column'
                   }}
                 >
-                  <Header 
-                    currentView={currentView} 
-                    setCurrentView={setCurrentView} 
+                  <Header
+                    currentView={currentView}
+                    setCurrentView={setCurrentView}
                     isHeaderCollapsed={isHeaderCollapsed}
                     style={{
                       position: 'fixed',
@@ -532,7 +532,7 @@ function App() {
 
               <AutoSaveIndicator lastSaved={lastSaved} />
               <RefreshIndicator lastRefreshed={lastRefreshed} />
-              
+
               {/* Scroll to Top Button - Completely outside all containers */}
               {(showScrollTop || isHidingScrollTop) && (
                 <button
@@ -580,7 +580,7 @@ function App() {
                   ↑
                 </button>
               )}
-              
+
               {/* Add fade-in and fade-out animation styles */}
               <style>{`
                 @keyframes fadeIn {

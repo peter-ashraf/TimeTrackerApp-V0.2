@@ -308,11 +308,12 @@
 
 /* Mobile touch state reset */
 @media (hover: none) and (pointer: coarse) {
+
   /* Disable button pseudo-elements on mobile only */
   .login-btn::before {
     display: none !important;
   }
-  
+
   /* Disable hover effects on mobile */
   .login-btn:hover:not(:disabled) {
     transform: none !important;
@@ -540,6 +541,7 @@
     opacity: 0;
     transform: translateY(50px) scale(0.8);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -551,13 +553,16 @@
     opacity: 0;
     transform: scale(0.3) rotate(-10deg);
   }
+
   50% {
     opacity: 1;
     transform: scale(1.1) rotate(5deg);
   }
+
   70% {
     transform: scale(0.95) rotate(-2deg);
   }
+
   100% {
     opacity: 1;
     transform: scale(1) rotate(0deg);
@@ -565,22 +570,36 @@
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translate(-50%, -50%) rotate(0deg);
   }
+
   50% {
     transform: translate(-50%, -50%) rotate(180deg);
   }
 }
 
 @keyframes shake {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateX(0);
   }
-  10%, 30%, 50%, 70%, 90% {
+
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
     transform: translateX(-3px);
   }
-  20%, 40%, 60%, 80% {
+
+  20%,
+  40%,
+  60%,
+  80% {
     transform: translateX(3px);
   }
 }
@@ -589,6 +608,7 @@
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }
@@ -599,20 +619,20 @@
   .login-screen {
     padding: 0.5rem;
   }
-  
+
   .login-container {
     padding: 2rem;
     margin: 0.5rem;
   }
-  
+
   .app-icon {
     font-size: 3rem;
   }
-  
+
   .login-header h1 {
     font-size: 1.5rem;
   }
-  
+
   .login-btn {
     font-size: 1rem;
     padding: 0.875rem;
