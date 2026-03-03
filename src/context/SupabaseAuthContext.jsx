@@ -33,7 +33,42 @@ export const SupabaseAuthProvider = ({ children }) => {
   const [warningTimer, setWarningTimer] = useState(null);
   const [showSessionWarning, setShowSessionWarning] = useState(false);
   const [immediateWarningShown, setImmediateWarningShown] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const lastActivityRef = useRef(lastActivity);
+
+  // Session management constants
+  const REMEMBERED_SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
+  const NORMAL_SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  const SESSION_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+  // Session refresh for remembered users
+  const setupSessionRefresh = useCallback(() => {
+    if (!rememberMe) return null;
+    
+    const refreshInterval = setInterval(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          clearInterval(refreshInterval);
+          await logout();
+          return;
+        }
+        
+        // Extend session expiry for remembered users
+        const sessionExpiry = localStorage.getItem('sessionExpiry');
+        if (sessionExpiry) {
+          localStorage.setItem('sessionExpiry', 
+            new Date(Date.now() + REMEMBERED_SESSION_DURATION).toISOString()
+          );
+        }
+      } catch (error) {
+        console.error('Session refresh error:', error);
+        clearInterval(refreshInterval);
+      }
+    }, SESSION_CHECK_INTERVAL);
+    
+    return refreshInterval;
+  }, [rememberMe]);
   
   // Update ref when lastActivity changes
   useEffect(() => {
@@ -124,6 +159,19 @@ export const SupabaseAuthProvider = ({ children }) => {
     // Get initial session
     const getInitialSession = async () => {
       try {
+        // Check for remember me state first
+        const rememberMeState = localStorage.getItem('rememberMe') === 'true';
+        const sessionExpiry = localStorage.getItem('sessionExpiry');
+        
+        // Validate session expiry
+        if (sessionExpiry && new Date(sessionExpiry) <= new Date()) {
+          // Session expired, clean up
+          localStorage.removeItem('rememberMe');
+          localStorage.removeItem('rememberedUsername');
+          localStorage.removeItem('sessionExpiry');
+          setRememberMe(false);
+        }
+        
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -133,6 +181,20 @@ export const SupabaseAuthProvider = ({ children }) => {
         }
 
         if (session?.user) {
+          // Validate session expiry if remember me was used
+          if (rememberMeState && sessionExpiry) {
+            if (new Date(sessionExpiry) <= new Date()) {
+              // Session expired, logout
+              await logout();
+              return;
+            }
+            // Set remember me state and extended timeout
+            setRememberMe(true);
+            setSessionTimeout(30 * 24 * 60); // 30 days in minutes
+          } else {
+            setRememberMe(false);
+            setSessionTimeout(30); // Default 30 minutes
+          }
           // Get user profile from profiles table
           try {
             const { data: profile, error: profileError } = await supabase
@@ -330,6 +392,19 @@ export const SupabaseAuthProvider = ({ children }) => {
     }
   }, [currentUser, isAuthenticated, sessionTimeout, showSessionWarning, immediateWarningShown]);
 
+  // Start session refresh for remembered users
+  useEffect(() => {
+    if (isAuthenticated && rememberMe) {
+      const refreshInterval = setupSessionRefresh();
+      
+      return () => {
+        if (refreshInterval) {
+          clearInterval(refreshInterval);
+        }
+      };
+    }
+  }, [isAuthenticated, rememberMe, setupSessionRefresh]);
+
   // User registration
   const register = async (username, password, email, fullName) => {
     try {
@@ -396,6 +471,10 @@ export const SupabaseAuthProvider = ({ children }) => {
   // Username availability check with caching
   const checkUsernameAvailability = async (username) => {
     try {
+      // Clear any existing cache for this username to ensure fresh check
+      const cacheKey = username.trim().toLowerCase();
+      localStorage.removeItem(`username_cache_${cacheKey}`);
+      
       // Input validation
       if (!username || username.trim().length < 3) {
         return { available: false, error: 'Username must be at least 3 characters' };
@@ -412,30 +491,35 @@ export const SupabaseAuthProvider = ({ children }) => {
         return { available: false, error: 'Username must start with a letter' };
       }
       
-      // Check cache first (simple in-memory cache)
-      const cacheKey = trimmedUsername.toLowerCase();
-      const cached = localStorage.getItem(`username_cache_${cacheKey}`);
-      if (cached) {
-        const cachedData = JSON.parse(cached);
-        if (Date.now() - cachedData.timestamp < 5 * 60 * 1000) { // 5 minutes
-          return cachedData.result;
+      // Try using RPC function to bypass RLS
+      try {
+        // First try RPC function (most reliable way to bypass RLS)
+        const { data, error } = await supabase.rpc('check_username_availability', {
+          username_to_check: trimmedUsername
+        });
+        
+        if (!error && data !== null) {
+          // RPC function should return true if available, false if taken
+          const result = { available: data, error: null };
+          return result;
         }
+      } catch (rpcError) {
+        // RPC function not available, fall back to direct query
       }
       
-      // Database check
+      // Fallback: Try direct query (might be blocked by RLS)
       const { data, error } = await supabase
         .from('profiles')
         .select('username')
-        .eq('username', trimmedUsername)
-        .single();
+        .eq('username', trimmedUsername);
       
-      const result = { available: !data, error: error?.message };
+      // If direct query fails due to RLS, we'll need to create the RPC function
+      if (error) {
+        return { available: true, error: 'Username check temporarily unavailable - please contact support' };
+      }
       
-      // Cache the result
-      localStorage.setItem(`username_cache_${cacheKey}`, JSON.stringify({
-        result,
-        timestamp: Date.now()
-      }));
+      // If data array has any entries, username is taken (not available)
+      const result = { available: !data || data.length === 0, error: error?.message };
       
       return result;
     } catch (error) {
@@ -463,60 +547,9 @@ export const SupabaseAuthProvider = ({ children }) => {
 
       // Rate limiting check
       const rateLimitKey = `login_attempt_${username}`;
-      
-      // ✅ BYPASS: Skip rate limiting for peter_ashraf
-      if (username.trim() !== 'peter_ashraf') {
-        const attempts = localStorage.getItem(rateLimitKey) || 0;
-        if (attempts >= 5) {
-          throw new Error('Too many login attempts. Please try again later.');
-        }
-      }
-
-      // ✅ DIRECT BYPASS: For peter_ashraf, skip profile lookup entirely
-      if (username.trim() === 'peter_ashraf') {
-        // Try direct authentication with known email formats
-        const emailAttempts = [
-          'peter.ashraf16@gmail.com',  // Try real email first
-          'peter_ashraf@gmail.com',    // Alternative format
-          'peter_ashraf@timetracker.local'  // Local format last
-        ];
-        
-        for (const email of emailAttempts) {
-          try {
-            const { data: directAuthData, error: directAuthError } = await supabase.auth.signInWithPassword({
-              email: email,
-              password,
-            });
-
-            if (!directAuthError && directAuthData.user) {
-              // Set basic user info
-              const basicUserInfo = {
-                id: directAuthData.user.id,
-                username: username.trim(),
-                email: email,
-                fullName: directAuthData.user.user_metadata?.full_name || username || 'User',
-                displayName: localStorage.getItem('userDisplayName') || directAuthData.user.user_metadata?.full_name || username || 'User'
-              };
-              
-              setCurrentUser(basicUserInfo);
-              setIsAuthenticated(true);
-              updateLastActivity();
-              
-              // Trigger app loading animation
-              setIsAppLoading(true);
-              setTimeout(() => {
-                setIsAppLoading(false);
-              }, 2000);
-              
-              return { success: true, user: directAuthData.user, profile: null };
-            }
-          } catch (attemptError) {
-            console.log('Email attempt failed:', email, attemptError.message);
-            continue;
-          }
-        }
-        
-        throw new Error('Unable to authenticate with known email addresses. Please contact support.');
+      const attempts = localStorage.getItem(rateLimitKey) || 0;
+      if (attempts >= 5) {
+        throw new Error('Too many login attempts. Please try again later.');
       }
 
       // Find user by username to get email
@@ -528,11 +561,8 @@ export const SupabaseAuthProvider = ({ children }) => {
       
       // ✅ FAIL-SAFE: If profile lookup fails, try direct auth with username as email
       if (profileError || !profile) {
-        // ✅ BYPASS: Don't increment failed attempts for peter_ashraf
-        if (username.trim() !== 'peter_ashraf') {
-          // Increment failed attempt counter
-          localStorage.setItem(rateLimitKey, parseInt(attempts) + 1);
-        }
+        // Increment failed attempt counter
+        localStorage.setItem(rateLimitKey, parseInt(attempts) + 1);
         
         // Try direct auth using username as email (for users with email = username@domain)
         try {
@@ -630,6 +660,27 @@ export const SupabaseAuthProvider = ({ children }) => {
         setIsAuthenticated(true);
         updateLastActivity();
         
+        // Handle remember me functionality for fallback auth
+        if (rememberMe) {
+          localStorage.setItem('rememberMe', 'true');
+          localStorage.setItem('rememberedUsername', username.trim());
+          localStorage.setItem('sessionExpiry', 
+            new Date(Date.now() + REMEMBERED_SESSION_DURATION).toISOString()
+          );
+          // Set session timeout to a very large value (30 days in minutes)
+          setSessionTimeout(30 * 24 * 60); // 30 days in minutes
+          setRememberMe(true);
+        } else {
+          localStorage.removeItem('rememberMe');
+          localStorage.removeItem('rememberedUsername');
+          localStorage.setItem('sessionExpiry', 
+            new Date(Date.now() + NORMAL_SESSION_DURATION).toISOString()
+          );
+          // Reset to normal session timeout (24 hours in minutes)
+          setSessionTimeout(24 * 60); // 24 hours in minutes
+          setRememberMe(false);
+        }
+        
         // Trigger app loading animation
         setIsAppLoading(true);
         setTimeout(() => {
@@ -656,6 +707,27 @@ export const SupabaseAuthProvider = ({ children }) => {
 
       // Clear failed Attempts on successful login
       localStorage.removeItem(rateLimitKey);
+      
+      // Handle remember me functionality
+      if (rememberMe) {
+        localStorage.setItem('rememberMe', 'true');
+        localStorage.setItem('rememberedUsername', username.trim());
+        localStorage.setItem('sessionExpiry', 
+          new Date(Date.now() + REMEMBERED_SESSION_DURATION).toISOString()
+        );
+        // Set session timeout to a very large value (30 days in minutes)
+        setSessionTimeout(30 * 24 * 60); // 30 days in minutes
+        setRememberMe(true);
+      } else {
+        localStorage.removeItem('rememberMe');
+        localStorage.removeItem('rememberedUsername');
+        localStorage.setItem('sessionExpiry', 
+          new Date(Date.now() + NORMAL_SESSION_DURATION).toISOString()
+        );
+        // Reset to normal session timeout (24 hours in minutes)
+        setSessionTimeout(24 * 60); // 24 hours in minutes
+        setRememberMe(false);
+      }
       
       // Set basic user info immediately from auth data
       const basicUserInfo = {
@@ -699,6 +771,17 @@ export const SupabaseAuthProvider = ({ children }) => {
     if (userId) {
       localStorage.removeItem(`lastActivity_${userId}`);
     }
+    
+    // Clear username cache for this user
+    if (username) {
+      clearUsernameCache(username);
+    }
+    
+    // Clear remember me data
+    localStorage.removeItem('rememberMe');
+    localStorage.removeItem('rememberedUsername');
+    localStorage.removeItem('sessionExpiry');
+    setRememberMe(false);
     
     // Clear any remaining currentUser data from localStorage
     localStorage.removeItem('currentUser');
@@ -903,6 +986,7 @@ export const SupabaseAuthProvider = ({ children }) => {
     sessionTimeout,
     showSessionWarning,
     setShowSessionWarning,
+    rememberMe,
     register,
     login,
     logout,

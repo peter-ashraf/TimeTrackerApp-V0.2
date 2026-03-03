@@ -354,9 +354,9 @@ export const TimeTrackerProvider = ({ children }) => {
     
     const saveEmployeeData = async () => {
       try {
-        // Save name/username and employee type fields to Supabase (exclude salary)
+        // Save employee type fields to Supabase (exclude username - it should never change!)
         await supabaseData.saveUserProfile(currentUser.id, {
-          username: employee.name,
+          // ❌ REMOVED: username: employee.name - Display name should NOT update username
           full_name: employee.name,
           employee_type: employee.employeeType,
           daily_hours: employee.dailyHours,

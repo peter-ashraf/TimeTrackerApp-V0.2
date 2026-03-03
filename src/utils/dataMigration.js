@@ -13,7 +13,7 @@ export const dataMigration = {
       if (!profile.employee_type || !profile.daily_hours || !profile.monthly_hours || !profile.work_days_per_week) {
         // Set default values for existing users (full-time defaults)
         await supabaseData.saveUserProfile(userId, {
-          username: profile.username || username,
+          // ❌ REMOVED: username: profile.username || username - Don't update username
           full_name: profile.full_name || username,
           employee_type: 'full-time',
           daily_hours: 9,
@@ -96,7 +96,7 @@ export const dataMigration = {
         // Only migrate non-sensitive profile data
         try {
           await supabaseData.saveUserProfile(userId, {
-            username: username,
+            // ❌ REMOVED: username: username - Don't update username
             full_name: username
             // Salary intentionally excluded - stays in localStorage only
           });

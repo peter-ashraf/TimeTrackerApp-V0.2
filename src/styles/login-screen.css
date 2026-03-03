@@ -10,6 +10,36 @@
   overflow: hidden;
 }
 
+.form-input.unavailable {
+  border-color: #dc3545;
+  background-color: #f8d7da;
+}
+
+.form-input.checking {
+  border-color: #ffc107;
+  background-color: #fff3cd;
+}
+
+.username-status {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.checking-status {
+  color: #856404;
+  font-style: italic;
+}
+
+.available-status {
+  color: #155724;
+  font-weight: 500;
+}
+
+.unavailable-status {
+  color: #dc3545;
+  font-weight: 500;
+}
+
 .login-screen::before {
   content: '';
   position: absolute;
@@ -206,6 +236,74 @@
   cursor: not-allowed;
   transform: none !important;
   box-shadow: none !important;
+}
+
+.back-btn {
+  width: 100%;
+  padding: 0.875rem;
+  font-size: 1rem;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 1rem;
+  font-weight: 500;
+}
+
+.back-btn:hover:not(:disabled) {
+  background: #5a6268;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 15px rgba(108, 117, 125, 0.3);
+}
+
+.back-btn:active:not(:disabled) {
+  transform: translateY(0);
+  transition: all 0.1s ease;
+}
+
+.back-btn:focus:not(:disabled) {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.3);
+}
+
+.back-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Remember Me Checkbox Styles */
+.remember-me-group {
+  margin: 1rem 0;
+  text-align: left;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #666;
+  transition: color 0.2s ease;
+}
+
+.checkbox-label:hover {
+  color: #333;
+}
+
+.checkbox-input {
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  accent-color: #208589;
+  cursor: pointer;
+}
+
+.checkbox-text {
+  user-select: none;
+  font-weight: 400;
 }
 
 /* Mobile touch state reset */

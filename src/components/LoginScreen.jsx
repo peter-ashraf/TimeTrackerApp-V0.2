@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSupabaseAuth } from '../context/SupabaseAuthContext';
+import { useUsernameValidation } from '../hooks/useUsernameValidation';
 import RecoveryModal from './RecoveryModal';
 import '../styles/login-screen.css';
 
@@ -12,7 +13,8 @@ const LoginScreen = () => {
     username: '',
     fullName: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    rememberMe: false
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -23,10 +25,20 @@ const LoginScreen = () => {
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [isResetting, setIsResetting] = useState(false);
+  
+  // Username validation hook - only used in registration mode
+  const usernameValidation = useUsernameValidation(
+    !isLoginMode ? formData.username : '',
+    500
+  );
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    
+    // Handle checkboxes differently than text inputs
+    const fieldValue = type === 'checkbox' ? checked : value;
+    
+    setFormData(prev => ({ ...prev, [name]: fieldValue }));
     setInputFocused(true);
     // Clear error for this field when user starts typing
     if (errors[name]) {
@@ -55,6 +67,11 @@ const LoginScreen = () => {
       newErrors.username = 'Username must be 20 characters or less';
     } else if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(formData.username.trim())) {
       newErrors.username = 'Username must start with a letter and contain only letters, numbers, and underscores';
+    }
+    
+    // For registration, check if username is available
+    if (!isLoginMode && usernameValidation.isAvailable === false) {
+      newErrors.username = usernameValidation.error || 'Username is not available';
     }
 
     // Full name only required for registration
@@ -89,7 +106,7 @@ const LoginScreen = () => {
 
     try {
       if (isLoginMode) {
-        await login(formData.username, formData.password);
+        await login(formData.username, formData.password, formData.rememberMe);
       } else {
         await register(formData.username, formData.password, formData.email, formData.fullName);
         // Switch to login mode after successful registration
@@ -252,13 +269,26 @@ const LoginScreen = () => {
               name="username"
               value={formData.username}
               onChange={handleInputChange}
-              className={`form-input ${errors.username ? 'error' : ''}`}
+              className={`form-input ${errors.username ? 'error' : ''} ${!isLoginMode && usernameValidation.isChecking ? 'checking' : ''} ${!isLoginMode && usernameValidation.isAvailable === true ? 'available' : ''} ${!isLoginMode && usernameValidation.isAvailable === false ? 'unavailable' : ''}`}
               placeholder={isLoginMode ? "Enter your username" : "Choose a username"}
               autoComplete="username"
               required
             />
             {errors.username && (
               <span className="field-error">{errors.username}</span>
+            )}
+            {!isLoginMode && !errors.username && formData.username && (
+              <div className="username-status">
+                {usernameValidation.isChecking && (
+                  <span className="checking-status">Checking availability...</span>
+                )}
+                {usernameValidation.isAvailable === true && (
+                  <span className="available-status">✓ Username is available</span>
+                )}
+                {usernameValidation.isAvailable === false && (
+                  <span className="unavailable-status">✗ {usernameValidation.error || 'Username is not available'}</span>
+                )}
+              </div>
             )}
           </div>
 
@@ -300,6 +330,21 @@ const LoginScreen = () => {
             )}
           </div>
 
+          {isLoginMode && (
+            <div className="form-group remember-me-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="rememberMe"
+                  checked={formData.rememberMe}
+                  onChange={handleInputChange}
+                  className="checkbox-input"
+                />
+                <span className="checkbox-text">Remember me for 30 days</span>
+              </label>
+            </div>
+          )}
+
           {!isLoginMode && (
             <div className="form-group">
               <label htmlFor="confirmPassword">Confirm Password</label>
@@ -335,6 +380,17 @@ const LoginScreen = () => {
               isLoginMode ? '🔓 Login' : '👤 Create Account'
             )}
           </button>
+
+          {!isLoginMode && (
+            <button
+              type="button"
+              className="btn btn-secondary back-btn"
+              onClick={toggleMode}
+              disabled={isSubmitting}
+            >
+              ← Back to Login
+            </button>
+          )}
         </form>
 
         <div className="login-footer">
