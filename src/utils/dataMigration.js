@@ -2,6 +2,35 @@ import { supabaseData } from './supabaseData';
 import { getSimpleEncryptedItem, setSimpleEncryptedItem } from './simple-encryption';
 
 export const dataMigration = {
+  // Migrate employee type fields for existing users
+  async migrateEmployeeTypeFields(userId, username) {
+    try {
+      
+      // Get current user profile to check if migration is needed
+      const profile = await supabaseData.getUserProfile(userId);
+      
+      // Check if employee type fields need migration
+      if (!profile.employee_type || !profile.daily_hours || !profile.monthly_hours || !profile.work_days_per_week) {
+        // Set default values for existing users (full-time defaults)
+        await supabaseData.saveUserProfile(userId, {
+          username: profile.username || username,
+          full_name: profile.full_name || username,
+          employee_type: 'full-time',
+          daily_hours: 9,
+          monthly_hours: 187,
+          work_days_per_week: 5
+        });
+        
+        return true; // Migration performed
+      }
+      
+      return false; // No migration needed
+    } catch (error) {
+      
+      throw error;
+    }
+  },
+
   // Migrate localStorage data to Supabase for a specific user
   async migrateUserData(userId, username) {
     try {
@@ -56,16 +85,20 @@ export const dataMigration = {
         }
       }
 
-      // Migrate employee data (salary)
+      // Migrate employee data (name only - salary stays local)
       const salaryKey = `salary_${userId}`;
       const salary = getSimpleEncryptedItem(salaryKey, username);
       
+      // Keep salary in localStorage only, don't migrate to database
+      // Salary is sensitive data and should remain client-side
+      
       if (salary !== null && salary !== undefined) {
+        // Only migrate non-sensitive profile data
         try {
           await supabaseData.saveUserProfile(userId, {
             username: username,
-            full_name: username,
-            salary: salary
+            full_name: username
+            // Salary intentionally excluded - stays in localStorage only
           });
           migrationResults.employeeData.success = true;
         } catch (error) {
@@ -120,7 +153,7 @@ export const dataMigration = {
         supabaseData.getUserProfile(userId)
       ]);
 
-      // Save to localStorage
+      // Save to localStorage (salary stays local, not retrieved from database)
       const timeEntriesKey = `timeEntries_${userId}`;
       const payPeriodsKey = `payPeriods_${userId}`;
       const leaveSettingsKey = `leaveSettings_${userId}`;
@@ -129,7 +162,7 @@ export const dataMigration = {
       setSimpleEncryptedItem(timeEntriesKey, timeEntries, username);
       setSimpleEncryptedItem(payPeriodsKey, payPeriods, username);
       setSimpleEncryptedItem(leaveSettingsKey, leaveSettings, username);
-      setSimpleEncryptedItem(salaryKey, profile.salary || 0, username);
+      // Salary remains in localStorage, not synced with database
       
       
       return true;

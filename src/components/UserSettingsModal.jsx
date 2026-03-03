@@ -6,7 +6,7 @@ import '../styles/user-settings-modal.css';
 
 
 function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
-  const { currentUser, updateProfile, updatePassword, sessionTimeout, setSessionTimeout } = useSupabaseAuth();
+  const { currentUser, updateProfile, updatePassword, sessionTimeout, setSessionTimeout, saveSessionSettings } = useSupabaseAuth();
   const { setConfirmModal } = useTimeTracker();
   
   const [formData, setFormData] = useState({

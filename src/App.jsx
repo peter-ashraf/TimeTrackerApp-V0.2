@@ -213,6 +213,105 @@ function App() {
     };
   }, []);
 
+  // Validate time entries data integrity
+  const validateTimeEntries = (entries) => {
+    if (!Array.isArray(entries)) {
+      console.warn('Invalid timeEntries data: not an array', entries);
+      return [];
+    }
+    
+    return entries.filter(entry => {
+      // Check if entry has required fields
+      if (!entry || typeof entry !== 'object') {
+        console.warn('Invalid entry: not an object', entry);
+        return false;
+      }
+      
+      if (!entry.date || typeof entry.date !== 'string') {
+        console.warn('Invalid entry: missing or invalid date', entry);
+        return false;
+      }
+      
+      // Validate date format
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(entry.date)) {
+        console.warn('Invalid entry: invalid date format', entry);
+        return false;
+      }
+      
+      // Check for valid hours (can be null/undefined for unpaid days)
+      if (entry.hours !== null && entry.hours !== undefined) {
+        if (typeof entry.hours !== 'number' || entry.hours < 0 || entry.hours > 24) {
+          console.warn('Invalid entry: invalid hours value', entry);
+          return false;
+        }
+      }
+      
+      // Validate entry type if present - handle both lowercase and capitalized versions
+      if (entry.type) {
+        const validTypes = ['regular', 'vacation', 'sick', 'unpaid', 'holiday', 'Regular', 'Leave'];
+        if (!validTypes.includes(entry.type)) {
+          console.warn('Invalid entry: invalid type', entry);
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  };
+
+  // Merge entries function to prevent data loss during refresh
+  const mergeEntries = (currentEntries, loadedEntries) => {
+    // Create a map of current entries by date for quick lookup
+    const currentEntriesMap = new Map();
+    currentEntries.forEach(entry => {
+      if (entry && entry.date) {
+        currentEntriesMap.set(entry.date, entry);
+      }
+    });
+
+    // Create a map of loaded entries by date for quick lookup
+    const loadedEntriesMap = new Map();
+    loadedEntries.forEach(entry => {
+      if (entry && entry.date) {
+        loadedEntriesMap.set(entry.date, entry);
+      }
+    });
+
+    const mergedEntries = [];
+
+    // Add all unique dates from both sources
+    const allDates = new Set([...currentEntriesMap.keys(), ...loadedEntriesMap.keys()]);
+
+    allDates.forEach(date => {
+      const currentEntry = currentEntriesMap.get(date);
+      const loadedEntry = loadedEntriesMap.get(date);
+
+      if (currentEntry && loadedEntry) {
+        // Both exist - use the most recently modified one
+        const currentModified = new Date(currentEntry.lastModified || 0);
+        const loadedModified = new Date(loadedEntry.lastModified || 0);
+        
+        if (currentModified >= loadedModified) {
+          mergedEntries.push(currentEntry);
+        } else {
+          mergedEntries.push(loadedEntry);
+        }
+      } else if (currentEntry) {
+        // Only current entry exists
+        mergedEntries.push(currentEntry);
+      } else if (loadedEntry) {
+        // Only loaded entry exists
+        mergedEntries.push(loadedEntry);
+      }
+    });
+
+    // Sort by date (newest first)
+    mergedEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    return mergedEntries;
+  };
+
   // Enhanced refresh data function with offline sync
   const refreshData = useCallback(async () => {
     if (!currentUser || !isAuthenticated) return;
@@ -221,14 +320,14 @@ function App() {
       // Set refresh flag to prevent save updates
       setRefreshing(true);
       
-      
+      // Capture current entries before sync to preserve data
+      const currentEntries = [...entries];
       
       // Perform background sync first
       await backgroundSync.forceSync();
       
       // Get sync status
       const syncStatus = backgroundSync.getStatus();
-      
       
       // Reload user data from storage using the same methods as initial load
       const loadedEmployee = {
@@ -241,13 +340,18 @@ function App() {
         sickDays: parseFloat(getUserData('sickDays')) || 7
       };
       
-      const loadedEntries = getUserData('timeEntries') || [];
+      let loadedEntries = getUserData('timeEntries') || [];
       const loadedPeriods = getUserData('payPeriods') || [];
-      
       const loadedCurrentPeriodId = getUserData('currentPeriodId') || null;
       
-      // Update context with fresh data
-      setEntries(loadedEntries);
+      // Validate loaded entries before using them
+      const validatedLoadedEntries = validateTimeEntries(loadedEntries);
+      
+      // Merge current entries with validated loaded entries to prevent data loss
+      const mergedEntries = mergeEntries(currentEntries, validatedLoadedEntries);
+      
+      // Update context with merged data
+      setEntries(mergedEntries);
       
       // Set refresh timestamp for feedback
       setLastRefreshed(new Date().toISOString());
@@ -255,9 +359,10 @@ function App() {
       // Return comprehensive refresh results
       return Promise.resolve({
         success: true,
-        entriesCount: loadedEntries.length,
+        entriesCount: mergedEntries.length,
         syncStatus,
-        isOnline: syncStatus.isOnline
+        isOnline: syncStatus.isOnline,
+        mergedEntriesCount: mergedEntries.length !== loadedEntries.length ? mergedEntries.length - loadedEntries.length : 0
       });
       
     } catch (error) {
@@ -271,7 +376,7 @@ function App() {
       // Clear refresh flag
       setRefreshing(false);
     }
-  }, [currentUser, isAuthenticated, getUserData, setEntries, setLastRefreshed, setRefreshing]);
+  }, [currentUser, isAuthenticated, getUserData, setEntries, setLastRefreshed, setRefreshing, entries]);
 
   // ✅ ALL EFFECTS HERE
   useEffect(() => {

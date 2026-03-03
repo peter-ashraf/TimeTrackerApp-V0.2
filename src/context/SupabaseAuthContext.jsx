@@ -568,9 +568,14 @@ export const SupabaseAuthProvider = ({ children }) => {
   };
 
   // Save session settings
-  const saveSessionSettings = (timeout) => {
-    setSessionTimeout(timeout);
-    // Timer will be restarted by the useEffect when sessionTimeout changes
+  const saveSessionSettings = async (timeout) => {
+    try {
+      setSessionTimeout(timeout);
+      // Timer will be restarted by the useEffect when sessionTimeout changes
+      return Promise.resolve();
+    } catch (error) {
+      throw error;
+    }
   };
 
   const value = {

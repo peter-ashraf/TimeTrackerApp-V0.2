@@ -9,7 +9,7 @@ import ModalShell from './ModalShell';
 import '../styles/settings.css';
 
 // Validation helper
-const validateEmployeeData = (name, salary, annualVacation, sickDays) => {
+const validateEmployeeData = (name, salary, annualVacation, sickDays, employeeType, dailyHours, workDaysPerWeek, monthlyHours) => {
   const errors = [];
 
   // Validate name
@@ -45,6 +45,35 @@ const validateEmployeeData = (name, salary, annualVacation, sickDays) => {
   } else if (sickDays > 365) {
     errors.push('Sick days cannot exceed 365');
   }
+
+  // Validate employee type
+  if (!employeeType || !['full-time', 'part-time'].includes(employeeType)) {
+    errors.push('Employee type must be either full-time or part-time');
+  }
+
+  // Validate daily hours
+  if (employeeType === 'part-time') {
+    if (!dailyHours || dailyHours < 6 || dailyHours > 9) {
+      errors.push('Part-time daily hours must be between 6 and 9');
+    }
+  } else {
+    if (dailyHours && dailyHours !== 9) {
+      errors.push('Full-time daily hours must be 9');
+    }
+  }
+
+  // Validate work days per week
+  if (employeeType === 'part-time') {
+    if (!workDaysPerWeek || workDaysPerWeek < 3 || workDaysPerWeek > 5) {
+      errors.push('Part-time work days must be between 3 and 5');
+    }
+  } else {
+    if (workDaysPerWeek && workDaysPerWeek !== 5) {
+      errors.push('Full-time work days must be 5');
+    }
+  }
+
+  // Note: Monthly hours validation removed for part-time employees since it's calculated based on actual hours worked per period
 
   return errors;
 };
@@ -112,15 +141,12 @@ function Settings() {
     hideSalary,
     updateEmployee,
     updateLeaveSettings,
-    setCurrentPeriodId,
-    setCurrentPeriod,
-    setPeriods,
-    clearCurrentDay,
-    clearCurrentMonth,
     clearAllData,
     confirmModal,
     setConfirmModal,
-    setEntries
+    setEntries,
+    validateEmployeeType,
+    calculateMonthlyHours
   } = useTimeTracker();
 
   // ✅ ADDED: Get auth functions
@@ -129,6 +155,10 @@ function Settings() {
   // Employee form
   const [name, setName] = useState(employee.name);
   const [salary, setSalary] = useState(employee.salary);
+  const [employeeType, setEmployeeType] = useState(employee.employeeType);
+  const [dailyHours, setDailyHours] = useState(employee.dailyHours);
+  const [monthlyHours, setMonthlyHours] = useState(employee.monthlyHours);
+  const [workDaysPerWeek, setWorkDaysPerWeek] = useState(employee.workDaysPerWeek);
 
   // Leave settings form
   const [annualVacation, setAnnualVacation] = useState(leaveSettings.annualVacation);
@@ -170,12 +200,25 @@ function Settings() {
   useEffect(() => {
     setName(employee.name);
     setSalary(employee.salary);
+    setEmployeeType(employee.employeeType);
+    setDailyHours(employee.dailyHours);
+    setMonthlyHours(employee.monthlyHours);
+    setWorkDaysPerWeek(employee.workDaysPerWeek);
   }, [employee]);
 
   useEffect(() => {
     setAnnualVacation(leaveSettings.annualVacation);
     setSickDays(leaveSettings.sickDays);
   }, [leaveSettings]);
+
+  // Auto-set full-time employee values when employee type changes
+  useEffect(() => {
+    if (employeeType === 'full-time') {
+      setDailyHours(9);
+      setWorkDaysPerWeek(5);
+      setMonthlyHours(187);
+    }
+  }, [employeeType]);
 
   const handleSaveAll = (e) => {
     e.preventDefault();
@@ -184,13 +227,20 @@ function Settings() {
     const parsedSalary = parseFloat(salary) || 0;
     const parsedVacation = parseFloat(annualVacation) || 0;
     const parsedSickDays = parseFloat(sickDays) || 0;
+    const parsedDailyHours = parseFloat(dailyHours) || 9;
+    const parsedWorkDaysPerWeek = parseFloat(workDaysPerWeek) || 5;
+    const parsedMonthlyHours = parseFloat(monthlyHours) || 187;
 
     // Run validation
     const errors = validateEmployeeData(
       name,
       parsedSalary,
       parsedVacation,
-      parsedSickDays
+      parsedSickDays,
+      employeeType,
+      parsedDailyHours,
+      parsedWorkDaysPerWeek,
+      parsedMonthlyHours
     );
 
     // If validation fails, show errors
@@ -212,8 +262,13 @@ function Settings() {
     const salaryChanged = !hideSalary && parsedSalary !== employee.salary;
     const vacationChanged = parsedVacation !== leaveSettings.annualVacation;
     const sickDaysChanged = parsedSickDays !== leaveSettings.sickDays;
+    const employeeTypeChanged = employeeType !== employee.employeeType;
+    const dailyHoursChanged = parsedDailyHours !== employee.dailyHours;
+    const workDaysPerWeekChanged = parsedWorkDaysPerWeek !== employee.workDaysPerWeek;
+    const monthlyHoursChanged = parsedMonthlyHours !== employee.monthlyHours;
 
-    const anyChanges = nameChanged || salaryChanged || vacationChanged || sickDaysChanged;
+    const anyChanges = nameChanged || salaryChanged || vacationChanged || sickDaysChanged || 
+                      employeeTypeChanged || dailyHoursChanged || workDaysPerWeekChanged || monthlyHoursChanged;
 
     // If nothing changed, alert user
     if (!anyChanges) {
@@ -233,11 +288,21 @@ function Settings() {
     const changedItems = [];
     if (nameChanged) changedItems.push(`• Name: ${employee.name} → ${name}`);
     if (salaryChanged) changedItems.push(`• Salary: ${employee.salary} → ${parsedSalary}`);
+    if (employeeTypeChanged) changedItems.push(`• Employee Type: ${employee.employeeType} → ${employeeType}`);
+    if (dailyHoursChanged) changedItems.push(`• Daily Hours: ${employee.dailyHours} → ${parsedDailyHours}`);
+    if (workDaysPerWeekChanged) changedItems.push(`• Work Days/Week: ${employee.workDaysPerWeek} → ${parsedWorkDaysPerWeek}`);
+    if (monthlyHoursChanged) changedItems.push(`• Monthly Hours: ${employee.monthlyHours} → ${parsedMonthlyHours}`);
     if (vacationChanged) changedItems.push(`• Vacation Days: ${leaveSettings.annualVacation} → ${parsedVacation}`);
     if (sickDaysChanged) changedItems.push(`• Sick Days: ${leaveSettings.sickDays} → ${parsedSickDays}`);
 
     // Save all data (preserves unchanged values automatically, excludes salary if hidden)
-    const employeeData = { name: name };
+    const employeeData = { 
+      name: name,
+      employeeType: employeeType,
+      dailyHours: parsedDailyHours,
+      monthlyHours: parsedMonthlyHours,
+      workDaysPerWeek: parsedWorkDaysPerWeek
+    };
     if (!hideSalary) {
       employeeData.salary = parsedSalary;
     }
@@ -720,6 +785,84 @@ function Settings() {
               </p>
             </div>
           )}
+
+          {/* Employee Type */}
+          <div className="form-group">
+            <label className="form-label">Employee Type</label>
+            <select
+              className="form-control"
+              value={employeeType}
+              onChange={(e) => setEmployeeType(e.target.value)}
+            >
+              <option value="full-time">Full-Time</option>
+              <option value="part-time">Part-Time</option>
+            </select>
+          </div>
+
+          {/* Conditional fields for part-time employees */}
+          {employeeType === 'part-time' && (
+            <>
+              <div className="form-group">
+                <label className="form-label">Daily Hours</label>
+                <input
+                  type="number"
+                  className="form-control"
+                  value={dailyHours}
+                  onChange={(e) => setDailyHours(e.target.value)}
+                  placeholder="Enter daily work hours"
+                  min="6"
+                  max="9"
+                  step="0.5"
+                />
+                <p className="help-text" style={{ color: '#6c757d', marginTop: '8px', fontSize: '0.875rem' }}>
+                  💡 Part-time employees work between 6-9 hours per day
+                </p>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Work Days per Week</label>
+                <select
+                  className="form-control"
+                  value={workDaysPerWeek}
+                  onChange={(e) => setWorkDaysPerWeek(e.target.value)}
+                >
+                  <option value="3">3 days</option>
+                  <option value="4">4 days</option>
+                  <option value="5">5 days</option>
+                </select>
+                <p className="help-text" style={{ color: '#6c757d', marginTop: '8px', fontSize: '0.875rem' }}>
+                  💡 Part-time employees work between 3-5 days per week
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* Monthly Hours (display only - calculated differently per employee type) */}
+          <div className="form-group">
+            <label className="form-label">Monthly Hours</label>
+            <input
+              type="text"
+              className="form-control"
+              value={employeeType === 'part-time' 
+                ? 'Calculated based on actual hours worked'
+                : '187 (fixed)'
+              }
+              disabled
+              style={{ 
+                backgroundColor: 'transparent',
+                color: '#6c757d',
+                cursor: 'not-allowed',
+                userSelect: 'none'
+              }}
+              readOnly
+            />
+            <p className="help-text" style={{ color: '#6c757d', marginTop: '8px', fontSize: '0.875rem' }}>
+              💡 {employeeType === 'part-time' 
+                ? `Monthly hours will be calculated based on actual hours worked during each pay period. This ensures accurate hourly rates for overtime calculations.`
+                : 'Fixed at 187 hours for full-time employees'
+              }
+            </p>
+          </div>
 
           {/* Annual Vacation Days */}
           <div className="form-group">

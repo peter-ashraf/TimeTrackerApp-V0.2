@@ -25,7 +25,14 @@ export const TimeTrackerProvider = ({ children }) => {
   const [isContextReady, setIsContextReady] = useState(false);
   
   // Employee Data - using getUserData/saveUserData from SupabaseAuth
-  const [employee, setEmployee] = useState({ name: '', salary: 0 });
+  const [employee, setEmployee] = useState({ 
+    name: '', 
+    salary: 0,
+    employeeType: 'full-time',
+    dailyHours: 9,
+    monthlyHours: 187,
+    workDaysPerWeek: 5
+  });
   
   // Leave Settings
   const [leaveSettings, setLeaveSettings] = useState({ annualVacation: 10, sickDays: 7 });
@@ -119,10 +126,17 @@ export const TimeTrackerProvider = ({ children }) => {
       const salaryKey = `salary_${currentUser.id}`;
       const localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
       
-      setEmployee({
+      // Migration logic: if new fields don't exist in profile, default to full-time
+      const migratedEmployeeData = {
         name: profileData?.username || profileData?.full_name || currentUser.username || 'User',
-        salary: localSalary
-      });
+        salary: localSalary,
+        employeeType: profileData?.employee_type || 'full-time',
+        dailyHours: profileData?.daily_hours || 9,
+        monthlyHours: profileData?.monthly_hours || 187,
+        workDaysPerWeek: profileData?.work_days_per_week || 5
+      };
+      
+      setEmployee(migratedEmployeeData);
       
       setEntries(entriesData || []);
       setLeaveSettings({
@@ -215,7 +229,11 @@ export const TimeTrackerProvider = ({ children }) => {
       
       setEmployee({
         name: currentUser.username || currentUser.email?.split('@')[0] || 'User',
-        salary: savedSalary
+        salary: savedSalary,
+        employeeType: 'full-time',
+        dailyHours: 9,
+        monthlyHours: 187,
+        workDaysPerWeek: 5
       });
       
       setEntries(savedEntries);
@@ -235,7 +253,14 @@ export const TimeTrackerProvider = ({ children }) => {
   useEffect(() => {
     if (!currentUser) {
       // Reset to defaults if no user
-      setEmployee({ name: '', salary: 0 });
+      setEmployee({ 
+        name: '', 
+        salary: 0,
+        employeeType: 'full-time',
+        dailyHours: 9,
+        monthlyHours: 187,
+        workDaysPerWeek: 5
+      });
       setLeaveSettings({ annualVacation: 10, sickDays: 7 });
       setEntries([]);
       setPeriods([]);
@@ -303,10 +328,14 @@ export const TimeTrackerProvider = ({ children }) => {
     
     const saveEmployeeData = async () => {
       try {
-        // Save name/username to Supabase only (exclude salary)
+        // Save name/username and employee type fields to Supabase (exclude salary)
         await supabaseData.saveUserProfile(currentUser.id, {
           username: employee.name,
-          full_name: employee.name
+          full_name: employee.name,
+          employee_type: employee.employeeType,
+          daily_hours: employee.dailyHours,
+          monthly_hours: employee.monthlyHours,
+          work_days_per_week: employee.workDaysPerWeek
         });
         
         // Save salary to encrypted localStorage only
@@ -363,7 +392,8 @@ export const TimeTrackerProvider = ({ children }) => {
   }, [leaveSettings, currentUser, isContextReady]);
   
   useEffect(() => {
-    if (!currentUser || !isContextReady || isRefreshingRef.current) return;
+    if (!currentUser || !isContextReady) return;
+    if (isRefreshingRef.current) return;
     
     const saveTimeEntriesData = async () => {
       try {
@@ -372,14 +402,12 @@ export const TimeTrackerProvider = ({ children }) => {
           await supabaseData.saveTimeEntry(currentUser.id, entry);
         }
         
-        
       } catch (error) {
-        
+        console.error('Failed to save entries to Supabase:', error);
         
         // Fallback to localStorage
         const entriesKey = `timeEntries_${currentUser.id}`;
         setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
-        
       }
     };
     
@@ -976,26 +1004,74 @@ export const TimeTrackerProvider = ({ children }) => {
     const details = calculateOvertimeDetails(entries, periodStart, periodEnd);
     return details.totalExtraHoursWithFactor;
   };
-  
-  const checkIn = () => {
-    // Check if there are any periods
-    if (periods.length === 0) {
-      setConfirmModal({
-        isOpen: true,
-        title: 'No Periods Found',
-        message: 'You need to create a pay period before you can check in. Would you like to create one now?',
-        type: 'warning',
-        confirmText: 'Create Period',
-        cancelText: 'Cancel',
-        onConfirm: () => {
-          setConfirmModal({ ...confirmModal, isOpen: false });
-          // TODO: Open settings modal to create period
-        },
-        onCancel: () => setConfirmModal({ ...confirmModal, isOpen: false })
-      });
-      return;
-    }
 
+  // Employee type validation functions
+  const validateEmployeeType = (employeeData) => {
+    const errors = [];
+    
+    // Validate employee type
+    if (!employeeData.employeeType || !['full-time', 'part-time'].includes(employeeData.employeeType)) {
+      errors.push('Employee type must be either full-time or part-time');
+    }
+    
+    // Validate daily hours
+    if (employeeData.employeeType === 'part-time') {
+      if (!employeeData.dailyHours || employeeData.dailyHours < 6 || employeeData.dailyHours > 9) {
+        errors.push('Part-time daily hours must be between 6 and 9');
+      }
+    } else {
+      if (employeeData.dailyHours && employeeData.dailyHours !== 9) {
+        errors.push('Full-time daily hours must be 9');
+      }
+    }
+  
+    // Validate work days per week
+    if (employeeData.employeeType === 'part-time') {
+      if (!employeeData.workDaysPerWeek || employeeData.workDaysPerWeek < 3 || employeeData.workDaysPerWeek > 5) {
+        errors.push('Part-time work days must be between 3 and 5');
+      }
+    } else {
+      if (employeeData.workDaysPerWeek && employeeData.workDaysPerWeek !== 5) {
+        errors.push('Full-time work days must be 5');
+      }
+    }
+    
+    // Note: Monthly hours validation removed for part-time employees since it's calculated based on actual hours worked per period
+      
+    return errors;
+  };
+
+  const calculateMonthlyHours = (employeeType, dailyHours, workDaysPerWeek) => {
+    if (employeeType === 'full-time') {
+      return 187;
+    }
+    // For part-time, return 0 as it will be calculated based on actual hours worked
+    return 0;
+  };
+
+  // Calculate actual monthly hours worked for part-time employees based on entries in a period
+  const calculateActualMonthlyHours = (entries, periodStart, periodEnd) => {
+    if (employee.employeeType === 'full-time') {
+      return 187;
+    }
+    
+    // Filter entries within the period
+    const periodEntries = entries.filter(entry => 
+      entry.date >= periodStart && entry.date <= periodEnd
+    );
+    
+    // Calculate total hours worked (excluding leave days)
+    const totalHours = periodEntries.reduce((sum, entry) => {
+      if (entry.type === 'Work Day' && entry.hoursWorked) {
+        return sum + entry.hoursWorked;
+      }
+      return sum;
+    }, 0);
+    
+    return totalHours;
+  };
+
+  const checkIn = () => {
     const today = formatDate(new Date());
     const now = new Date();
     const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
@@ -1134,7 +1210,6 @@ export const TimeTrackerProvider = ({ children }) => {
           // Delete from Supabase first
           if (currentUser && isAuthenticated) {
             await supabaseData.deleteTimeEntry(currentUser.id, date);
-            
           }
           
           // Update local state
@@ -1150,7 +1225,7 @@ export const TimeTrackerProvider = ({ children }) => {
             onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
           });
         } catch (error) {
-          
+          console.error('Failed to delete entry:', error);
           
           // Still delete from local state even if Supabase fails
           updateEntries(entries.filter(e => e.date !== date));
@@ -1185,27 +1260,17 @@ export const TimeTrackerProvider = ({ children }) => {
     const periodStart = period.start_date || period.start;
     const periodEnd = period.end_date || period.end;
     
-    updateEntries(entries.filter(e => e.date < periodStart || e.date > periodEnd));
+    if (window.confirm(`Are you sure you want to clear all data for ${period.label}? This cannot be undone!`)) {
+      updateEntries(entries.filter(e => e.date < periodStart || e.date > periodEnd));
+      showAlert(`${period.label} data cleared!`, 'success');
+    }
   };
   
   const clearAllData = () => {
-    if (window.confirm('WARNING: This will delete ALL data (timesheet, settings, everything)! This cannot be undone.')) {
+    if (window.confirm('WARNING: This will delete ALL your timesheet data! This cannot be undone.')) {
       const confirmation = window.prompt('Type DELETE ALL to confirm');
       if (confirmation === 'DELETE ALL') {
-        // Clear only current user's data
-        if (currentUser) {
-          saveUserData('timeEntries', []);
-          saveUserData('payPeriods', []);
-          saveUserData('fullName', '');
-          saveUserData('salary', 0);
-          saveUserData('annualVacation', 10);
-          saveUserData('sickDays', 7);
-        }
-        
-        setEmployee({ name: '', salary: 0 });
-        setLeaveSettings({ annualVacation: 10, sickDays: 7 });
-        setEntries([]);
-        setPeriods([]);
+        updateEntries([]);
         showAlert('All data has been cleared!', 'success');
       } else {
         showAlert('Deletion cancelled', 'info');
@@ -1378,6 +1443,9 @@ export const TimeTrackerProvider = ({ children }) => {
     deletePayPeriod,    
     setActivePayPeriod,
     showAlert,
+    validateEmployeeType,
+    calculateMonthlyHours,
+    calculateActualMonthlyHours,
   };
   
   return (

@@ -4,7 +4,25 @@ A comprehensive time tracking application with Supabase integration, password re
 
 ## 🚀 New Features Added
 
-### 1. **Supabase Password Reset System**
+### 1. **Employee Type System (Full-Time & Part-Time)**
+- **Flexible employee configuration** with Full-Time and Part-Time support
+- **Configurable work hours** for part-time employees (6-9 hours daily, 3-5 days/week)
+- **Automatic monthly hours calculation** based on employee settings
+- **Employee-specific overtime calculations** using individual standards
+- **Seamless Settings UI** with conditional fields and real-time validation
+
+#### Implementation:
+- Added employee type fields to TimeTrackerContext (`employeeType`, `dailyHours`, `monthlyHours`, `workDaysPerWeek`)
+- Enhanced Settings component with employee type selection and conditional fields
+- Updated Dashboard and ViewHoursModal to use employee-specific monthly hours
+- Database schema migration for employee type fields (`add-employee-type-fields.sql`)
+- Salary privacy maintained - employee types stored in database, salary stays local
+
+#### Employee Type Specifications:
+- **Full-Time**: 9 hours/day, 187 hours/month, 5 days/week
+- **Part-Time**: 6-9 hours/day (configurable), calculated monthly hours, 3-5 days/week
+
+### 2. **Supabase Password Reset System**
 - **Email-based password recovery** with secure token verification
 - **Dedicated reset page** (`/reset-password`) for setting new passwords
 - **User-friendly modal** for requesting password reset emails
@@ -66,8 +84,9 @@ src/
 ### Database
 ```
 database/
-├── fix-rls.sql                 # RLS policies setup
-└── test-rls.sql                # RLS testing scripts
+├── add-employee-type-fields.sql  # Employee type schema migration
+├── fix-rls.sql                   # RLS policies setup
+└── test-rls.sql                  # RLS testing scripts
 ```
 
 ### Utilities
@@ -244,6 +263,6 @@ npm run deploy
 
 ---
 
-**Version**: 2.0  
-**Last Updated**: 2026-02-27  
+**Version**: 2.1  
+**Last Updated**: 2026-03-03  
 **Dependencies**: React 18+, Supabase, React Router DOM

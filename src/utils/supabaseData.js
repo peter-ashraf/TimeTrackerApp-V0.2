@@ -340,18 +340,32 @@ export const supabaseData = {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name, username')
+        .select('full_name, username, employee_type, daily_hours, monthly_hours, work_days_per_week')
         .eq('id', userId)
         .single();
 
       if (error) {
         
-        return { full_name: '', username: '' };
+        return { 
+          full_name: '', 
+          username: '',
+          employee_type: 'full-time',
+          daily_hours: 9,
+          monthly_hours: 187,
+          work_days_per_week: 5
+        };
       }
       return data;
     } catch (error) {
       
-      return { full_name: '', username: '' };
+      return { 
+        full_name: '', 
+        username: '',
+        employee_type: 'full-time',
+        daily_hours: 9,
+        monthly_hours: 187,
+        work_days_per_week: 5
+      };
     }
   },
 

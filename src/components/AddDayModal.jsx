@@ -75,7 +75,6 @@ function AddDayModal({ onClose }) {
             <option value="Holiday Full Day">Holiday Full Day</option>
             <option value="Leave Full Day">Leave Full Day</option>
             <option value="To Be Added Full Day">To Be Added Full Day</option>
-            <option value="To Be Added Half Day">To Be Added Half Day</option>
           </select>
         </div>
 

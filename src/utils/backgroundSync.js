@@ -286,8 +286,64 @@ class BackgroundSync {
    * Determine which data to use in case of conflict
    */
   shouldUseRemoteData(key, remoteData, localData) {
-    // For now, prefer localStorage (local wins)
-    // This could be enhanced with timestamps, version numbers, etc.
+    // If local data is null or undefined, use remote data
+    if (localData === null || localData === undefined) {
+      return true;
+    }
+    
+    // If remote data is null or undefined, keep local data
+    if (remoteData === null || remoteData === undefined) {
+      return false;
+    }
+    
+    // For time entries, check timestamps and data integrity
+    if (key === 'timeEntries') {
+      // If local data is empty array and remote has data, use remote
+      if (Array.isArray(localData) && localData.length === 0 && 
+          Array.isArray(remoteData) && remoteData.length > 0) {
+        return true;
+      }
+      
+      // If remote data is empty and local has data, keep local
+      if (Array.isArray(remoteData) && remoteData.length === 0 && 
+          Array.isArray(localData) && localData.length > 0) {
+        return false;
+      }
+      
+      // If both have data, prefer the one with more recent activity
+      if (Array.isArray(localData) && Array.isArray(remoteData)) {
+        // Get the most recent modification timestamp from each dataset
+        const getLatestTimestamp = (entries) => {
+          if (!entries || entries.length === 0) return 0;
+          return Math.max(...entries.map(entry => {
+            const timestamp = entry.lastModified || entry.modifiedAt || entry.createdAt;
+            return timestamp ? new Date(timestamp).getTime() : 0;
+          }));
+        };
+        
+        const localLatest = getLatestTimestamp(localData);
+        const remoteLatest = getLatestTimestamp(remoteData);
+        
+        // If remote data is more recent, use it
+        return remoteLatest > localLatest;
+      }
+    }
+    
+    // For other data types, implement similar logic
+    if (key === 'payPeriods' && Array.isArray(localData) && Array.isArray(remoteData)) {
+      // Prefer the dataset with more recent activity
+      const getLatestPeriodTimestamp = (periods) => {
+        if (!periods || periods.length === 0) return 0;
+        return Math.max(...periods.map(period => {
+          const timestamp = period.lastModified || period.modifiedAt || period.createdAt;
+          return timestamp ? new Date(timestamp).getTime() : 0;
+        }));
+      };
+      
+      return getLatestPeriodTimestamp(remoteData) > getLatestPeriodTimestamp(localData);
+    }
+    
+    // For simple data types, keep local (local wins strategy)
     return false;
   }
 

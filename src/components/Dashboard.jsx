@@ -91,7 +91,7 @@ function Dashboard() {
   const salaryData = useMemo(() => {
     const salaryDivided = employee.salary / 3;
     const salaryTwoThird = salaryDivided * 2;
-    const employeeHourCost = salaryTwoThird / 187.5;
+    const employeeHourCost = salaryTwoThird / employee.monthlyHours;
     const overtimeMoney = overtime * employeeHourCost;
     const totalSalary = employee.salary + overtimeMoney;
 

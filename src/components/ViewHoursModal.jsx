@@ -3,7 +3,7 @@ import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 
 function ViewHoursModal({ onClose }) {
-  const { entries, getCurrentPeriod } = useTimeTracker();
+  const { entries, getCurrentPeriod, employee } = useTimeTracker();
   const currentPeriod = getCurrentPeriod();
 
   // Filter entries for current period
@@ -42,7 +42,7 @@ function ViewHoursModal({ onClose }) {
     return sum;
   }, 0);
 
-  const expectedHours = 187.5; // Standard monthly hours
+  const expectedHours = employee.monthlyHours; // Employee-specific monthly hours
   const overtime = totalHours - expectedHours;
 
   return (

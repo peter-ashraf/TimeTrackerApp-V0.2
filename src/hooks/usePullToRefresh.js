@@ -98,8 +98,8 @@ export const usePullToRefresh = ({
     setPullDistance(pullDistance);
     setIsPulling(true);
     
-    // Prevent default scrolling when pulling - only if we have significant pull
-    if (pullDistance > 10) {
+    // Prevent default scrolling when pulling - only if event is cancelable and we have significant pull
+    if (pullDistance > 10 && e.cancelable) {
       e.preventDefault();
     }
     
