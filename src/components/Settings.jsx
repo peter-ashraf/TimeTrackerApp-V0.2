@@ -145,6 +145,7 @@ function Settings() {
     clearAllData,
     confirmModal,
     setConfirmModal,
+    setCurrentPeriod,
     setEntries,
     validateEmployeeType,
     calculateMonthlyHours

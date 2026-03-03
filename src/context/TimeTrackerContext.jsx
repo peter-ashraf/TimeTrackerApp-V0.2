@@ -850,11 +850,16 @@ export const TimeTrackerProvider = ({ children }) => {
     let totalExtraHours = 0;
     let totalExtraHoursWithFactor = 0;
     
-    periodEntries.forEach(entry => {
-      if (!entry.intervals || entry.intervals.length === 0) return;
+    periodEntries.forEach((entry, index) => {
+      // Skip entries without complete check-in/check-out data
+      if (!entry.intervals || entry.intervals.length === 0) {
+        return;
+      }
       
       const allComplete = entry.intervals.every(interval => interval.in && interval.out);
-      if (!allComplete) return;
+      if (!allComplete) {
+        return;
+      }
       
       let actualHours, extraHours, extraHoursWithFactor;
       
