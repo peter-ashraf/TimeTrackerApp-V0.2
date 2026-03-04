@@ -3,8 +3,15 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useTimeTracker } from './context/TimeTrackerContext';
 import { useSupabaseAuth } from './context/SupabaseAuthContext';
 import { backgroundSync } from './utils/backgroundSync';
+import { supabaseData } from './utils/supabaseData';
 import Header from './components/Header';
 import AppLoading from './components/AppLoading';
+import AutoSaveIndicator from './components/AutoSaveIndicator';
+import RefreshIndicator from './components/RefreshIndicator';
+import ConfirmModal from './components/ConfirmModal';
+import './styles/app-transitions.css';
+import './styles/fixed-header.css';
+import './styles/route-loading.css';
 
 // Lazy load major view components
 const Dashboard = React.lazy(() => import('./components/Dashboard'));
@@ -12,15 +19,6 @@ const Timesheet = React.lazy(() => import('./components/Timesheet'));
 const Settings = React.lazy(() => import('./components/Settings'));
 const LoginScreen = React.lazy(() => import('./components/LoginScreen'));
 const PasswordResetPage = React.lazy(() => import('./components/PasswordResetPage'));
-import AutoSaveIndicator from './components/AutoSaveIndicator';
-import RefreshIndicator from './components/RefreshIndicator';
-import ConfirmModal from './components/ConfirmModal';
-import PullToRefresh from './components/PullToRefresh';
-import './styles/pull-to-refresh.css';
-import './styles/refresh-indicator.css';
-import './styles/app-transitions.css';
-import './styles/fixed-header.css';
-import './styles/route-loading.css';
 
 
 function App() {
@@ -34,7 +32,7 @@ function App() {
   const [isHidingScrollTop, setIsHidingScrollTop] = useState(false);
   const swipeTimeoutRef = useRef(null);
   const { lastSaved, lastRefreshed, entries, theme, setEntries, setLastRefreshed, setRefreshing } = useTimeTracker();
-  const { currentUser, isAuthenticated, getUserData, isAppLoading, isLoading: authLoading } = useSupabaseAuth();
+  const { currentUser, isAuthenticated, getUserData, saveUserData, isAppLoading, isLoading: authLoading } = useSupabaseAuth();
   const [refreshing, setRefreshingState] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
@@ -218,33 +216,28 @@ function App() {
   // Validate time entries data integrity
   const validateTimeEntries = (entries) => {
     if (!Array.isArray(entries)) {
-      console.warn('Invalid timeEntries data: not an array', entries);
       return [];
     }
 
     return entries.filter(entry => {
       // Check if entry has required fields
       if (!entry || typeof entry !== 'object') {
-        console.warn('Invalid entry: not an object', entry);
         return false;
       }
 
       if (!entry.date || typeof entry.date !== 'string') {
-        console.warn('Invalid entry: missing or invalid date', entry);
         return false;
       }
 
       // Validate date format
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (!dateRegex.test(entry.date)) {
-        console.warn('Invalid entry: invalid date format', entry);
         return false;
       }
 
       // Check for valid hours (can be null/undefined for unpaid days)
       if (entry.hours !== null && entry.hours !== undefined) {
         if (typeof entry.hours !== 'number' || entry.hours < 0 || entry.hours > 24) {
-          console.warn('Invalid entry: invalid hours value', entry);
           return false;
         }
       }
@@ -253,7 +246,6 @@ function App() {
       if (entry.type) {
         const validTypes = ['regular', 'vacation', 'sick', 'unpaid', 'holiday', 'Regular', 'Leave'];
         if (!validTypes.includes(entry.type)) {
-          console.warn('Invalid entry: invalid type', entry);
           return false;
         }
       }
@@ -325,11 +317,58 @@ function App() {
         sickDays: parseFloat(getUserData('sickDays')) || 7
       };
 
-      let loadedEntries = getUserData('timeEntries') || [];
+      let loadedEntries = [];
+      
+      // Try to get fresh data from Supabase first
+      try {
+        if (currentUser && !currentUser.isLocalOnly && syncStatus.isOnline) {
+          const supabaseEntries = await supabaseData.getTimeEntries(currentUser.id);
+          if (supabaseEntries && supabaseEntries.length > 0) {
+            // Save Supabase data to localStorage for offline use
+            getUserData('timeEntries') && saveUserData('timeEntries', supabaseEntries);
+            loadedEntries = supabaseEntries;
+          }
+        }
+      } catch (supabaseError) {
+        
+      }
+
+      // Fallback to localStorage if Supabase failed or user is local-only
+      if (loadedEntries.length === 0) {
+        loadedEntries = getUserData('timeEntries') || [];
+      }
+
       const validatedLoadedEntries = validateTimeEntries(loadedEntries);
+      
+      // Merge current entries with loaded entries, prioritizing Supabase data
       const mergedEntries = mergeEntries(currentEntries, validatedLoadedEntries);
 
-      setEntries(mergedEntries);
+      // Additional merge logic to handle deleted entries
+      // If an entry exists in currentEntries but not in Supabase data, remove it
+      if (currentUser && !currentUser.isLocalOnly && syncStatus.isOnline) {
+        try {
+          const freshSupabaseEntries = await supabaseData.getTimeEntries(currentUser.id);
+          const supabaseDates = new Set(freshSupabaseEntries.map(entry => entry.date));
+          
+          // Remove entries that no longer exist in Supabase
+          const cleanedEntries = mergedEntries.filter(entry => 
+            !entry.date || supabaseDates.has(entry.date)
+          );
+          
+          setEntries(cleanedEntries);
+          
+          // Update localStorage with cleaned data
+          if (cleanedEntries.length !== mergedEntries.length) {
+            saveUserData('timeEntries', cleanedEntries);
+          }
+        } catch (cleanupError) {
+          console.warn('Failed to clean up deleted entries:', cleanupError);
+          setEntries(mergedEntries);
+        }
+      } else {
+        setEntries(mergedEntries);
+      }
+
       setLastRefreshed(new Date().toISOString());
 
       return {
@@ -339,18 +378,18 @@ function App() {
         isOnline: syncStatus.isOnline
       };
     } catch (error) {
-      console.error('Refresh error:', error);
+      
       throw error;
     } finally {
       setRefreshing(false);
     }
-  }, [currentUser, isAuthenticated, entries, getUserData, setEntries, setLastRefreshed, setRefreshing]);
+  }, [currentUser, isAuthenticated, entries, getUserData, setEntries, setLastRefreshed, setRefreshing, saveUserData]);
 
   // ✅ ALL EFFECTS ARE NOW AT TOP LEVEL
   useEffect(() => {
     const initTimer = setTimeout(() => {
       backgroundSync.init().catch(error => {
-        console.warn('Background sync init failed:', error);
+        
       });
     }, 1000);
     return () => clearTimeout(initTimer);
@@ -468,167 +507,93 @@ function App() {
           isAppLoading ? (
             <AppLoading />
           ) : (
-            <>
-              <PullToRefresh
-                onRefresh={refreshData}
-                threshold={80}
-                maxPull={120}
-                className="app-pull-to-refresh"
+            <div
+              className={`app ${isSwiping ? 'swiping' : ''}`}
+              ref={containerRef}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              style={{
+                minHeight: '100vh',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+            >
+              <Header
+                currentView={currentView}
+                setCurrentView={setCurrentView}
+                isHeaderCollapsed={isHeaderCollapsed}
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  zIndex: 1000,
+                  background: 'var(--color-surface)',
+                  borderBottom: '1px solid var(--color-border)'
+                }}
+              />
+              <div
+                className="main-content"
+                data-scrollable
+                style={{
+                  paddingTop: '140px',
+                  flex: 1,
+                  overflowY: 'auto',
+                  WebkitOverflowScrolling: 'touch'
+                }}
               >
-                <div
-                  className={`app ${isSwiping ? 'swiping' : ''}`}
-                  ref={containerRef}
-                  onTouchStart={handleTouchStart}
-                  onTouchMove={handleTouchMove}
-                  onTouchEnd={handleTouchEnd}
-                  style={{
-                    minHeight: '100vh',
-                    display: 'flex',
-                    flexDirection: 'column'
-                  }}
-                >
-                  <Header
-                    currentView={currentView}
-                    setCurrentView={setCurrentView}
-                    isHeaderCollapsed={isHeaderCollapsed}
-                    style={{
-                      position: 'fixed',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      zIndex: 1000,
-                      background: 'var(--color-surface)',
-                      borderBottom: '1px solid var(--color-border)'
-                    }}
-                  />
-                  <div
-                    className="main-content"
-                    data-scrollable
-                    style={{
-                      paddingTop: '140px',
-                      flex: 1,
-                      overflowY: 'auto',
-                      WebkitOverflowScrolling: 'touch'
-                    }}
-                  >
-                    <Suspense fallback={
-                      <div className="route-loading">
-                        <div className="loading-spinner">
-                          <div className="spinner"></div>
-                          <p>Loading dashboard...</p>
-                        </div>
-                      </div>
-                    }>
-                      <div className={`view-container dashboard-container ${currentView === 'dashboard' ? 'active' : ''}`} data-scrollable>
-                        <Dashboard />
-                      </div>
-                    </Suspense>
-                    <Suspense fallback={
-                      <div className="route-loading">
-                        <div className="loading-spinner">
-                          <div className="spinner"></div>
-                          <p>Loading timesheet...</p>
-                        </div>
-                      </div>
-                    }>
-                      <div className={`view-container timesheet-container ${currentView === 'timesheet' ? 'active' : ''}`} data-scrollable>
-                        <Timesheet />
-                      </div>
-                    </Suspense>
-                    <Suspense fallback={
-                      <div className="route-loading">
-                        <div className="loading-spinner">
-                          <div className="spinner"></div>
-                          <p>Loading settings...</p>
-                        </div>
-                      </div>
-                    }>
-                      <div className={`view-container settings-container ${currentView === 'settings' ? 'active' : ''}`} data-scrollable>
-                        <Settings />
-                      </div>
-                    </Suspense>
+                <Suspense fallback={
+                  <div className="route-loading">
+                    <div className="loading-spinner">
+                      <div className="spinner"></div>
+                      <p>Loading dashboard...</p>
+                    </div>
                   </div>
-                </div>
-              </PullToRefresh>
-
-                <AutoSaveIndicator lastSaved={lastSaved} />
-                <RefreshIndicator lastRefreshed={lastRefreshed} />
-
-                {/* Scroll to Top Button - Completely outside all containers */}
-                {(showScrollTop || isHidingScrollTop) && (
-                  <button
-                    onClick={() => {
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                      setIsHidingScrollTop(true);
-                      setTimeout(() => setIsHidingScrollTop(false), 300);
-                    }}
-                    style={{
-                      position: 'fixed',
-                      bottom: '30px',
-                      right: '30px',
-                      width: '50px',
-                      height: '50px',
-                      borderRadius: '50%',
-                      border: 'none',
-                      cursor: 'pointer',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '20px',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-                      transition: 'all 0.3s ease, opacity 0.3s ease',
-                      zIndex: 1000,
-                      opacity: isHidingScrollTop ? 0 : 0.5,
-                      transform: isHidingScrollTop ? 'translateY(20px)' : 'translateY(0)',
-                      animation: !isHidingScrollTop ? 'fadeIn 0.3s ease-in' : 'none',
-                      pointerEvents: isHidingScrollTop ? 'none' : 'auto'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isHidingScrollTop) {
-                        e.target.style.transform = 'scale(1.1)';
-                        e.target.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.4)';
-                        e.target.style.opacity = '0.8';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isHidingScrollTop) {
-                        e.target.style.transform = 'scale(1)';
-                        e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
-                        e.target.style.opacity = '0.5';
-                      }
-                    }}
-                    aria-label="Scroll to top"
-                  >
-                    ↑
-                  </button>
-                )}
-
-                {/* Add fade-in and fade-out animation styles */}
-                <style>{`
-                  @keyframes fadeIn {
-                    from {
-                      opacity: 0;
-                      transform: translateY(20px);
-                    }
-                    to {
-                      opacity: 0.5;
-                      transform: translateY(0);
-                    }
-                  }
-                `}</style>
-              </>
-            )
-          ) : (
-            <Navigate to="/login" replace />
+                }>
+                  <div className={`view-container dashboard-container ${currentView === 'dashboard' ? 'active' : ''}`} data-scrollable>
+                    <Dashboard />
+                  </div>
+                </Suspense>
+                <Suspense fallback={
+                  <div className="route-loading">
+                    <div className="loading-spinner">
+                      <div className="spinner"></div>
+                      <p>Loading timesheet...</p>
+                    </div>
+                  </div>
+                }>
+                  <div className={`view-container timesheet-container ${currentView === 'timesheet' ? 'active' : ''}`} data-scrollable>
+                    <Timesheet />
+                  </div>
+                </Suspense>
+                <Suspense fallback={
+                  <div className="route-loading">
+                    <div className="loading-spinner">
+                      <div className="spinner"></div>
+                      <p>Loading settings...</p>
+                    </div>
+                  </div>
+                }>
+                  <div className={`view-container settings-container ${currentView === 'settings' ? 'active' : ''}`} data-scrollable>
+                    <Settings />
+                  </div>
+                </Suspense>
+              </div>
+            </div>
           )
-        } />
-        <Route path="*" element={
-          isAuthenticated ? (
-            <Navigate to="/" replace />
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        } />
-      </Routes>
+        ) : (
+          <Navigate to="/login" replace />
+        )
+      } />
+      <Route path="*" element={
+        isAuthenticated ? (
+          <Navigate to="/" replace />
+        ) : (
+          <Navigate to="/login" replace />
+        )
+      } />
+    </Routes>
   );
 }
 

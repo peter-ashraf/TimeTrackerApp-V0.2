@@ -7,6 +7,7 @@ import { supabaseData } from '../utils/supabaseData';
 import { dataMigration } from '../utils/dataMigration';
 import { setSimpleEncryptedItem, getSimpleEncryptedItem } from '../utils/simple-encryption';
 import { multiTabSync } from '../utils/multiTabSync';
+import { backgroundSync } from '../utils/backgroundSync';
 
 const TimeTrackerContext = createContext();
 
@@ -141,6 +142,52 @@ export const TimeTrackerProvider = ({ children }) => {
     }
     return 0;
   }, []);
+
+  const saveTimeEntriesData = useCallback(async (entries) => {
+    if (!currentUser) return;
+
+    let retryCount = 0;
+    const maxRetries = 3;
+    const retryDelay = 1000; // 1 second between retries
+
+    const attemptSave = async () => {
+      try {
+        // Try to save to Supabase first
+        if (currentUser && isAuthenticated && !currentUser.isLocalOnly) {
+          for (const entry of entries) {
+            await supabaseData.saveTimeEntry(currentUser.id, entry);
+          }
+        }
+      } catch (error) {
+        
+        // Handle auth-related errors (401 Unauthorized, 406 Not Acceptable)
+        // 406 often happens when there is an issue with the session or RLS
+        if (error.status === 401 || error.status === 406 || (error.message && (error.message.includes('401') || error.message.includes('406')))) {
+          // Don't retry auth errors, just move to fallback
+          const entriesKey = `timeEntries_${currentUser.id}`;
+          setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
+          return;
+        }
+
+        // Check if it's a Navigator Lock Manager timeout
+        if (error.message && error.message.includes('Navigator LockManager')) {
+          if (retryCount < maxRetries) {
+            retryCount++;
+            
+            // Wait before retry
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            return attemptSave();
+          }
+        }
+        
+        // Fallback to localStorage for any other error
+        const entriesKey = `timeEntries_${currentUser.id}`;
+        setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
+      }
+    };
+
+    await attemptSave();
+  }, [currentUser, isAuthenticated, setSimpleEncryptedItem]);
   
   const secondsToTime = useCallback((totalSeconds) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -487,27 +534,11 @@ export const TimeTrackerProvider = ({ children }) => {
     if (!currentUser || !isContextReady) return;
     if (isRefreshingRef.current) return;
     
-    const saveTimeEntriesData = async () => {
-      try {
-        // Save each entry to Supabase
-        for (const entry of entries) {
-          await supabaseData.saveTimeEntry(currentUser.id, entry);
-        }
-        
-      } catch (error) {
-        console.error('Failed to save entries to Supabase:', error);
-        
-        // Fallback to localStorage
-        const entriesKey = `timeEntries_${currentUser.id}`;
-        setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
-      }
-    };
-    
-    saveTimeEntriesData();
+    saveTimeEntriesData(entries);
     
     // Notify other tabs of data change
     multiTabSync.notifyDataChange('timeEntries', entries, currentUser.username);
-  }, [entries, currentUser, isContextReady, isRefreshingRef]);
+  }, [entries, currentUser, isContextReady, isRefreshingRef, saveTimeEntriesData]);
 
   // Pay periods are now user-specific
   useEffect(() => {
@@ -1173,42 +1204,64 @@ export const TimeTrackerProvider = ({ children }) => {
     setConfirmModal({
       isOpen: true,
       title: 'Delete Entry',
-      message: `Are you sure you want to delete the entry for ${date}? This cannot be undone.`,
+      message: `Are you sure you want to delete entry for ${date}? This cannot be undone.`,
       type: 'danger',
       confirmText: 'Delete',
       cancelText: 'Cancel',
       showCancel: true,
       onConfirm: async () => {
         try {
-          // Delete from Supabase first
-          if (currentUser && isAuthenticated) {
-            await supabaseData.deleteTimeEntry(currentUser.id, date);
+          // Delete from Supabase first (if online and not local-only user)
+          if (currentUser && isAuthenticated && !currentUser.isLocalOnly) {
+            try {
+              await supabaseData.deleteTimeEntry(currentUser.id, date);
+            } catch (supabaseError) {
+              
+              // Queue the delete operation for later sync
+              try {
+                await backgroundSync.queueDeleteOperation({ date }, currentUser.username);
+              } catch (queueError) {
+                
+              }
+            }
           }
           
-          // Update local state
-          updateEntries(entries.filter(e => e.date !== date));
+          // Always update local state immediately
+          const updatedEntries = entries.filter(e => e.date !== date);
+          updateEntries(updatedEntries);
+          
+          // Save to localStorage for persistence
+          if (currentUser) {
+            getUserData('timeEntries') && saveUserData('timeEntries', updatedEntries);
+          }
           
           setConfirmModal(prev => ({
             ...prev,
             isOpen: true,
             title: 'Entry Deleted',
-            message: 'Entry deleted successfully!',
+            message: currentUser?.isLocalOnly 
+              ? 'Entry deleted successfully! (Local Mode)' 
+              : 'Entry deleted successfully!',
             type: 'success',
             confirmText: 'OK',
             showCancel: false,
             onConfirm: () => setConfirmModal(p => ({ ...p, isOpen: false }))
           }));
         } catch (error) {
-          console.error('Failed to delete entry:', error);
           
-          // Still delete from local state even if Supabase fails
-          updateEntries(entries.filter(e => e.date !== date));
+          // Still delete from local state even if everything fails
+          const updatedEntries = entries.filter(e => e.date !== date);
+          updateEntries(updatedEntries);
+          
+          if (currentUser) {
+            getUserData('timeEntries') && saveUserData('timeEntries', updatedEntries);
+          }
           
           setConfirmModal(prev => ({
             ...prev,
             isOpen: true,
             title: 'Entry Deleted (Local Only)',
-            message: 'Entry deleted locally but there was an error deleting from the cloud. Your local data is safe.',
+            message: 'Entry deleted locally but there was an error syncing to cloud. Your local data is safe.',
             type: 'warning',
             confirmText: 'OK',
             showCancel: false,
@@ -1218,8 +1271,8 @@ export const TimeTrackerProvider = ({ children }) => {
       },
       onCancel: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
     });
-  }, [currentUser, isAuthenticated, entries, updateEntries, setConfirmModal]);
-  
+  }, [entries, formatDate, updateEntries, setConfirmModal, calculateHoursWorked, calculateHoursSpentOutside, currentUser, isAuthenticated, getUserData, saveUserData]);
+
   const clearCurrentDay = useCallback(() => {
     if (window.confirm('Are you sure you want to clear data for today? This cannot be undone!')) {
       const today = formatDate(new Date());

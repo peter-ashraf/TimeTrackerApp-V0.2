@@ -11,6 +11,7 @@ import {
   setSimpleEncryptedItem,
   getSimpleEncryptedItem,
 } from "../utils/simple-encryption";
+import { failsafeAuth } from "../utils/failsafeAuth.js";
 
 const SupabaseAuthContext = createContext();
 
@@ -48,12 +49,36 @@ export const SupabaseAuthProvider = ({ children }) => {
   const [showSessionWarning, setShowSessionWarning] = useState(false);
   const [immediateWarningShown, setImmediateWarningShown] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [isFailsafeMode, setIsFailsafeMode] = useState(false);
+  const [networkStatus, setNetworkStatus] = useState({ isOnline: navigator.onLine, supabaseAvailable: true });
   const lastActivityRef = useRef(lastActivity);
 
   // Session management constants
   const REMEMBERED_SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
   const NORMAL_SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
   const SESSION_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+  // Start failsafe availability checks
+  useEffect(() => {
+    failsafeAuth.startAvailabilityChecks();
+    
+    const updateNetworkStatus = () => {
+      const status = failsafeAuth.getStatus();
+      setNetworkStatus(status);
+      setIsFailsafeMode(!status.canUseSupabase);
+    };
+
+    // Initial status update
+    updateNetworkStatus();
+    
+    // Listen for status changes
+    const interval = setInterval(updateNetworkStatus, 10000); // Check every 10 seconds
+    
+    return () => {
+      clearInterval(interval);
+      failsafeAuth.stopAvailabilityChecks();
+    };
+  }, []);
 
   // Session refresh for remembered users
   const setupSessionRefresh = useCallback(() => {
@@ -79,7 +104,6 @@ export const SupabaseAuthProvider = ({ children }) => {
           );
         }
       } catch (error) {
-        console.error("Session refresh error:", error);
         clearInterval(refreshInterval);
       }
     }, SESSION_CHECK_INTERVAL);
@@ -181,12 +205,12 @@ export const SupabaseAuthProvider = ({ children }) => {
       const failSafeTimeout = setTimeout(() => {
         setIsLoading(prev => {
           if (prev) {
-            console.warn("Supabase initialization timed out (10s), clearing loading flag.");
+            setIsFailsafeMode(true);
             return false;
           }
           return prev;
         });
-      }, 10000);
+      }, 5000); // Reduced to 5 seconds
 
       try {
         // Check for remember me state first
@@ -211,16 +235,24 @@ export const SupabaseAuthProvider = ({ children }) => {
         let sessionData = null;
         let sessionError = null;
 
+        // Try Supabase with timeout
         try {
-          const { data, error } = await supabase.auth.getSession();
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Supabase timeout')), 3000); // Reduced to 3 seconds
+          });
+
+          const sessionPromise = supabase.auth.getSession();
+          const { data, error } = await Promise.race([sessionPromise, timeoutPromise]);
           sessionData = data;
           sessionError = error;
-        } catch (e) {
-          sessionError = e;
+        } catch (timeoutError) {
+          sessionError = timeoutError;
         }
 
         if (sessionError || !sessionData?.session) {
-          // If offline and we have a cached user/profile, use them
+          // Try multiple fallback strategies
+          
+          // Strategy 1: If offline and we have cached user/profile, use them
           if (isOffline && cachedUser && rememberMeState) {
             try {
               const decodedUser = JSON.parse(cachedUser);
@@ -231,16 +263,55 @@ export const SupabaseAuthProvider = ({ children }) => {
               setCurrentUser({
                 ...decodedUser,
                 ...(decodedProfile || {}),
+                isLocalOnly: true
               });
               setIsAuthenticated(true);
               setRememberMe(true);
               setSessionTimeout(30 * 24 * 60);
+              setIsFailsafeMode(true);
               return;
             } catch (e) {
-              console.error("Failed to parse cached session", e);
+              
             }
           }
 
+          // Strategy 2: Try failsafe authentication as last resort (always try this when Supabase fails)
+          const localSession = failsafeAuth.getLocalSession();
+          if (localSession) {
+            setCurrentUser({
+              id: localSession.id,
+              username: localSession.username,
+              email: localSession.email,
+              fullName: localSession.fullName,
+              displayName: localSession.fullName,
+              isLocalOnly: true
+            });
+            setIsAuthenticated(true);
+            setIsFailsafeMode(true);
+            return;
+          }
+
+          // Strategy 3: If we have cached user but no session, try to use it
+          if (cachedUser) {
+            try {
+              const decodedUser = JSON.parse(cachedUser);
+              setCurrentUser({
+                id: decodedUser.id,
+                username: decodedUser.username,
+                email: decodedUser.email,
+                fullName: decodedUser.fullName,
+                displayName: decodedUser.displayName,
+                isLocalOnly: true
+              });
+              setIsAuthenticated(true);
+              setIsFailsafeMode(true);
+              return;
+            } catch (e) {
+              
+            }
+          }
+
+          // If all strategies fail, we'll remain unauthenticated but the app should load
           return;
         }
 
@@ -357,7 +428,7 @@ export const SupabaseAuthProvider = ({ children }) => {
           }
         }
       } catch (error) {
-        console.error("getInitialSession error:", error);
+        
       } finally {
         clearTimeout(failSafeTimeout);
         setIsLoading(false);
@@ -593,7 +664,50 @@ export const SupabaseAuthProvider = ({ children }) => {
         );
       }
 
-      // Check username availability
+      // Check if we should use failsafe mode
+      const status = failsafeAuth.getStatus();
+      const useFailsafe = !status.canUseSupabase;
+
+      if (useFailsafe) {
+        
+        // Try local registration
+        try {
+          const localResult = await failsafeAuth.registerLocal(
+            username.trim(), 
+            password, 
+            fullName || username.trim(), 
+            email || `${username.trim()}@local.fallback`
+          );
+          
+          // Auto-login after successful registration
+          const loginResult = await failsafeAuth.loginLocal(username.trim(), password);
+          
+          const userInfo = {
+            id: loginResult.user.id,
+            username: loginResult.user.username,
+            email: loginResult.user.email,
+            fullName: loginResult.user.fullName,
+            displayName: loginResult.user.fullName,
+            isLocalOnly: true
+          };
+
+          setCurrentUser(userInfo);
+          setIsAuthenticated(true);
+          updateLastActivity();
+
+          // Trigger app loading animation
+          setIsAppLoading(true);
+          setTimeout(() => {
+            setIsAppLoading(false);
+          }, 2000);
+
+          return { success: true, user: userInfo, isFailsafeMode: true };
+        } catch (localError) {
+          throw new Error(`Registration failed (Offline Mode): ${localError.message}`);
+        }
+      }
+
+      // Check username availability with Supabase
       const availabilityCheck = await checkUsernameAvailability(
         username.trim(),
       );
@@ -734,6 +848,42 @@ export const SupabaseAuthProvider = ({ children }) => {
         throw new Error("Password is required");
       }
 
+      // Check if we should use failsafe mode
+      const status = failsafeAuth.getStatus();
+      const useFailsafe = !status.canUseSupabase;
+
+      if (useFailsafe) {
+        
+        // Try local authentication first
+        try {
+          const localResult = await failsafeAuth.loginLocal(username.trim(), password);
+          
+          const userInfo = {
+            id: localResult.user.id,
+            username: localResult.user.username,
+            email: localResult.user.email,
+            fullName: localResult.user.fullName,
+            displayName: localResult.user.fullName,
+            isLocalOnly: true
+          };
+
+          setCurrentUser(userInfo);
+          setIsAuthenticated(true);
+          updateLastActivity();
+
+          // Trigger app loading animation
+          setIsAppLoading(true);
+          setTimeout(() => {
+            setIsAppLoading(false);
+          }, 2000);
+
+          return { success: true, user: userInfo, isFailsafeMode: true };
+        } catch (localError) {
+          throw new Error(`Authentication failed (Offline Mode): ${localError.message}`);
+        }
+      }
+
+      // Original Supabase authentication logic
       // Rate limiting check
       const rateLimitKey = `login_attempt_${username}`;
       const attempts = localStorage.getItem(rateLimitKey) || 0;
@@ -794,7 +944,7 @@ export const SupabaseAuthProvider = ({ children }) => {
             return { success: true, user: directAuthData.user, profile: null };
           }
         } catch (failSafeError) {
-          console.log("Fail-safe auth also failed:", failSafeError.message);
+          
         }
 
         throw new Error("Invalid username or password");
@@ -851,12 +1001,6 @@ export const SupabaseAuthProvider = ({ children }) => {
             username ||
             "User",
         };
-
-        console.log("Login user info set:", {
-          username: username.trim(),
-          displayName: basicUserInfo.displayName,
-          localStorageDisplayName: localStorage.getItem("userDisplayName"),
-        });
 
         setCurrentUser(basicUserInfo);
         setIsAuthenticated(true);
@@ -965,12 +1109,24 @@ export const SupabaseAuthProvider = ({ children }) => {
   const logout = useCallback(async () => {
     const userId = currentUser?.id;
     const username = currentUser?.username;
+    const isLocalOnly = currentUser?.isLocalOnly;
 
     // Clear all timers and session data
     clearAllTimers();
 
-    // Sign out from Supabase
-    await supabase.auth.signOut();
+    // Handle different logout methods based on authentication type
+    if (isLocalOnly) {
+      // Clear local failsafe session
+      failsafeAuth.clearLocalSession();
+    } else {
+      // Sign out from Supabase
+      try {
+        await supabase.auth.signOut();
+      } catch (error) {
+        console.warn("Supabase logout error:", error);
+        // Continue with local cleanup even if Supabase fails
+      }
+    }
 
     // Clear only local session activity data (NOT user data from Supabase)
     if (userId) {
@@ -993,6 +1149,7 @@ export const SupabaseAuthProvider = ({ children }) => {
 
     setCurrentUser(null);
     setIsAuthenticated(false);
+    setIsFailsafeMode(false);
 
     // Force page reload to ensure clean state
     window.location.reload();
@@ -1234,6 +1391,8 @@ export const SupabaseAuthProvider = ({ children }) => {
     showSessionWarning,
     setShowSessionWarning,
     rememberMe,
+    isFailsafeMode,
+    networkStatus,
     register,
     login,
     logout,

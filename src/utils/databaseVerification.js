@@ -15,7 +15,6 @@ class DatabaseMigrationVerifier {
 
   // Test helper methods
   async runTest(testName, testFunction) {
-    console.log(`\n🧪 Running test: ${testName}`);
     try {
       const result = await testFunction();
       this.testResults.push({
@@ -24,7 +23,6 @@ class DatabaseMigrationVerifier {
         result,
         timestamp: new Date().toISOString()
       });
-      console.log(`✅ ${testName}: PASS`);
       return true;
     } catch (error) {
       this.testResults.push({
@@ -33,7 +31,6 @@ class DatabaseMigrationVerifier {
         error: error.message,
         timestamp: new Date().toISOString()
       });
-      console.log(`❌ ${testName}: FAIL - ${error.message}`);
       return false;
     }
   }
@@ -208,8 +205,6 @@ class DatabaseMigrationVerifier {
 
   // Run all verification tests
   async runAllTests() {
-    console.log('🚀 Starting Database Migration Verification...\n');
-
     const tests = [
       ['Profiles Table Exists', () => this.testProfilesTableExists()],
       ['Username Unique Constraint', () => this.testUsernameUniqueConstraint()],
@@ -233,37 +228,6 @@ class DatabaseMigrationVerifier {
     
     return passedTests === totalTests;
   }
-
-  // Generate verification report
-  generateReport(passedTests, totalTests) {
-    console.log('\n' + '='.repeat(60));
-    console.log('📊 DATABASE MIGRATION VERIFICATION REPORT');
-    console.log('='.repeat(60));
-    console.log(`Total Tests: ${totalTests}`);
-    console.log(`Passed: ${passedTests}`);
-    console.log(`Failed: ${totalTests - passedTests}`);
-    console.log(`Success Rate: ${((passedTests / totalTests) * 100).toFixed(1)}%`);
-    console.log('='.repeat(60));
-
-    if (passedTests === totalTests) {
-      console.log('🎉 ALL TESTS PASSED! Database migration is successful.');
-    } else {
-      console.log('⚠️  SOME TESTS FAILED! Please review the failed tests.');
-      
-      console.log('\n❌ Failed Tests:');
-      this.testResults
-        .filter(result => result.status === 'FAIL')
-        .forEach(result => {
-          console.log(`  - ${result.test}: ${result.error}`);
-        });
-    }
-
-    console.log('\n📋 Detailed Results:');
-    this.testResults.forEach(result => {
-      const icon = result.status === 'PASS' ? '✅' : '❌';
-      console.log(`  ${icon} ${result.test}: ${result.status}`);
-    });
-  }
 }
 
 // Export for use in other files
@@ -277,7 +241,6 @@ if (typeof window === 'undefined' && require.main === module) {
       process.exit(success ? 0 : 1);
     })
     .catch(error => {
-      console.error('Verification failed:', error);
       process.exit(1);
     });
 }

@@ -5,7 +5,7 @@ import RecoveryModal from './RecoveryModal';
 import '../styles/login-screen.css';
 
 const LoginScreen = () => {
-  const { login, register, resetPassword, isLoading } = useSupabaseAuth();
+  const { login, register, resetPassword, isLoading, isFailsafeMode, networkStatus } = useSupabaseAuth();
   const loginButtonRef = useRef(null);
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [formData, setFormData] = useState({
@@ -223,10 +223,29 @@ const LoginScreen = () => {
   return (
     <div className="login-screen">
       <div className="login-container">
+        {/* Offline/Status Indicator */}
+        {(isFailsafeMode || !networkStatus.isOnline) && (
+          <div className={`status-indicator ${!networkStatus.isOnline ? 'offline' : 'failsafe'}`}>
+            <div className="status-content">
+              <span className="status-icon">
+                {!networkStatus.isOnline ? '📴' : '⚠️'}
+              </span>
+              <span className="status-text">
+                {!networkStatus.isOnline ? 'Offline Mode' : 'Supabase Unavailable - Using Local Mode'}
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className="login-header">
           <div className="app-icon">🕐</div>
           <h1>TimeTracker</h1>
-          <p className="app-subtitle">Professional Time Management</p>
+          <p className="app-subtitle">
+            Professional Time Management
+            {isFailsafeMode && (
+              <span className="offline-badge"> (Offline Mode)</span>
+            )}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">

@@ -370,13 +370,50 @@ class BackgroundSync {
    */
   async syncDeleteEntry(data, username) {
     try {
+      // First, delete from localStorage
       const entries = loadFromStorage('timeEntries', username) || [];
       const updatedEntries = entries.filter(e => e.date !== data.date);
       saveToStorage('timeEntries', updatedEntries, username);
       
+      // Then, try to delete from Supabase if online and user is not local-only
+      if (this.isOnline) {
+        try {
+          // Import supabaseData dynamically to avoid circular dependencies
+          const { supabaseData } = await import('./supabaseData.js');
+          
+          // Get current user to check if they're local-only
+          const currentUserData = loadFromStorage('currentUser', username);
+          
+          if (currentUserData && !currentUserData.isLocalOnly && currentUserData.id) {
+            await supabaseData.deleteTimeEntry(currentUserData.id, data.date);
+          }
+        } catch (supabaseError) {
+          console.warn(`Failed to delete entry ${data.date} from Supabase:`, supabaseError);
+          // Entry is already deleted from localStorage, so we'll queue it for later sync
+          await this.queueDeleteOperation(data, username);
+        }
+      } else {
+        // Offline - queue the delete for later
+        await this.queueDeleteOperation(data, username);
+      }
       
     } catch (error) {
       throw new Error(`Failed to sync deletion: ${error.message}`);
+    }
+  }
+
+  /**
+   * Queue delete operation for offline sync
+   */
+  async queueDeleteOperation(data, username) {
+    try {
+      // Import offlineQueue dynamically
+      const { offlineQueue } = await import('./offlineQueue.js');
+      
+      // Add delete operation to queue
+      await offlineQueue.addAction('delete_entry', data, username);
+    } catch (queueError) {
+      console.warn(`Failed to queue delete operation:`, queueError);
     }
   }
 
