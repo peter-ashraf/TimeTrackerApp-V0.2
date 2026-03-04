@@ -30,12 +30,11 @@ function App() {
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
   const [swipeDirection, setSwipeDirection] = useState(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isHidingScrollTop, setIsHidingScrollTop] = useState(false);
   const swipeTimeoutRef = useRef(null);
   const { lastSaved, lastRefreshed, entries, theme, setEntries, setLastRefreshed, setRefreshing } = useTimeTracker();
-  const { currentUser, isAuthenticated, getUserData, isAppLoading } = useSupabaseAuth();
+  const { currentUser, isAuthenticated, getUserData, isAppLoading, isLoading: authLoading } = useSupabaseAuth();
   const [refreshing, setRefreshingState] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
@@ -265,7 +264,6 @@ function App() {
 
   // Merge entries function to prevent data loss during refresh
   const mergeEntries = (currentEntries, loadedEntries) => {
-    // Create a map of current entries by date for quick lookup
     const currentEntriesMap = new Map();
     currentEntries.forEach(entry => {
       if (entry && entry.date) {
@@ -273,7 +271,6 @@ function App() {
       }
     });
 
-    // Create a map of loaded entries by date for quick lookup
     const loadedEntriesMap = new Map();
     loadedEntries.forEach(entry => {
       if (entry && entry.date) {
@@ -282,8 +279,6 @@ function App() {
     });
 
     const mergedEntries = [];
-
-    // Add all unique dates from both sources
     const allDates = new Set([...currentEntriesMap.keys(), ...loadedEntriesMap.keys()]);
 
     allDates.forEach(date => {
@@ -291,7 +286,6 @@ function App() {
       const loadedEntry = loadedEntriesMap.get(date);
 
       if (currentEntry && loadedEntry) {
-        // Both exist - use the most recently modified one
         const currentModified = new Date(currentEntry.lastModified || 0);
         const loadedModified = new Date(loadedEntry.lastModified || 0);
 
@@ -301,17 +295,13 @@ function App() {
           mergedEntries.push(loadedEntry);
         }
       } else if (currentEntry) {
-        // Only current entry exists
         mergedEntries.push(currentEntry);
       } else if (loadedEntry) {
-        // Only loaded entry exists
         mergedEntries.push(loadedEntry);
       }
     });
 
-    // Sort by date (newest first)
     mergedEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
-
     return mergedEntries;
   };
 
@@ -320,19 +310,11 @@ function App() {
     if (!currentUser || !isAuthenticated) return;
 
     try {
-      // Set refresh flag to prevent save updates
       setRefreshing(true);
-
-      // Capture current entries before sync to preserve data
       const currentEntries = [...entries];
-
-      // Perform background sync first
       await backgroundSync.forceSync();
-
-      // Get sync status
       const syncStatus = backgroundSync.getStatus();
 
-      // Reload user data from storage using the same methods as initial load
       const loadedEmployee = {
         name: getUserData('fullName') || '',
         salary: parseFloat(getUserData('salary')) || 0
@@ -344,71 +326,51 @@ function App() {
       };
 
       let loadedEntries = getUserData('timeEntries') || [];
-      const loadedPeriods = getUserData('payPeriods') || [];
-      const loadedCurrentPeriodId = getUserData('currentPeriodId') || null;
-
-      // Validate loaded entries before using them
       const validatedLoadedEntries = validateTimeEntries(loadedEntries);
-
-      // Merge current entries with validated loaded entries to prevent data loss
       const mergedEntries = mergeEntries(currentEntries, validatedLoadedEntries);
 
-      // Update context with merged data
       setEntries(mergedEntries);
-
-      // Set refresh timestamp for feedback
       setLastRefreshed(new Date().toISOString());
 
-      // Return comprehensive refresh results
-      return Promise.resolve({
+      return {
         success: true,
         entriesCount: mergedEntries.length,
         syncStatus,
-        isOnline: syncStatus.isOnline,
-        mergedEntriesCount: mergedEntries.length !== loadedEntries.length ? mergedEntries.length - loadedEntries.length : 0
-      });
-
+        isOnline: syncStatus.isOnline
+      };
     } catch (error) {
-      // Return error information for UI feedback
-      return Promise.reject({
-        success: false,
-        error: error.message,
-        isOnline: navigator.onLine
-      });
+      console.error('Refresh error:', error);
+      throw error;
     } finally {
-      // Clear refresh flag
       setRefreshing(false);
+    }
+  }, [currentUser, isAuthenticated, entries, getUserData, setEntries, setLastRefreshed, setRefreshing]);
 
-// ✅ ALL EFFECTS HERE
-useEffect(() => {
-const initTimer = setTimeout(() => {
-// Initialize background sync after app is interactive
-backgroundSync.init().catch(error => {
-// Silent fail - don't block app functionality
-console.warn('Background sync init failed:', error);
-});
-}, 1000); // Defer for 1 second
+  // ✅ ALL EFFECTS ARE NOW AT TOP LEVEL
+  useEffect(() => {
+    const initTimer = setTimeout(() => {
+      backgroundSync.init().catch(error => {
+        console.warn('Background sync init failed:', error);
+      });
+    }, 1000);
+    return () => clearTimeout(initTimer);
+  }, []);
 
-return () => clearTimeout(initTimer);
-}, []);
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
-document.documentElement.setAttribute('data-theme', theme);
-
-const shouldNavigateToExport = localStorage.getItem('navigateToExport');
-if (shouldNavigateToExport === 'true') {
-localStorage.removeItem('navigateToExport');
-setCurrentView('settings');
-setTimeout(() => {
-const exportBtn = document.querySelector('[data-export-btn]');
-if (exportBtn) exportBtn.click();
-}, 100);
-}
+  useEffect(() => {
+    const shouldNavigateToExport = localStorage.getItem('navigateToExport');
+    if (shouldNavigateToExport === 'true') {
+      localStorage.removeItem('navigateToExport');
+      setCurrentView('settings');
       setTimeout(() => {
         const exportBtn = document.querySelector('[data-export-btn]');
         if (exportBtn) exportBtn.click();
       }, 100);
     }
-  }, [theme, setCurrentView]);
+  }, [setCurrentView]);
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
@@ -459,7 +421,7 @@ if (exportBtn) exportBtn.click();
   }, [entries]);
 
   // ✅ NOW CONDITIONAL RENDERING IS SAFE - ALL HOOKS ARE ABOVE
-  if (isLoading) {
+  if (authLoading) {
     return (
       <div className="app-loading">
         <div className="loading-spinner">

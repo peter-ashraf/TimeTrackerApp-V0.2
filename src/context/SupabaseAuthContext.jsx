@@ -177,6 +177,17 @@ export const SupabaseAuthProvider = ({ children }) => {
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
+      // Fail-safe timeout: Ensure loading state is cleared even if Supabase/network hangs
+      const failSafeTimeout = setTimeout(() => {
+        setIsLoading(prev => {
+          if (prev) {
+            console.warn("Supabase initialization timed out (10s), clearing loading flag.");
+            return false;
+          }
+          return prev;
+        });
+      }, 10000);
+
       try {
         // Check for remember me state first
         const rememberMeState = localStorage.getItem("rememberMe") === "true";
@@ -224,14 +235,12 @@ export const SupabaseAuthProvider = ({ children }) => {
               setIsAuthenticated(true);
               setRememberMe(true);
               setSessionTimeout(30 * 24 * 60);
-              setIsLoading(false);
               return;
             } catch (e) {
               console.error("Failed to parse cached session", e);
             }
           }
 
-          setIsLoading(false);
           return;
         }
 
@@ -350,6 +359,7 @@ export const SupabaseAuthProvider = ({ children }) => {
       } catch (error) {
         console.error("getInitialSession error:", error);
       } finally {
+        clearTimeout(failSafeTimeout);
         setIsLoading(false);
       }
     };
