@@ -580,6 +580,71 @@ function App() {
                   </div>
                 </Suspense>
               </div>
+
+              <AutoSaveIndicator lastSaved={lastSaved} />
+              <RefreshIndicator lastRefreshed={lastRefreshed} />
+
+              {/* Scroll to Top Button - Completely outside all containers */}
+              {(showScrollTop || isHidingScrollTop) && (
+                <button
+                  onClick={() => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    setIsHidingScrollTop(true);
+                    setTimeout(() => setIsHidingScrollTop(false), 300);
+                  }}
+                  style={{
+                    position: 'fixed',
+                    bottom: '30px',
+                    right: '30px',
+                    width: '50px',
+                    height: '50px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    cursor: 'pointer',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '20px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+                    transition: 'all 0.3s ease, opacity 0.3s ease',
+                    zIndex: 1000,
+                    opacity: isHidingScrollTop ? 0 : 0.5,
+                    transform: isHidingScrollTop ? 'translateY(20px)' : 'translateY(0)',
+                    animation: !isHidingScrollTop ? 'fadeIn 0.3s ease-in' : 'none',
+                    pointerEvents: isHidingScrollTop ? 'none' : 'auto'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isHidingScrollTop) {
+                      e.target.style.transform = 'scale(1.1)';
+                      e.target.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.4)';
+                      e.target.style.opacity = '0.8';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isHidingScrollTop) {
+                      e.target.style.transform = 'scale(1)';
+                      e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+                      e.target.style.opacity = '0.5';
+                    }
+                  }}
+                  aria-label="Scroll to top"
+                >
+                  ↑
+                </button>
+              )}
+
+              {/* Add fade-in and fade-out animation styles */}
+              <style>{`
+                @keyframes fadeIn {
+                  from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                  }
+                  to {
+                    opacity: 0.5;
+                    transform: translateY(0);
+                  }
+                }
+              `}</style>
             </div>
           )
         ) : (
