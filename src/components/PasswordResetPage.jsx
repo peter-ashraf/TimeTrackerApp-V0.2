@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../context/SupabaseAuthContext';
+import PasswordStrengthMeter from './PasswordStrengthMeter';
 import '../styles/login-screen.css';
+import '../styles/password-strength.css';
 
 const PasswordResetPage = () => {
   const [searchParams] = useSearchParams();
@@ -18,11 +20,31 @@ const PasswordResetPage = () => {
   useEffect(() => {
     // Verify the reset token
     const verifyToken = async () => {
-      const accessToken = searchParams.get('access_token');
-      const refreshToken = searchParams.get('refresh_token');
-      
+      // Helper function to get param from either search or hash
+      const getParam = (name) => {
+        // Try search params first
+        const fromSearch = searchParams.get(name);
+        if (fromSearch) return fromSearch;
+
+        // Try hash fragment (Supabase often puts them here)
+        const hash = window.location.hash;
+        if (hash) {
+          // If using HashRouter, the hash looks like #/reset-password?access_token=...
+          // We need to look for params after the second # or ?
+          const hashParams = new URLSearchParams(hash.split('?')[1] || hash.substring(hash.indexOf('#', 1) + 1));
+          return hashParams.get(name);
+        }
+        
+        // Fallback: check the global URL search params directly in case react-router's hook missed them
+        const globalParams = new URLSearchParams(window.location.search);
+        return globalParams.get(name);
+      };
+
+      const accessToken = getParam('access_token');
+      const refreshToken = getParam('refresh_token');
+
       if (!accessToken || !refreshToken) {
-        setErrors({ general: 'Invalid or expired password reset link.' });
+        setErrors({ general: 'Invalid or expired password reset link. Please request a new one.' });
         setIsLoading(false);
         return;
       }
@@ -35,10 +57,18 @@ const PasswordResetPage = () => {
         });
 
         if (error) {
-          setErrors({ general: 'Invalid or expired password reset link.' });
+          if (error.message.includes('expired') || error.message.includes('invalid')) {
+            setErrors({ 
+              general: 'This password reset link has expired or is no longer valid. Password reset links are valid for 1 hour. Please request a new one.' 
+            });
+          } else {
+            setErrors({ general: 'Failed to establish session: ' + error.message });
+          }
         }
       } catch (error) {
-        setErrors({ general: 'Invalid or expired password reset link.' });
+        setErrors({ 
+          general: 'An error occurred while verifying your reset link. The link may have expired. Please request a new one.' 
+        });
       } finally {
         setIsLoading(false);
       }
@@ -62,8 +92,16 @@ const PasswordResetPage = () => {
 
     if (!formData.password) {
       newErrors.password = 'New password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
+    } else if (!/[a-z]/.test(formData.password)) {
+      newErrors.password = 'Password must contain at least one lowercase letter';
+    } else if (!/[A-Z]/.test(formData.password)) {
+      newErrors.password = 'Password must contain at least one uppercase letter';
+    } else if (!/\d/.test(formData.password)) {
+      newErrors.password = 'Password must contain at least one number';
+    } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(formData.password)) {
+      newErrors.password = 'Password must contain at least one special character';
     }
 
     if (!formData.confirmPassword) {
@@ -150,6 +188,9 @@ const PasswordResetPage = () => {
           <div className="app-icon">🔒</div>
           <h1>Reset Password</h1>
           <p className="app-subtitle">Enter your new password</p>
+          <p className="reset-notice">
+            <small>⚠️ This reset link will expire in 1 hour for security reasons.</small>
+          </p>
         </div>
 
         {errors.general && (
@@ -182,6 +223,7 @@ const PasswordResetPage = () => {
             {errors.password && (
               <span className="field-error">{errors.password}</span>
             )}
+            <PasswordStrengthMeter password={formData.password} />
           </div>
 
           <div className="form-group">

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import * as XLSX from 'xlsx';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 import '../styles/import-modal.css';
@@ -57,21 +56,23 @@ function ImportModal({ onClose }) {
   };
 
   // Convert Excel date
-  const excelDateToString = (excelDate) => {
-  // Handle null/undefined
-  if (!excelDate && excelDate !== 0) {
-    throw new Error('Date is empty or undefined');
-  }
-
-  // Case 1: Excel Serial Number (numeric)
-  if (typeof excelDate === 'number') {
-    try {
-      const date = XLSX.SSF.parse_date_code(excelDate);
-      return `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`;
-    } catch (e) {
-      throw new Error(`Invalid Excel serial number: ${excelDate}`);
+  const excelDateToString = async (excelDate) => {
+    // Handle null/undefined
+    if (!excelDate && excelDate !== 0) {
+      throw new Error('Date is empty or undefined');
     }
-  }
+
+    // Case 1: Excel Serial Number (numeric)
+    if (typeof excelDate === 'number') {
+      try {
+        // Dynamic import XLSX for date parsing
+        const XLSX = await import('xlsx');
+        const date = XLSX.SSF.parse_date_code(excelDate);
+        return `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`;
+      } catch (e) {
+        throw new Error(`Invalid Excel serial number: ${excelDate}`);
+      }
+    }
 
   // Case 2: Already a Date object
   if (excelDate instanceof Date) {
@@ -284,56 +285,73 @@ function ImportModal({ onClose }) {
     parseExcelFile(file);
   };
 
-  const parseExcelFile = (file) => {
+  const parseExcelFile = async (file) => {
     setIsProcessing(true);
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array', cellDates: false });
-
-        const parsedData = [];
-        const errors = [];
-
-        workbook.SheetNames.forEach((sheetName) => {
-          if (sheetName.toLowerCase().includes('instruction')) {
-            return;
+    
+    try {
+      // Dynamic import of XLSX
+      const XLSX = await import('xlsx');
+      
+      const data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+          try {
+            const arrayData = new Uint8Array(e.target.result);
+            resolve(arrayData);
+          } catch (error) {
+            reject(error);
           }
+        };
+        
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsArrayBuffer(file);
+      });
 
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true });
+      const workbook = XLSX.read(data, { type: 'array', cellDates: false });
 
-          if (jsonData.length < 2) {
-            errors.push(`Sheet "${sheetName}": No data found`);
-            return;
-          }
+      const parsedData = [];
+      const errors = [];
 
-          const headers = jsonData[0];
-          const dateCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('date'));
-          const typeCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('type'));
-          const checkInCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('check in'));
-          const checkOutCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('check out'));
-          const breakOutCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('break in times'));
-          const breakInCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('break out times'));
+      workbook.SheetNames.forEach((sheetName) => {
+        if (sheetName.toLowerCase().includes('instruction')) {
+          return;
+        }
 
-          if (dateCol === -1 || typeCol === -1) {
-            errors.push(`Sheet "${sheetName}": Missing required columns (Date and Type)`);
-            return;
-          }
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true });
 
-          const dataRows = jsonData.slice(1).filter(row => {
-            if (!row[dateCol]) return false;
-            const firstCell = row[dateCol].toString().toLowerCase();
-            return firstCell !== 'total' && firstCell !== '';
-          });
+        if (jsonData.length < 2) {
+          errors.push(`Sheet "${sheetName}": No data found`);
+          return;
+        }
 
-          dataRows.forEach((row, rowIndex) => {
-            try {
-              const dateStr = excelDateToString(row[dateCol]);
-              const checkIn = checkInCol !== -1 ? excelTimeToString(row[checkInCol]) : null;
-              const checkOut = checkOutCol !== -1 ? excelTimeToString(row[checkOutCol]) : null;
-              const type = typeCol !== -1 && row[typeCol] ? row[typeCol].toString().trim() : 'Regular';
+        const headers = jsonData[0];
+        const dateCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('date'));
+        const typeCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('type'));
+        const checkInCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('check in'));
+        const checkOutCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('check out'));
+        const breakOutCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('break in times'));
+        const breakInCol = headers.findIndex(h => h && h.toString().toLowerCase().includes('break out times'));
+
+        if (dateCol === -1 || typeCol === -1) {
+          errors.push(`Sheet "${sheetName}": Missing required columns (Date and Type)`);
+          return;
+        }
+
+        const dataRows = jsonData.slice(1).filter(row => {
+          if (!row[dateCol]) return false;
+          const firstCell = row[dateCol].toString().toLowerCase();
+          return firstCell !== 'total' && firstCell !== '';
+        });
+
+          // Process rows asynchronously
+        for (const [rowIndex, row] of dataRows.entries()) {
+          try {
+            const dateStr = await excelDateToString(row[dateCol]);
+            const checkIn = checkInCol !== -1 ? excelTimeToString(row[checkInCol]) : null;
+            const checkOut = checkOutCol !== -1 ? excelTimeToString(row[checkOutCol]) : null;
+            const type = typeCol !== -1 && row[typeCol] ? row[typeCol].toString().trim() : 'Regular';
 
               let breakIntervals = [];
               if (breakOutCol !== -1 && breakInCol !== -1) {
@@ -369,7 +387,6 @@ function ImportModal({ onClose }) {
                     out: breakInTimes[i] || null,  // break IN time becomes interval.out (break end)
                     in: out                        // break OUT time becomes interval.in (break start)
                   }));
-
                 }
               }
 
@@ -441,8 +458,7 @@ function ImportModal({ onClose }) {
             } catch (err) {
               errors.push(`Sheet "${sheetName}", Row ${rowIndex + 2}: ${err.message}`);
             }
-          });
-        });
+          }
 
         setValidationErrors(errors);
         setPreviewData(parsedData);
@@ -464,10 +480,12 @@ function ImportModal({ onClose }) {
         }
 
         if (errors.length > 0) {
-          
+          setValidationErrors(errors);
         }
-      } catch (err) {
         
+        setIsProcessing(false);
+        
+      } catch (err) {
         setConfirmModal({
           isOpen: true,
           title: 'Parse Error',
@@ -479,22 +497,7 @@ function ImportModal({ onClose }) {
         });
         setIsProcessing(false);
       }
-    };
-
-    reader.onerror = () => {
-      setConfirmModal({
-        isOpen: true,
-        title: 'File Read Error',
-        message: 'Failed to read the file. Please try again.',
-        type: 'danger',
-        confirmText: 'OK',
-        showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
-      });
-      setIsProcessing(false);
-    };
-
-    reader.readAsArrayBuffer(file);
+    }
   };
 
   // ===== STEP NAVIGATION =====

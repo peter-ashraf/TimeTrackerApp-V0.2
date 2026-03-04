@@ -800,7 +800,7 @@ const RecoveryModal = ({ onClose }) => {
       if (exportFormat === 'excel') {
         // Use existing Excel export function with exact same structure as ExportModal
         const excelData = generateRecoveryData(recoveryResult);
-        filename = exportToExcel(excelData, {
+        filename = await exportToExcel(excelData, {
           filename: `timesheet_recovery_${recoveryResult.username}`,
           sheetName: 'Recovered Data',
           includeFormatting: true

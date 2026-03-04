@@ -28,10 +28,60 @@ npm-debug.log*
 .env.test.local
 .env.production.local
 
-
-# Readme files
-implementation-plan.md
+# Documentation and planning files (keep private)
+*.md
+!README.md
+!INSTALL_GUIDE.md
 
 # Internal development files (keep private)
 database/
 implementation-plan/
+
+# Lock files (optional - uncomment if you want to exclude)
+# package-lock.json
+# yarn.lock
+
+# Test coverage
+coverage/
+*.lcov
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary files
+*.tmp
+*.temp
+
+# IDE and editor files
+*.swp
+*.swo
+*~
+
+# Package manager files
+.npm
+.eslintcache
+
+# Build artifacts
+*.tgz
+*.tar.gz
+
+# Local configuration
+.local
+
+# Vite specific
+.vite/
+
+# Supabase local files
+.supabase/
+
+# Backup files
+*.bak
+*.backup
+
+# Development tools
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json

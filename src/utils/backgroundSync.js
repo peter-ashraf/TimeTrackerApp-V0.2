@@ -310,13 +310,13 @@ class BackgroundSync {
         return false;
       }
       
-      // If both have data, prefer the one with more recent activity
+      // If both have data, we should ideally merge, but for this simple check
+      // we prefer the one with the most recent entry modification
       if (Array.isArray(localData) && Array.isArray(remoteData)) {
-        // Get the most recent modification timestamp from each dataset
         const getLatestTimestamp = (entries) => {
           if (!entries || entries.length === 0) return 0;
           return Math.max(...entries.map(entry => {
-            const timestamp = entry.lastModified || entry.modifiedAt || entry.createdAt;
+            const timestamp = entry.updated_at || entry.lastModified || entry.modifiedAt || entry.createdAt;
             return timestamp ? new Date(timestamp).getTime() : 0;
           }));
         };
@@ -324,7 +324,7 @@ class BackgroundSync {
         const localLatest = getLatestTimestamp(localData);
         const remoteLatest = getLatestTimestamp(remoteData);
         
-        // If remote data is more recent, use it
+        // Use remote only if it's strictly newer
         return remoteLatest > localLatest;
       }
     }

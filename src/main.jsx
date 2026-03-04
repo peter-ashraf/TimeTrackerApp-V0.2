@@ -31,12 +31,8 @@ const AppLoader = () => {
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    // Simulate loading time or wait for app to be ready
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 2000); // 2 seconds loading time
-
-    return () => clearTimeout(timer);
+    // Load immediately after critical resources
+    setIsLoading(false);
   }, []);
 
   if (isLoading) {

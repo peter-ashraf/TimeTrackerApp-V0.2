@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useTimeTracker } from './context/TimeTrackerContext';
 import { useSupabaseAuth } from './context/SupabaseAuthContext';
 import { backgroundSync } from './utils/backgroundSync';
 import Header from './components/Header';
-import Dashboard from './components/Dashboard';
-import Timesheet from './components/Timesheet';
-import Settings from './components/Settings';
-import LoginScreen from './components/LoginScreen';
-import PasswordResetPage from './components/PasswordResetPage';
 import AppLoading from './components/AppLoading';
+
+// Lazy load major view components
+const Dashboard = React.lazy(() => import('./components/Dashboard'));
+const Timesheet = React.lazy(() => import('./components/Timesheet'));
+const Settings = React.lazy(() => import('./components/Settings'));
+const LoginScreen = React.lazy(() => import('./components/LoginScreen'));
+const PasswordResetPage = React.lazy(() => import('./components/PasswordResetPage'));
 import AutoSaveIndicator from './components/AutoSaveIndicator';
 import RefreshIndicator from './components/RefreshIndicator';
 import ConfirmModal from './components/ConfirmModal';
@@ -18,6 +20,7 @@ import './styles/pull-to-refresh.css';
 import './styles/refresh-indicator.css';
 import './styles/app-transitions.css';
 import './styles/fixed-header.css';
+import './styles/route-loading.css';
 
 
 function App() {
@@ -375,22 +378,31 @@ function App() {
     } finally {
       // Clear refresh flag
       setRefreshing(false);
-    }
-  }, [currentUser, isAuthenticated, getUserData, setEntries, setLastRefreshed, setRefreshing, entries]);
 
-  // ✅ ALL EFFECTS HERE
-  useEffect(() => {
-    // Initialize background sync service
-    backgroundSync.init().catch(error => {
+// ✅ ALL EFFECTS HERE
+useEffect(() => {
+const initTimer = setTimeout(() => {
+// Initialize background sync after app is interactive
+backgroundSync.init().catch(error => {
+// Silent fail - don't block app functionality
+console.warn('Background sync init failed:', error);
+});
+}, 1000); // Defer for 1 second
 
-    });
+return () => clearTimeout(initTimer);
+}, []);
 
-    document.documentElement.setAttribute('data-theme', theme);
+document.documentElement.setAttribute('data-theme', theme);
 
-    const shouldNavigateToExport = localStorage.getItem('navigateToExport');
-    if (shouldNavigateToExport === 'true') {
-      localStorage.removeItem('navigateToExport');
-      setCurrentView('settings');
+const shouldNavigateToExport = localStorage.getItem('navigateToExport');
+if (shouldNavigateToExport === 'true') {
+localStorage.removeItem('navigateToExport');
+setCurrentView('settings');
+setTimeout(() => {
+const exportBtn = document.querySelector('[data-export-btn]');
+if (exportBtn) exportBtn.click();
+}, 100);
+}
       setTimeout(() => {
         const exportBtn = document.querySelector('[data-export-btn]');
         if (exportBtn) exportBtn.click();
@@ -461,12 +473,32 @@ function App() {
   // Public routes that don't require authentication
   return (
     <Routes>
-      <Route path="/reset-password" element={<PasswordResetPage />} />
+      <Route path="/reset-password" element={
+        <Suspense fallback={
+          <div className="route-loading">
+            <div className="loading-spinner">
+              <div className="spinner"></div>
+              <p>Loading reset page...</p>
+            </div>
+          </div>
+        }>
+          <PasswordResetPage />
+        </Suspense>
+      } />
       <Route path="/login" element={
         isAuthenticated ? (
           <Navigate to="/" replace />
         ) : (
-          <LoginScreen />
+          <Suspense fallback={
+            <div className="route-loading">
+              <div className="loading-spinner">
+                <div className="spinner"></div>
+                <p>Loading login...</p>
+              </div>
+            </div>
+          }>
+            <LoginScreen />
+          </Suspense>
         )
       } />
       <Route path="/" element={
@@ -517,97 +549,124 @@ function App() {
                       WebkitOverflowScrolling: 'touch'
                     }}
                   >
-                    <div className={`view-container dashboard-container ${currentView === 'dashboard' ? 'active' : ''}`} data-scrollable>
-                      <Dashboard />
-                    </div>
-                    <div className={`view-container timesheet-container ${currentView === 'timesheet' ? 'active' : ''}`} data-scrollable>
-                      <Timesheet />
-                    </div>
-                    <div className={`view-container settings-container ${currentView === 'settings' ? 'active' : ''}`} data-scrollable>
-                      <Settings />
-                    </div>
+                    <Suspense fallback={
+                      <div className="route-loading">
+                        <div className="loading-spinner">
+                          <div className="spinner"></div>
+                          <p>Loading dashboard...</p>
+                        </div>
+                      </div>
+                    }>
+                      <div className={`view-container dashboard-container ${currentView === 'dashboard' ? 'active' : ''}`} data-scrollable>
+                        <Dashboard />
+                      </div>
+                    </Suspense>
+                    <Suspense fallback={
+                      <div className="route-loading">
+                        <div className="loading-spinner">
+                          <div className="spinner"></div>
+                          <p>Loading timesheet...</p>
+                        </div>
+                      </div>
+                    }>
+                      <div className={`view-container timesheet-container ${currentView === 'timesheet' ? 'active' : ''}`} data-scrollable>
+                        <Timesheet />
+                      </div>
+                    </Suspense>
+                    <Suspense fallback={
+                      <div className="route-loading">
+                        <div className="loading-spinner">
+                          <div className="spinner"></div>
+                          <p>Loading settings...</p>
+                        </div>
+                      </div>
+                    }>
+                      <div className={`view-container settings-container ${currentView === 'settings' ? 'active' : ''}`} data-scrollable>
+                        <Settings />
+                      </div>
+                    </Suspense>
                   </div>
                 </div>
               </PullToRefresh>
 
-              <AutoSaveIndicator lastSaved={lastSaved} />
-              <RefreshIndicator lastRefreshed={lastRefreshed} />
+                <AutoSaveIndicator lastSaved={lastSaved} />
+                <RefreshIndicator lastRefreshed={lastRefreshed} />
 
-              {/* Scroll to Top Button - Completely outside all containers */}
-              {(showScrollTop || isHidingScrollTop) && (
-                <button
-                  onClick={() => {
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                    setIsHidingScrollTop(true);
-                    setTimeout(() => setIsHidingScrollTop(false), 300);
-                  }}
-                  style={{
-                    position: 'fixed',
-                    bottom: '30px',
-                    right: '30px',
-                    width: '50px',
-                    height: '50px',
-                    borderRadius: '50%',
-                    border: 'none',
-                    cursor: 'pointer',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '20px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-                    transition: 'all 0.3s ease, opacity 0.3s ease',
-                    zIndex: 1000,
-                    opacity: isHidingScrollTop ? 0 : 0.5,
-                    transform: isHidingScrollTop ? 'translateY(20px)' : 'translateY(0)',
-                    animation: !isHidingScrollTop ? 'fadeIn 0.3s ease-in' : 'none',
-                    pointerEvents: isHidingScrollTop ? 'none' : 'auto'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isHidingScrollTop) {
-                      e.target.style.transform = 'scale(1.1)';
-                      e.target.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.4)';
-                      e.target.style.opacity = '0.8';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isHidingScrollTop) {
-                      e.target.style.transform = 'scale(1)';
-                      e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
-                      e.target.style.opacity = '0.5';
-                    }
-                  }}
-                  aria-label="Scroll to top"
-                >
-                  ↑
-                </button>
-              )}
+                {/* Scroll to Top Button - Completely outside all containers */}
+                {(showScrollTop || isHidingScrollTop) && (
+                  <button
+                    onClick={() => {
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                      setIsHidingScrollTop(true);
+                      setTimeout(() => setIsHidingScrollTop(false), 300);
+                    }}
+                    style={{
+                      position: 'fixed',
+                      bottom: '30px',
+                      right: '30px',
+                      width: '50px',
+                      height: '50px',
+                      borderRadius: '50%',
+                      border: 'none',
+                      cursor: 'pointer',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '20px',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+                      transition: 'all 0.3s ease, opacity 0.3s ease',
+                      zIndex: 1000,
+                      opacity: isHidingScrollTop ? 0 : 0.5,
+                      transform: isHidingScrollTop ? 'translateY(20px)' : 'translateY(0)',
+                      animation: !isHidingScrollTop ? 'fadeIn 0.3s ease-in' : 'none',
+                      pointerEvents: isHidingScrollTop ? 'none' : 'auto'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isHidingScrollTop) {
+                        e.target.style.transform = 'scale(1.1)';
+                        e.target.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.4)';
+                        e.target.style.opacity = '0.8';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isHidingScrollTop) {
+                        e.target.style.transform = 'scale(1)';
+                        e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+                        e.target.style.opacity = '0.5';
+                      }
+                    }}
+                    aria-label="Scroll to top"
+                  >
+                    ↑
+                  </button>
+                )}
 
-              {/* Add fade-in and fade-out animation styles */}
-              <style>{`
-                @keyframes fadeIn {
-                  from {
-                    opacity: 0;
-                    transform: translateY(20px);
+                {/* Add fade-in and fade-out animation styles */}
+                <style>{`
+                  @keyframes fadeIn {
+                    from {
+                      opacity: 0;
+                      transform: translateY(20px);
+                    }
+                    to {
+                      opacity: 0.5;
+                      transform: translateY(0);
+                    }
                   }
-                  to {
-                    opacity: 0.5;
-                    transform: translateY(0);
-                  }
-                }
-              `}</style>
-            </>
+                `}</style>
+              </>
+            )
+          ) : (
+            <Navigate to="/login" replace />
           )
-        ) : (
-          <Navigate to="/login" replace />
-        )
-      } />
-      <Route path="*" element={
-        isAuthenticated ? (
-          <Navigate to="/" replace />
-        ) : (
-          <Navigate to="/login" replace />
-        )
-      } />
-    </Routes>
+        } />
+        <Route path="*" element={
+          isAuthenticated ? (
+            <Navigate to="/" replace />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        } />
+      </Routes>
   );
 }
 

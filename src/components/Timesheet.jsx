@@ -1,10 +1,111 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import hapticFeedback from '../utils/hapticFeedback';
-import ManualTimeModal from './ManualTimeModal';
-import AddBreakModal from './AddBreakModal';
-import EditEntryModal from './EditEntryModal';
+const ManualTimeModal = React.lazy(() => import('./ManualTimeModal'));
+const AddBreakModal = React.lazy(() => import('./AddBreakModal'));
+const EditEntryModal = React.lazy(() => import('./EditEntryModal'));
 import NoPeriodPrompt from './NoPeriodPrompt';
+
+// Memoized individual row component to prevent unnecessary re-renders
+const TimesheetRow = React.memo(({ 
+  entry, 
+  detailedView, 
+  formatTime, 
+  calculateHoursWorked, 
+  calculateHoursSpentOutside, 
+  onEdit, 
+  onDelete 
+}) => {
+  // For incomplete entries, calculate fresh to avoid stored negative values
+  const isComplete = entry.intervals && 
+    entry.intervals.length > 0 && 
+    entry.intervals.every(interval => interval.in && interval.out);
+  
+  const hoursWorked = entry.type === 'Regular' && entry.intervals && isComplete
+    ? calculateHoursWorked(entry.intervals, entry.date) 
+    : 0;
+  
+  const hoursSpentOutside = calculateHoursSpentOutside && entry.intervals && isComplete
+    ? calculateHoursSpentOutside(entry.intervals)
+    : 0;
+  
+  const dayOfWeek = new Date(entry.date).getDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const standardHours = isWeekend ? 0 : 9;
+  const extraHours = hoursWorked - standardHours;
+  const useDoubleFactor = isWeekend || entry.type === 'Holiday' || entry.type === 'Vacation';
+  const factor = useDoubleFactor ? 2 : 1.5;
+  const extraHoursWithFactor = extraHours > 0 ? parseFloat((extraHours * factor).toFixed(4)) : extraHours;
+  
+  const firstIn = entry.intervals?.[0]?.in;
+  const lastOut = entry.intervals?.[0]?.out;
+  const breakIntervals = entry.intervals?.slice(1) || [];
+
+  return (
+    <tr key={entry.date}>
+      <td>{entry.date}</td>
+      <td>{formatTime(firstIn)}</td>
+      <td>{formatTime(lastOut)}</td>
+      <td>
+        {entry.type === 'Regular' 
+          ? `${hoursWorked.toFixed(2)}h` 
+          : entry.type
+        }
+      </td>
+      {detailedView && (
+        <>
+          <td className="hide-mobile">
+            {entry.type === 'Regular' ? `${extraHours.toFixed(2)}h` : '-'}
+          </td>
+          <td className="hide-mobile">
+            {entry.type === 'Regular' ? `${extraHoursWithFactor.toFixed(2)}h` : '-'}
+          </td>
+          <td className="hide-mobile">{entry.type}</td>
+          <td className="hide-mobile">
+            {breakIntervals.length > 0 
+              ? breakIntervals.map(b => formatTime(b.in)).join(', ')
+              : '-'
+            }
+          </td>
+          <td className="hide-mobile">
+            {breakIntervals.length > 0 
+              ? breakIntervals.map(b => formatTime(b.out)).join(', ')
+              : '-'
+            }
+          </td>
+          <td className="hide-mobile">
+            {entry.type === 'Regular' && hoursSpentOutside !== undefined && hoursSpentOutside !== null && hoursSpentOutside > 0
+              ? `${hoursSpentOutside.toFixed(2)}h` 
+              : '-'
+            }
+          </td>
+        </>
+      )}
+      <td className="actions-cell">
+        <button 
+          className="btn btn-sm btn-outline action-btn" 
+          title="Edit"
+          onClick={() => {
+            hapticFeedback.buttonClick();
+            onEdit(entry);
+          }}
+        >✏️
+          <span className="btn-text"> Edit</span>
+        </button>
+        <button 
+          className="btn btn-sm btn-danger action-btn" 
+          title="Delete"
+          onClick={() => {
+            hapticFeedback.error();
+            onDelete(entry.date);
+          }}
+        >🗑️
+          <span className="btn-text"> Delete</span>
+        </button>
+      </td>
+    </tr>
+  );
+});
 
 function Timesheet() {
   const { 
@@ -271,103 +372,18 @@ function Timesheet() {
               </tr>
             ) : (
               <>
-                {periodEntries.map((entry) => {
-                  // For incomplete entries, calculate fresh to avoid stored negative values
-                  const isComplete = entry.intervals && 
-                    entry.intervals.length > 0 && 
-                    entry.intervals.every(interval => interval.in && interval.out);
-                  
-                  const hoursWorked = entry.type === 'Regular' && entry.intervals && isComplete
-                    ? calculateHoursWorked(entry.intervals, entry.date) 
-                    : 0;
-                  
-                  // hoursSpentOutside is informational (portion of break outside allowed window)
-                  // Calculate fresh to update when intervals change
-                  const hoursSpentOutside = calculateHoursSpentOutside && entry.intervals && isComplete
-                    ? calculateHoursSpentOutside(entry.intervals)
-                    : 0;
-                  
-                  // Calculate extra hours based on hoursWorked (already net)
-                  const dayOfWeek = new Date(entry.date).getDay();
-                  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-                  const standardHours = isWeekend ? 0 : 9;
-                  const extraHours = hoursWorked - standardHours;
-                  // Use same logic as useCalculations: 2x for weekends/holidays, 1.5x for regular days
-                  const useDoubleFactor = isWeekend || entry.type === 'Holiday' || entry.type === 'Vacation';
-                  const factor = useDoubleFactor ? 2 : 1.5;
-                  // Match Excel logic: only apply factor to positive extra hours
-                  const extraHoursWithFactor = extraHours > 0 ? parseFloat((extraHours * factor).toFixed(4)) : extraHours;
-                  
-                  const firstIn = entry.intervals?.[0]?.in;
-                  const lastOut = entry.intervals?.[0]?.out; // First interval is the work period
-                  
-                  const breakIntervals = entry.intervals?.slice(1) || [];
-
-                  return (
-                    <tr key={entry.date}>
-                      <td>{entry.date}</td>
-                      <td>{formatTime(firstIn)}</td>
-                      <td>{formatTime(lastOut)}</td>
-                      <td>
-                        {entry.type === 'Regular' 
-                          ? `${hoursWorked.toFixed(2)}h` 
-                          : entry.type
-                        }
-                      </td>
-                      {detailedView && (
-                        <>
-                          <td className="hide-mobile">
-                            {entry.type === 'Regular' ? `${extraHours.toFixed(2)}h` : '-'}
-                          </td>
-                          <td className="hide-mobile">
-                            {entry.type === 'Regular' ? `${extraHoursWithFactor.toFixed(2)}h` : '-'}
-                          </td>
-                          <td className="hide-mobile">{entry.type}</td>
-                          <td className="hide-mobile">
-                            {breakIntervals.length > 0 
-                              ? breakIntervals.map(b => formatTime(b.in)).join(', ')
-                              : '-'
-                            }
-                          </td>
-                          <td className="hide-mobile">
-                            {breakIntervals.length > 0 
-                              ? breakIntervals.map(b => formatTime(b.out)).join(', ')
-                              : '-'
-                            }
-                          </td>
-                          <td className="hide-mobile">
-                            {entry.type === 'Regular' && hoursSpentOutside !== undefined && hoursSpentOutside !== null && hoursSpentOutside > 0
-                              ? `${hoursSpentOutside.toFixed(2)}h` 
-                              : '-'
-                            }
-                          </td>
-                        </>
-                      )}
-                      <td className="actions-cell">
-                        <button 
-                          className="btn btn-sm btn-outline action-btn" 
-                          title="Edit"
-                          onClick={() => {
-                            hapticFeedback.buttonClick();
-                            setEditingEntry(entry);
-                          }}
-                        >✏️
-                          <span className="btn-text"> Edit</span>
-                        </button>
-                        <button 
-                          className="btn btn-sm btn-danger action-btn" 
-                          title="Delete"
-                          onClick={() => {
-                            hapticFeedback.error();
-                            deleteEntry(entry.date);
-                          }}
-                        >🗑️
-                          <span className="btn-text"> Delete</span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {periodEntries.map((entry) => (
+                  <TimesheetRow 
+                    key={entry.date}
+                    entry={entry}
+                    detailedView={detailedView}
+                    formatTime={formatTime}
+                    calculateHoursWorked={calculateHoursWorked}
+                    calculateHoursSpentOutside={calculateHoursSpentOutside}
+                    onEdit={setEditingEntry}
+                    onDelete={deleteEntry}
+                  />
+                ))}
 
                 {/* Totals Row */}
                 <tr className="totals-row">
@@ -390,10 +406,12 @@ function Timesheet() {
       </div>
 
       {/* Modals */}
-      {showManualIn && <ManualTimeModal mode="checkIn" onClose={() => setShowManualIn(false)} />}
-      {showManualOut && <ManualTimeModal mode="checkOut" onClose={() => setShowManualOut(false)} />}
-      {showAddBreak && <AddBreakModal onClose={() => setShowAddBreak(false)} />}
-      {editingEntry && <EditEntryModal entry={editingEntry} onClose={() => setEditingEntry(null)} />}
+      <React.Suspense fallback={<div className="modal-loading-overlay">Loading...</div>}>
+        {showManualIn && <ManualTimeModal mode="checkIn" onClose={() => setShowManualIn(false)} />}
+        {showManualOut && <ManualTimeModal mode="checkOut" onClose={() => setShowManualOut(false)} />}
+        {showAddBreak && <AddBreakModal onClose={() => setShowAddBreak(false)} />}
+        {editingEntry && <EditEntryModal entry={editingEntry} onClose={() => setEditingEntry(null)} />}
+      </React.Suspense>
       {showNoPeriodPrompt && <NoPeriodPrompt onOpenSettings={() => {/* TODO: Open settings */}} onClose={() => setShowNoPeriodPrompt(false)} />}
         </>
       )}

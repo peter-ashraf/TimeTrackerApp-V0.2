@@ -3,8 +3,8 @@ import { useTimeTracker } from '../context/TimeTrackerContext';
 import { useSupabaseAuth } from '../context/SupabaseAuthContext';
 import { supabaseData } from '../utils/supabaseData';
 import hapticFeedback from '../utils/hapticFeedback';
-import ExportModal from './ExportModal';
-import ImportModal from './ImportModal';
+const ExportModal = React.lazy(() => import('./ExportModal'));
+const ImportModal = React.lazy(() => import('./ImportModal'));
 import ModalShell from './ModalShell';
 import { setSimpleEncryptedItem } from '../utils/simple-encryption';
 import '../styles/settings.css';
@@ -1301,14 +1301,16 @@ function Settings() {
       </section>
 
       {/* Export Modal */}
-      {showExportModal && (
-        <ExportModal onClose={() => setShowExportModal(false)} />
-      )}
+      <React.Suspense fallback={<div className="modal-loading-overlay">Loading...</div>}>
+        {showExportModal && (
+          <ExportModal onClose={() => setShowExportModal(false)} />
+        )}
 
-      {/* Import Modal */}
-      {showImportModal && (
-        <ImportModal onClose={() => setShowImportModal(false)} />
-      )}
+        {/* Import Modal */}
+        {showImportModal && (
+          <ImportModal onClose={() => setShowImportModal(false)} />
+        )}
+      </React.Suspense>
     </main>
   );
 }

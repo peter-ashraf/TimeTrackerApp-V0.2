@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
-
 import { useTimeTracker } from '../context/TimeTrackerContext';
-
 import ModalShell from './ModalShell';
 
-import * as XLSX from 'xlsx';
 import { 
   exportToExcel, 
   generatePDFReport, 
@@ -22,21 +19,13 @@ import '../styles/export-modal-enhanced.css';
 
 
 function ExportModal({ onClose }) {
-
   const { 
-
     entries, 
-
     periods, 
-
     employee,
-
     calculateOvertimeDetails,
-
     confirmModal,
-
     setConfirmModal
-
   } = useTimeTracker();
 
 
@@ -343,7 +332,7 @@ function ExportModal({ onClose }) {
 
   // ✅ NEW: Generate template with period selection
 
-  const generateTemplate = () => {
+  const generateTemplate = async () => {
 
     let selectedPeriod = null;
 
@@ -594,9 +583,8 @@ function ExportModal({ onClose }) {
 
 
     // Create workbook
-
+    const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
-
     const ws = XLSX.utils.aoa_to_sheet([templateHeaders, ...templateRows]);
 
 
@@ -893,7 +881,7 @@ function ExportModal({ onClose }) {
 
       // Export based on format
       if (exportFormat === 'excel') {
-        filename = exportToExcel(data.data, {
+        filename = await exportToExcel(data.data, {
           filename: data.filename.replace('.xlsx', ''),
           sheetName: selectedPeriod?.label?.replace(/[:\\/?*\[\]]/g, '-').substring(0, 31) || 'Export',
           includeFormatting: true
@@ -932,7 +920,7 @@ function ExportModal({ onClose }) {
         }
 
         // Generate Excel file first
-        const excelFilename = exportToExcel(data.data, {
+        const excelFilename = await exportToExcel(data.data, {
           filename: data.filename.replace('.xlsx', ''),
           sheetName: selectedPeriod?.label?.replace(/[:\\/?*\[\]]/g, '-').substring(0, 31) || 'Export',
           includeFormatting: true
@@ -997,76 +985,97 @@ function ExportModal({ onClose }) {
   };
 
   // Handle export
-  const handleExport = () => {
+  const handleExport = async () => {
     if (exportMode === 'template') {
-      generateTemplate();
+      await generateTemplate();
       return;
     }
 
     if (exportMode === 'custom' || exportFormat !== 'excel' || reportTemplate !== 'timesheet') {
-      handleEnhancedExport();
+      await handleEnhancedExport();
       return;
     }
 
-    // Legacy Excel export for backwards compatibility
-    if (selectedPeriods.length === 0) {
+    setIsExporting(true);
+    setExportProgress(0);
+
+    try {
+      const periodsToExport = selectedPeriods.length > 0 
+        ? selectedPeriods 
+        : payPeriods;
+
+      const workbook = XLSX.utils.book_new();
+
+      for (let i = 0; i < periodsToExport.length; i++) {
+        const period = periodsToExport[i];
+        const periodEntries = entries.filter(entry => 
+          entry.payPeriodId === period.id
+        );
+
+        const exportData = periodEntries.map(entry => ({
+          Date: new Date(entry.date).toLocaleDateString(),
+          'Employee Name': entry.employeeName || 'Unknown',
+          'Clock In': entry.clockIn || '',
+          'Clock Out': entry.clockOut || '',
+          'Break Duration': entry.breakDuration || '',
+          'Total Hours': entry.totalHours || 0,
+          'Hourly Rate': entry.hourlyRate || 0,
+          'Daily Pay': entry.dailyPay || 0,
+          Project: entry.project || '',
+          Notes: entry.notes || ''
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        
+        const colWidths = detailedView
+          ? [
+              { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 14 },
+              { wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 18 },
+              { wch: 18 }, { wch: 16 }
+            ]
+          : [
+              { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 10 }
+            ];
+
+        worksheet['!cols'] = colWidths;
+
+        let sheetName = period.label
+          .replace(/[:\\/?*\[\]]/g, '-')
+          .substring(0, 31);
+
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+      }
+
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = periodsToExport.length === 1
+        ? `Timesheet_${periodsToExport[0].label.replace(/\s+/g, '_')}_${timestamp}.xlsx`
+        : `Timesheet_Multiple_Periods_${timestamp}.xlsx`;
+
+      const XLSX = await import('xlsx');
+      XLSX.writeFile(workbook, filename);
+      localStorage.setItem('lastBackupDate', new Date().toISOString());
       setConfirmModal({
         isOpen: true,
-        title: 'No Periods Selected',
-        message: 'Please select at least one period to export.',
-        type: 'warning',
+        title: 'Export Successful',
+        message: `Successfully exported ${periodsToExport.length} period(s) to ${filename}`,
+        type: 'success',
         confirmText: 'OK',
         showCancel: false,
         onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
       });
-      return;
+    } catch (error) {
+      setConfirmModal({
+        isOpen: true,
+        title: 'Export Failed',
+        message: `Failed to export data: ${error.message}`,
+        type: 'error',
+        confirmText: 'OK',
+        showCancel: false,
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
+    } finally {
+      setIsExporting(false);
     }
-
-    const workbook = XLSX.utils.book_new();
-    const periodsToExport = periods.filter(p => selectedPeriods.includes(p.id));
-
-    periodsToExport.forEach(period => {
-      const sheetData = generatePeriodData(period);
-      const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
-
-      const colWidths = detailedView
-        ? [
-            { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 14 },
-            { wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 18 },
-            { wch: 18 }, { wch: 16 }
-          ]
-        : [
-            { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 10 }
-          ];
-
-      worksheet['!cols'] = colWidths;
-
-      let sheetName = period.label
-        .replace(/[:\\/?*\[\]]/g, '-')
-        .substring(0, 31);
-
-      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-    });
-
-    const timestamp = new Date().toISOString().split('T')[0];
-    const filename = periodsToExport.length === 1
-      ? `Timesheet_${periodsToExport[0].label.replace(/\s+/g, '_')}_${timestamp}.xlsx`
-      : `Timesheet_Multiple_Periods_${timestamp}.xlsx`;
-
-    XLSX.writeFile(workbook, filename);
-    localStorage.setItem('lastBackupDate', new Date().toISOString());
-    setConfirmModal({
-      isOpen: true,
-      title: 'Export Successful',
-      message: `Your data has been exported!\n\nFile: ${filename}\nPeriods: ${periodsToExport.length}\nView: ${detailedView ? 'Detailed' : 'Simple'}`,
-      type: 'success',
-      confirmText: 'OK',
-      showCancel: false,
-      onConfirm: () => {
-        setConfirmModal({ ...confirmModal, isOpen: false });
-        onClose();
-      }
-    });
   };
 
 

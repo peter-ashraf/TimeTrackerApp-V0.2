@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import ConfirmModal from '../components/ConfirmModal';
 import AlertModal from '../components/AlertModal';
 import BackupReminderModal from '../components/BackupReminderModal';
@@ -100,178 +100,244 @@ export const TimeTrackerProvider = ({ children }) => {
 
   const isSavingPeriodsRef = useRef(false);  // ← ADD near other refs
   
-  // Load user-specific data from Supabase (now re-enabled after RLS fix)
+  // Function to show alerts
+  const showAlert = useCallback((message, type = 'info') => {
+    setAlertModal({ isOpen: true, message, type });
+  }, []);
+  
+  // Function to set refresh flag (to prevent save updates during refresh)
+  const setRefreshing = useCallback((isRefreshing) => {
+    isRefreshingRef.current = isRefreshing;
+  }, []);
+  
+  const formatDate = useCallback((date) => {
+    const d = new Date(date);
+    return d.toISOString().split('T')[0];
+  }, []);
+  
+  const formatTime = useCallback((date) => {
+    const d = new Date(date);
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const seconds = String(d.getSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  }, []);
+  
+  const updateEntries = useCallback((newEntries) => {
+    setEntries(newEntries);
+    // Only update lastSaved if we're not refreshing
+    if (!isRefreshingRef.current) {
+      setLastSaved(new Date().toISOString());
+    }
+  }, []);
+  
+  const timeToSeconds = useCallback((timeStr) => {
+    if (!timeStr || timeStr.trim() === '') return 0;
+    const parts = timeStr.split(':').map(Number);
+    if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    } else if (parts.length === 2) {
+      return parts[0] * 3600 + parts[1] * 60;
+    }
+    return 0;
+  }, []);
+  
+  const secondsToTime = useCallback((totalSeconds) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }, []);
+  
+  const secondsToHours = useCallback((seconds) => {
+    return seconds / 3600;
+  }, []);
+  
+  const formatTimeDisplay = useCallback((timeStr) => {
+    if (!timeStr) return '-';
+    if (timeStr.split(':').length === 3) return timeStr;
+    return timeStr + ':00';
+  }, []);
+  
+  const calculateHoursWorked = useCallback((intervals, date) => {
+    if (!intervals || intervals.length === 0) {
+      return 0;
+    }
+    
+    const validIntervals = intervals.filter(interval => interval.in && interval.out);
+    if (validIntervals.length === 0) return 0;
+    
+    const mainInterval = validIntervals[0];
+    const firstInSeconds = timeToSeconds(mainInterval.in);
+    const lastOutSeconds = timeToSeconds(mainInterval.out);
+    
+    const grossSeconds = lastOutSeconds - firstInSeconds;
+    
+    const ALLOWED_START = 13 * 3600;
+    const ALLOWED_END = 13 * 3600 + 30 * 60;
+    
+    let deductedBreakSeconds = 0;
+    
+    for (let i = 1; i < validIntervals.length; i++) {
+      const breakInterval = validIntervals[i];
+      const breakStartSeconds = timeToSeconds(breakInterval.in);
+      const breakEndSeconds = timeToSeconds(breakInterval.out);
+      const breakDuration = breakEndSeconds - breakStartSeconds;
+      
+      const isAllowedBreak =
+        breakStartSeconds >= ALLOWED_START &&
+        breakStartSeconds <= ALLOWED_END &&
+        breakEndSeconds >= ALLOWED_START &&
+        breakEndSeconds <= ALLOWED_END;
+      
+      if (!isAllowedBreak) {
+        deductedBreakSeconds += breakDuration;
+      }
+    }
+    
+    const netSeconds = Math.max(0, grossSeconds - deductedBreakSeconds);
+    return secondsToHours(netSeconds);
+  }, [timeToSeconds, secondsToHours]);
+  
+  const calculateHoursSpentOutside = useCallback((intervals) => {
+    if (!intervals || intervals.length <= 1) return 0;
+    
+    const breakIntervals = intervals.slice(1);
+    const ALLOWED_START = 13 * 3600;
+    const ALLOWED_END = 13 * 3600 + 30 * 60;
+    
+    let hoursSpentOutside = 0;
+    breakIntervals.forEach((interval, index) => {
+      if (interval.in && interval.out) {
+        const breakStartSeconds = timeToSeconds(interval.in);
+        const breakEndSeconds = timeToSeconds(interval.out);
+        const breakDuration = breakEndSeconds - breakStartSeconds;
+        
+        const isAllowedBreak =
+          breakStartSeconds >= ALLOWED_START &&
+          breakStartSeconds <= ALLOWED_END &&
+          breakEndSeconds >= ALLOWED_START &&
+          breakEndSeconds <= ALLOWED_END;
+        
+        if (!isAllowedBreak) {
+          hoursSpentOutside += secondsToHours(breakDuration);
+        }
+      }
+    });
+    
+    return hoursSpentOutside;
+  }, [timeToSeconds, secondsToHours]);
+
+  // Load user-specific data with local-first strategy
   const loadData = useCallback(async () => {
     if (!currentUser || !isAuthenticated) {
-      
       return;
     }
 
-    if (isLoadingRef.current) return;  // ← ADD: prevent double load
+    if (isLoadingRef.current) return;
     
     try {
-      
       isLoadingRef.current = true;
       
-      // Load data from Supabase in parallel
-      const [profileData, entriesData, leaveSettingsData, periodsData, currentPeriodData] = await Promise.all([
-        supabaseData.getUserProfile(currentUser.id),
-        supabaseData.getTimeEntries(currentUser.id),
-        supabaseData.getLeaveSettings(currentUser.id),
-        supabaseData.getPayPeriods(currentUser.id),
-        supabaseData.getCurrentPayPeriod(currentUser.id)
-      ]);
-      
-      // Set loaded data with null checks - salary from localStorage only
-      const salaryKey = `salary_${currentUser.id}`;
-      
-      // Try both encrypted and plain localStorage for salary
-      let localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
-      
-      if (localSalary === 0) {
-        // Fallback to plain localStorage
-        const plainSalary = localStorage.getItem(salaryKey);
-        if (plainSalary && !plainSalary.startsWith('encrypted:')) {
-          localSalary = parseFloat(plainSalary) || 0;
-        } else if (plainSalary && plainSalary.startsWith('encrypted:')) {
-          // If it's encrypted data, try to decrypt it
-          try {
-            const encryptedData = plainSalary.replace('encrypted:', '');
-            localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
-          } catch (error) {
-            localSalary = 0;
-          }
-        }
-      }
-      
-      // Migration logic: if new fields don't exist in profile, default to full-time
-      const migratedEmployeeData = {
-        name: localStorage.getItem('userDisplayName') || profileData?.full_name || profileData?.username || currentUser.username || 'User',
-        salary: localSalary,
-        employeeType: profileData?.employee_type || 'full-time',
-        dailyHours: profileData?.daily_hours || 9,
-        monthlyHours: profileData?.monthly_hours || 187,
-        workDaysPerWeek: profileData?.work_days_per_week || 5
-      };
-      
-      setEmployee(migratedEmployeeData);
-      
-      setEntries(entriesData || []);
-      setLeaveSettings({
-        annualVacation: leaveSettingsData?.annual_vacation || leaveSettingsData?.annualVacation || 10,
-        sickDays: leaveSettingsData?.sick_days || leaveSettingsData?.sickDays || 7,
-        personalDays: leaveSettingsData?.personal_days || leaveSettingsData?.personalDays || 2,
-        usedVacationDays: leaveSettingsData?.used_vacation_days || leaveSettingsData?.usedVacationDays || 0,
-        usedSickDays: leaveSettingsData?.used_sick_days || leaveSettingsData?.usedSickDays || 0,
-        usedPersonalDays: leaveSettingsData?.used_personal_days || leaveSettingsData?.usedPersonalDays || 0
-      });
-      
-      // Only set periods if we have data from Supabase
-      if (periodsData && periodsData.length > 0) {
-        setPeriods(periodsData);
-        
-        // Handle current period logic
-        if (currentPeriodData) {
-          // We have a current period set in database
-          setCurrentPeriodId(currentPeriodData.id);
-          
-        } else {
-          // No current period set, try to auto-set one
-          
-          try {
-            await supabaseData.autoSetCurrentPayPeriod(currentUser.id);
-            // Try to get the current period again
-            const updatedCurrentPeriod = await supabaseData.getCurrentPayPeriod(currentUser.id);
-            if (updatedCurrentPeriod) {
-              setCurrentPeriodId(updatedCurrentPeriod.id);
-              
-            } else {
-              
-              // Set to first period as fallback
-              setCurrentPeriodId(periodsData[0].id);
-            }
-          } catch (error) {
-            
-            // Set to first period as fallback
-            setCurrentPeriodId(periodsData[0].id);
-          }
-        }
-      } else {
-        // Check if we have entries but no periods - prompt user to create periods
-        if (entriesData && entriesData.length > 0) {
-          
-          // Don't auto-create periods, let user handle it manually
-          setConfirmModal({
-            isOpen: true,
-            title: 'No Pay Periods Found',
-            message: `You have ${entriesData.length} time entries but no pay periods. Please create pay periods in Settings to organize your timesheet data.`,
-            type: 'warning',
-            confirmText: 'Go to Settings',
-            cancelText: 'Later',
-            onConfirm: () => {
-              setConfirmModal({ ...confirmModal, isOpen: false });
-              // TODO: Navigate to Settings tab
-              window.location.hash = '#settings';
-            },
-            onCancel: () => setConfirmModal({ ...confirmModal, isOpen: false })
-          });
-        } else {
-          
-        }
-      }
-      
-      
-      setIsContextReady(true);
-      isLoadingRef.current = false;
-      
-    } catch (error) {
-      
-      // Fallback to encrypted localStorage if Supabase fails
-      
-      
+      // Step 1: Load from local storage immediately for fast UI
       const salaryKey = `salary_${currentUser.id}`;
       const entriesKey = `timeEntries_${currentUser.id}`;
       const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
       const periodsKey = `payPeriods_${currentUser.id}`;
-      
-      // Try both encrypted and plain localStorage for salary
-      let savedSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
-      if (savedSalary === 0) {
-        // Fallback to plain localStorage
-        const plainSalary = localStorage.getItem(salaryKey);
-        if (plainSalary) {
-          savedSalary = parseFloat(plainSalary) || 0;
-        }
-      }
-      const savedEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
-      const savedLeaveSettings = getSimpleEncryptedItem(leaveSettingsKey, currentUser.username) || {
+      const currentPeriodIdKey = `currentPeriodId_${currentUser.id}`;
+
+      let localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
+      const localEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
+      const localLeaveSettings = getSimpleEncryptedItem(leaveSettingsKey, currentUser.username) || {
         annualVacation: 10,
         sickDays: 7
       };
-      const savedPeriods = getSimpleEncryptedItem(periodsKey, currentUser.username);
+      const localPeriods = getSimpleEncryptedItem(periodsKey, currentUser.username) || [];
+      const localCurrentPeriodId = localStorage.getItem(currentPeriodIdKey);
+
+      // Set initial local data
+      setEmployee(prev => ({
+        ...prev,
+        name: localStorage.getItem('userDisplayName') || currentUser.username || 'User',
+        salary: localSalary
+      }));
+      setEntries(localEntries);
+      setLeaveSettings(localLeaveSettings);
+      setPeriods(localPeriods);
+      if (localCurrentPeriodId) setCurrentPeriodId(localCurrentPeriodId);
       
-      // Only use saved periods, never create defaults
-      const periodsToSet = savedPeriods || [];
+      setIsContextReady(true); // App is usable with local data
+
+      // Step 2: Defer Supabase sync to improve initial load time
+      setTimeout(async () => {
+        if (navigator.onLine) {
+          try {
+            const [profileData, entriesData, leaveSettingsData, periodsData, currentPeriodData] = await Promise.all([
+              supabaseData.getUserProfile(currentUser.id),
+              supabaseData.getTimeEntries(currentUser.id),
+              supabaseData.getLeaveSettings(currentUser.id),
+              supabaseData.getPayPeriods(currentUser.id),
+              supabaseData.getCurrentPayPeriod(currentUser.id)
+          ]);
+          
+          // Merge logic: For entries, we should merge rather than overwrite
+          // (Implemented in a separate updateEntries function or using mergeEntries logic from App.jsx)
+          
+          if (profileData) {
+            setEmployee(prev => ({
+              ...prev,
+              name: profileData.full_name || prev.name,
+              employeeType: profileData.employee_type || 'full-time',
+              dailyHours: profileData.daily_hours || 9,
+              monthlyHours: profileData.monthly_hours || 187,
+              workDaysPerWeek: profileData.work_days_per_week || 5
+            }));
+          }
+
+          if (entriesData && entriesData.length > 0) {
+            // Smart merge entries to prevent overwriting fresh offline data
+            setEntries(prev => {
+              const prevMap = new Map(prev.map(e => [e.date, e]));
+              entriesData.forEach(entry => {
+                const existing = prevMap.get(entry.date);
+                if (!existing || new Date(entry.updated_at || 0) > new Date(existing.lastModified || 0)) {
+                  prevMap.set(entry.date, entry);
+                }
+              });
+              return Array.from(prevMap.values()).sort((a, b) => b.date.localeCompare(a.date));
+            });
+          }
+
+          if (leaveSettingsData) {
+            setLeaveSettings({
+              annualVacation: leaveSettingsData.annualVacation || 10,
+              sickDays: leaveSettingsData.sickDays || 7,
+              personalDays: leaveSettingsData.personalDays || 2,
+              usedVacationDays: leaveSettingsData.usedVacationDays || 0,
+              usedSickDays: leaveSettingsData.usedSickDays || 0,
+              usedPersonalDays: leaveSettingsData.usedPersonalDays || 0
+            });
+          }
+
+          if (periodsData && periodsData.length > 0) {
+            setPeriods(periodsData);
+            if (currentPeriodData) {
+              setCurrentPeriodId(currentPeriodData.id);
+              localStorage.setItem(currentPeriodIdKey, currentPeriodData.id);
+            }
+          }
+        } catch (onlineError) {
+          console.error('Failed to fetch from Supabase, staying with local data', onlineError);
+        }
+      }
+      }, 500); // Defer Supabase sync by 500ms
       
-      setEmployee({
-        name: localStorage.getItem('userDisplayName') || currentUser.username || currentUser.email?.split('@')[0] || 'User',
-        salary: savedSalary,
-        employeeType: 'full-time',
-        dailyHours: 9,
-        monthlyHours: 187,
-        workDaysPerWeek: 5
-      });
+      isLoadingRef.current = false;
       
-      setEntries(savedEntries);
-      setLeaveSettings({
-        annualVacation: savedLeaveSettings.annualVacation || 10,
-        sickDays: savedLeaveSettings.sickDays || 7
-      });
-      
-      setPeriods(periodsToSet);
-      
-      
-      setIsContextReady(true);
+    } catch (error) {
+      console.error('loadData critical error:', error);
+      isLoadingRef.current = false;
+      setIsContextReady(true); // Still try to be ready with whatever we have
     }
   }, [currentUser, isAuthenticated]);
   
@@ -722,125 +788,8 @@ export const TimeTrackerProvider = ({ children }) => {
     }
   };
   
-  const formatDate = (date) => {
-    const d = new Date(date);
-    return d.toISOString().split('T')[0];
-  };
   
-  const formatTime = (date) => {
-    const d = new Date(date);
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const seconds = String(d.getSeconds()).padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
-  };
-  
-  const updateEntries = (newEntries) => {
-    setEntries(newEntries);
-    // Only update lastSaved if we're not refreshing
-    if (!isRefreshingRef.current) {
-      setLastSaved(new Date().toISOString());
-    }
-  };
-  
-  const timeToSeconds = (timeStr) => {
-    if (!timeStr || timeStr.trim() === '') return 0;
-    const parts = timeStr.split(':').map(Number);
-    if (parts.length === 3) {
-      return parts[0] * 3600 + parts[1] * 60 + parts[2];
-    } else if (parts.length === 2) {
-      return parts[0] * 3600 + parts[1] * 60;
-    }
-    return 0;
-  };
-  
-  const secondsToTime = (totalSeconds) => {
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  };
-  
-  const secondsToHours = (seconds) => {
-    return seconds / 3600;
-  };
-  
-  const formatTimeDisplay = (timeStr) => {
-    if (!timeStr) return '-';
-    if (timeStr.split(':').length === 3) return timeStr;
-    return timeStr + ':00';
-  };
-  
-  const calculateHoursWorked = (intervals, date) => {
-    if (!intervals || intervals.length === 0) {
-      return 0;
-    }
-    
-    const validIntervals = intervals.filter(interval => interval.in && interval.out);
-    if (validIntervals.length === 0) return 0;
-    
-    const mainInterval = validIntervals[0];
-    const firstInSeconds = timeToSeconds(mainInterval.in);
-    const lastOutSeconds = timeToSeconds(mainInterval.out);
-    
-    const grossSeconds = lastOutSeconds - firstInSeconds;
-    
-    const ALLOWED_START = 13 * 3600;
-    const ALLOWED_END = 13 * 3600 + 30 * 60;
-    
-    let deductedBreakSeconds = 0;
-    
-    for (let i = 1; i < validIntervals.length; i++) {
-      const breakInterval = validIntervals[i];
-      const breakStartSeconds = timeToSeconds(breakInterval.in);
-      const breakEndSeconds = timeToSeconds(breakInterval.out);
-      const breakDuration = breakEndSeconds - breakStartSeconds;
-      
-      const isAllowedBreak =
-        breakStartSeconds >= ALLOWED_START &&
-        breakStartSeconds <= ALLOWED_END &&
-        breakEndSeconds >= ALLOWED_START &&
-        breakEndSeconds <= ALLOWED_END;
-      
-      if (!isAllowedBreak) {
-        deductedBreakSeconds += breakDuration;
-      }
-    }
-    
-    const netSeconds = Math.max(0, grossSeconds - deductedBreakSeconds);
-    return secondsToHours(netSeconds);
-  };
-  
-  const calculateHoursSpentOutside = (intervals) => {
-    if (!intervals || intervals.length <= 1) return 0;
-    
-    const breakIntervals = intervals.slice(1);
-    const ALLOWED_START = 13 * 3600;
-    const ALLOWED_END = 13 * 3600 + 30 * 60;
-    
-    let hoursSpentOutside = 0;
-    breakIntervals.forEach((interval, index) => {
-      if (interval.in && interval.out) {
-        const breakStartSeconds = timeToSeconds(interval.in);
-        const breakEndSeconds = timeToSeconds(interval.out);
-        const breakDuration = breakEndSeconds - breakStartSeconds;
-        
-        const isAllowedBreak =
-          breakStartSeconds >= ALLOWED_START &&
-          breakStartSeconds <= ALLOWED_END &&
-          breakEndSeconds >= ALLOWED_START &&
-          breakEndSeconds <= ALLOWED_END;
-        
-        if (!isAllowedBreak) {
-          hoursSpentOutside += secondsToHours(breakDuration);
-        }
-      }
-    });
-    
-    return hoursSpentOutside;
-  };
-  
-  const calculateOvertimeDetails = (entries, periodStart, periodEnd) => {
+  const calculateOvertimeDetails = useCallback((entries, periodStart, periodEnd) => {
     const periodEntries = entries.filter(e => 
       e.date >= periodStart && 
       e.date <= periodEnd
@@ -938,18 +887,12 @@ export const TimeTrackerProvider = ({ children }) => {
       totalExtraHours,
       totalExtraHoursWithFactor
     };
-  };
+  }, [calculateHoursWorked]);
   
-  const recalculateEntryFields = (entry) => {
+  const recalculateEntryFields = useCallback((entry) => {
     if (!entry.intervals || entry.intervals.length === 0) {
       return {
-        id: entry.id,
-        date: entry.date,
-        intervals: entry.intervals,
-        type: entry.type,
-        duration: entry.duration,
-        doubleHours: entry.doubleHours,
-        notes: entry.notes,
+        ...entry,
         hoursWorked: 0,
         extraHours: 0,
         extraHoursWithFactor: 0,
@@ -1001,32 +944,22 @@ export const TimeTrackerProvider = ({ children }) => {
       extraHoursWithFactor,
       hoursSpentOutside
     };
-  };
+  }, [calculateHoursWorked, calculateHoursSpentOutside]);
   
-  const updateEntry = (date, updates) => {
+  const updateEntry = useCallback((date, updates) => {
     updateEntries(entries.map(entry => {
       if (entry.date === date) {
         const updatedEntry = {
-          id: entry.id,
-          date: entry.date,
-          intervals: Array.isArray(entry.intervals) ? [...entry.intervals] : [],
-          type: entry.type,
-          duration: entry.duration,
-          doubleHours: entry.doubleHours,
-          notes: entry.notes,
-          hoursWorked: entry.hoursWorked,
-          extraHours: entry.extraHours,
-          extraHoursWithFactor: entry.extraHoursWithFactor,
-          hoursSpentOutside: entry.hoursSpentOutside,
+          ...entry,
           ...updates
         };
         return recalculateEntryFields(updatedEntry);
       }
       return entry;
     }));
-  };
+  }, [entries, updateEntries, recalculateEntryFields]);
   
-  const showConfirm = (title, message, type, onConfirmCallback) => {
+  const showConfirm = useCallback((title, message, type, onConfirmCallback) => {
     return new Promise((resolve) => {
       setConfirmModal({
         isOpen: true,
@@ -1035,20 +968,20 @@ export const TimeTrackerProvider = ({ children }) => {
         type,
         onConfirm: () => {
           onConfirmCallback();
-          setConfirmModal({ ...confirmModal, isOpen: false });
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
           resolve(true);
         }
       });
     });
-  };
+  }, [setConfirmModal]);
   
-  const calculateOvertime = (entries, periodStart, periodEnd) => {
+  const calculateOvertime = useCallback((entries, periodStart, periodEnd) => {
     const details = calculateOvertimeDetails(entries, periodStart, periodEnd);
     return details.totalExtraHoursWithFactor;
-  };
+  }, [calculateOvertimeDetails]);
 
   // Employee type validation functions
-  const validateEmployeeType = (employeeData) => {
+  const validateEmployeeType = useCallback((employeeData) => {
     const errors = [];
     
     // Validate employee type
@@ -1078,21 +1011,19 @@ export const TimeTrackerProvider = ({ children }) => {
       }
     }
     
-    // Note: Monthly hours validation removed for part-time employees since it's calculated based on actual hours worked per period
-      
     return errors;
-  };
+  }, []);
 
-  const calculateMonthlyHours = (employeeType, dailyHours, workDaysPerWeek) => {
+  const calculateMonthlyHours = useCallback((employeeType, dailyHours, workDaysPerWeek) => {
     if (employeeType === 'full-time') {
       return 187;
     }
     // For part-time, return 0 as it will be calculated based on actual hours worked
     return 0;
-  };
+  }, []);
 
   // Calculate actual monthly hours worked for part-time employees based on entries in a period
-  const calculateActualMonthlyHours = (entries, periodStart, periodEnd) => {
+  const calculateActualMonthlyHours = useCallback((entries, periodStart, periodEnd) => {
     if (employee.employeeType === 'full-time') {
       return 187;
     }
@@ -1111,9 +1042,9 @@ export const TimeTrackerProvider = ({ children }) => {
     }, 0);
     
     return totalHours;
-  };
+  }, [employee.employeeType]);
 
-  const checkIn = () => {
+  const checkIn = useCallback(() => {
     const today = formatDate(new Date());
     const now = new Date();
     const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
@@ -1131,7 +1062,7 @@ export const TimeTrackerProvider = ({ children }) => {
           type: 'info',
           confirmText: 'OK',
           showCancel: false,
-          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+          onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
         });
         return;
       }
@@ -1161,11 +1092,11 @@ export const TimeTrackerProvider = ({ children }) => {
       type: 'success',
       confirmText: 'OK',
       showCancel: false,
-      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
     });
-  };
+  }, [entries, formatDate, updateEntries, setConfirmModal]);
   
-  const checkOut = () => {
+  const checkOut = useCallback(() => {
     const today = formatDate(new Date());
     const now = new Date();
     const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
@@ -1180,7 +1111,7 @@ export const TimeTrackerProvider = ({ children }) => {
         type: 'warning',
         confirmText: 'OK',
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
       });
       return;
     }
@@ -1195,7 +1126,7 @@ export const TimeTrackerProvider = ({ children }) => {
         type: 'info',
         confirmText: 'OK',
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
       });
       return;
     }
@@ -1234,11 +1165,11 @@ export const TimeTrackerProvider = ({ children }) => {
       type: 'success',
       confirmText: 'OK',
       showCancel: false,
-      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
     });
-  };
+  }, [entries, formatDate, updateEntries, setConfirmModal, calculateHoursWorked, calculateHoursSpentOutside]);
   
-  const deleteEntry = async (date) => {
+  const deleteEntry = useCallback(async (date) => {
     setConfirmModal({
       isOpen: true,
       title: 'Delete Entry',
@@ -1257,45 +1188,47 @@ export const TimeTrackerProvider = ({ children }) => {
           // Update local state
           updateEntries(entries.filter(e => e.date !== date));
           
-          setConfirmModal({
+          setConfirmModal(prev => ({
+            ...prev,
             isOpen: true,
             title: 'Entry Deleted',
             message: 'Entry deleted successfully!',
             type: 'success',
             confirmText: 'OK',
             showCancel: false,
-            onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
-          });
+            onConfirm: () => setConfirmModal(p => ({ ...p, isOpen: false }))
+          }));
         } catch (error) {
           console.error('Failed to delete entry:', error);
           
           // Still delete from local state even if Supabase fails
           updateEntries(entries.filter(e => e.date !== date));
           
-          setConfirmModal({
+          setConfirmModal(prev => ({
+            ...prev,
             isOpen: true,
             title: 'Entry Deleted (Local Only)',
             message: 'Entry deleted locally but there was an error deleting from the cloud. Your local data is safe.',
             type: 'warning',
             confirmText: 'OK',
             showCancel: false,
-            onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
-          });
+            onConfirm: () => setConfirmModal(p => ({ ...p, isOpen: false }))
+          }));
         }
       },
-      onCancel: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      onCancel: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
     });
-  };
+  }, [currentUser, isAuthenticated, entries, updateEntries, setConfirmModal]);
   
-  const clearCurrentDay = () => {
+  const clearCurrentDay = useCallback(() => {
     if (window.confirm('Are you sure you want to clear data for today? This cannot be undone!')) {
       const today = formatDate(new Date());
       updateEntries(entries.filter(e => e.date !== today));
       showAlert('Today\'s data cleared!', 'success');
     }
-  };
+  }, [entries, formatDate, updateEntries, showAlert]);
   
-  const clearCurrentMonth = () => {
+  const clearCurrentMonth = useCallback(() => {
     const period = getCurrentPeriod();
     if (!period) return;
     
@@ -1306,9 +1239,9 @@ export const TimeTrackerProvider = ({ children }) => {
       updateEntries(entries.filter(e => e.date < periodStart || e.date > periodEnd));
       showAlert(`${period.label} data cleared!`, 'success');
     }
-  };
+  }, [entries, getCurrentPeriod, updateEntries, showAlert]);
   
-  const clearAllData = () => {
+  const clearAllData = useCallback(() => {
     if (window.confirm('WARNING: This will delete ALL your timesheet data! This cannot be undone.')) {
       const confirmation = window.prompt('Type DELETE ALL to confirm');
       if (confirmation === 'DELETE ALL') {
@@ -1318,51 +1251,41 @@ export const TimeTrackerProvider = ({ children }) => {
         showAlert('Deletion cancelled', 'info');
       }
     }
-  };
+  }, [updateEntries, showAlert]);
   
-  const updateEmployee = (data) => {
+  const updateEmployee = useCallback((data) => {
     setEmployee(data);
-  };
+  }, []);
   
-  const updateLeaveSettings = (data) => {
+  const updateLeaveSettings = useCallback((data) => {
     setLeaveSettings(data);
-  };
+  }, []);
   
-  const handleBackupNow = () => {
+  const handleBackupNow = useCallback(() => {
     localStorage.setItem('lastBackupDate', new Date().toISOString());
     setShowBackupReminder(false);
     localStorage.setItem('navigateToExport', 'true');
     window.location.hash = '#settings';
-  };
+  }, []);
   
-  const handleBackupLater = (days = 3) => {
+  const handleBackupLater = useCallback((days = 3) => {
     const futureDate = new Date();
     const daysAgo = 14 - days;
     futureDate.setDate(futureDate.getDate() - daysAgo);
     localStorage.setItem('lastBackupDate', futureDate.toISOString());
     setShowBackupReminder(false);
-  };
+  }, []);
   
-  const handleDismissBackup = () => {
+  const handleDismissBackup = useCallback(() => {
     localStorage.setItem('dismissedBackupReminder', 'true');
     setShowBackupReminder(false);
-  };
+  }, []);
   
-  const handleCloseBackup = () => {
+  const handleCloseBackup = useCallback(() => {
     setShowBackupReminder(false);
-  };
+  }, []);
   
-  // Function to show alerts
-  const showAlert = (message, type = 'info') => {
-    setAlertModal({ isOpen: true, message, type });
-  };
-  
-  // Function to set refresh flag (to prevent save updates during refresh)
-  const setRefreshing = (isRefreshing) => {
-    isRefreshingRef.current = isRefreshing;
-  };
-
-  const setActivePayPeriod = async (periodId) => {
+  const setActivePayPeriod = useCallback(async (periodId) => {
   try {
     // Update all periods locally - deactivate all, activate selected
     const updatedPeriods = periods.map(p => ({
@@ -1382,9 +1305,9 @@ export const TimeTrackerProvider = ({ children }) => {
     
     throw error;
   }
-};
+}, [periods, currentUser]);
 
-  const savePayPeriod = async (period) => {
+  const savePayPeriod = useCallback(async (period) => {
     try {
       // Save to Supabase
       await supabaseData.savePayPeriod(currentUser.id, period);
@@ -1406,9 +1329,9 @@ export const TimeTrackerProvider = ({ children }) => {
       
       throw error;
     }
-  };
+  }, [periods, currentUser]);
 
-  const deletePayPeriod = async (periodId) => {
+  const deletePayPeriod = useCallback(async (periodId) => {
     try {
       // Delete from Supabase first
       await supabaseData.deletePayPeriod(currentUser.id, periodId);
@@ -1427,10 +1350,10 @@ export const TimeTrackerProvider = ({ children }) => {
       
       throw error;
     }
-  };
+  }, [periods, currentUser, currentPeriodId]);
 
   
-  const value = {
+  const value = useMemo(() => ({
     employee,
     leaveSettings,
     entries,
@@ -1488,7 +1411,56 @@ export const TimeTrackerProvider = ({ children }) => {
     validateEmployeeType,
     calculateMonthlyHours,
     calculateActualMonthlyHours,
-  };
+  }), [
+    employee,
+    leaveSettings,
+    entries,
+    periods,
+    currentPeriodId,
+    hideSalary,
+    use12Hour,
+    detailedView,
+    theme,
+    updateEmployee,
+    updateLeaveSettings,
+    checkIn,
+    checkOut,
+    deleteEntry,
+    clearCurrentDay,
+    clearCurrentMonth,
+    clearAllData,
+    getCurrentPeriod,
+    setCurrentPeriod,
+    formatDate,
+    formatTime,
+    calculateHoursWorked,
+    calculateHoursSpentOutside,
+    calculateOvertime,
+    calculateOvertimeDetails,
+    timeToSeconds,
+    secondsToTime,
+    secondsToHours,
+    formatTimeDisplay,
+    recalculateEntryFields,
+    updateEntry,
+    confirmModal,
+    showConfirm,
+    showBackupReminder,
+    handleBackupNow,
+    handleBackupLater,
+    handleDismissBackup,
+    handleCloseBackup,
+    lastSaved,
+    lastRefreshed,
+    updateEntries,
+    savePayPeriod,
+    deletePayPeriod,
+    setActivePayPeriod,
+    showAlert,
+    validateEmployeeType,
+    calculateMonthlyHours,
+    calculateActualMonthlyHours
+  ]);
   
   return (
     <TimeTrackerContext.Provider value={value}>

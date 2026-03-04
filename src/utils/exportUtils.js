@@ -1,10 +1,7 @@
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import * as XLSX from 'xlsx';
-import emailjs from 'emailjs-com';
-
 // Enhanced Excel export with formatting
-export const exportToExcel = (data, options = {}) => {
+export const exportToExcel = async (data, options = {}) => {
+  const XLSX = await import('xlsx');
+  
   const {
     filename = 'timesheet_export',
     sheetName = 'Timesheet',
@@ -59,6 +56,8 @@ export const exportToExcel = (data, options = {}) => {
 
 // PDF Report Generation
 export const generatePDFReport = async (data, options = {}) => {
+  const { default: jsPDF } = await import('jspdf');
+  
   const {
     title = 'Timesheet Report',
     employee = {},
@@ -159,6 +158,11 @@ export const generatePDFReport = async (data, options = {}) => {
 
 // PDF Report with Charts (using html2canvas)
 export const generatePDFWithCharts = async (chartElements, data, options = {}) => {
+  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+    import('jspdf'),
+    import('html2canvas')
+  ]);
+
   const {
     title = 'Analytics Report',
     employee = {},
@@ -203,7 +207,7 @@ export const generatePDFWithCharts = async (chartElements, data, options = {}) =
       pdf.addImage(imgData, 'PNG', 20, yPosition, imgWidth, imgHeight);
       yPosition += imgHeight + 20;
     } catch (error) {
-      
+      console.error('Failed to add chart to PDF:', error);
     }
   }
 
@@ -244,6 +248,8 @@ export const generatePDFWithCharts = async (chartElements, data, options = {}) =
 
 // Email functionality
 export const sendEmailReport = async (recipient, subject, attachmentData, options = {}) => {
+  const { default: emailjs } = await import('emailjs-com');
+  
   const {
     emailServiceId = process.env.REACT_APP_EMAILJS_SERVICE_ID,
     emailTemplateId = process.env.REACT_APP_EMAILJS_TEMPLATE_ID,

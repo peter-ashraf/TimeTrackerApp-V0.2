@@ -101,5 +101,25 @@ export default defineConfig({
     hmr: {
       overlay: false  // Disable HMR overlay to prevent React hook order issues
     }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React core
+          'react-vendor': ['react', 'react-dom'],
+          // Router
+          'router': ['react-router-dom'],
+          // Supabase (large)
+          'supabase': ['@supabase/supabase-js'],
+          // Export/PDF libraries are very large, better to put them in their own chunks
+          'xlsx-vendor': ['xlsx'],
+          'pdf-vendor': ['jspdf', '@react-pdf/renderer', 'html2canvas'],
+          // Local utilities
+          'utils': ['crypto-js', 'emailjs-com']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
   }
 })

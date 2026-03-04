@@ -649,3 +649,26 @@
     box-shadow: 0 10px 20px rgba(32, 133, 137, 0.3);
   }
 }
+
+/* Reset notice styles */
+.reset-notice {
+  margin: 8px 0 0 0;
+  padding: 8px 12px;
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 4px;
+  color: #856404;
+  text-align: center;
+}
+
+.reset-notice small {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* Dark theme support */
+[data-theme="dark"] .reset-notice {
+  background-color: #664d03;
+  border-color: #5a4a00;
+  color: #ffecb5;
+}
