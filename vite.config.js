@@ -117,9 +117,19 @@ export default defineConfig({
           'pdf-vendor': ['jspdf', '@react-pdf/renderer', 'html2canvas'],
           // Local utilities
           'utils': ['crypto-js', 'emailjs-com']
-        }
+        },
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
       }
     },
-    chunkSizeWarningLimit: 1000
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.log in production
+        drop_debugger: true
+      }
+    },
+    chunkSizeWarningLimit: 1000 // Increase threshold temporarily
   }
 })

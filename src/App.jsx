@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useTimeTracker } from './context/TimeTrackerContext';
+import { useTimeTracker } from './context/TimeTrackerContext-optimized';
 import { useSupabaseAuth } from './context/SupabaseAuthContext';
 import { backgroundSync } from './utils/backgroundSync';
 import { supabaseData } from './utils/supabaseData';

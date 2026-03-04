@@ -1,13 +1,15 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
 import ConfirmModal from '../components/ConfirmModal';
 import AlertModal from '../components/AlertModal';
-import BackupReminderModal from '../components/BackupReminderModal';
 import { useSupabaseAuth } from './SupabaseAuthContext';
 import { supabaseData } from '../utils/supabaseData';
 import { dataMigration } from '../utils/dataMigration';
 import { setSimpleEncryptedItem, getSimpleEncryptedItem } from '../utils/simple-encryption';
 import { multiTabSync } from '../utils/multiTabSync';
 import { backgroundSync } from '../utils/backgroundSync';
+
+// Lazy load modal components for better code splitting
+const BackupReminderModal = React.lazy(() => import('../components/BackupReminderModal'));
 
 const TimeTrackerContext = createContext();
 
@@ -1529,13 +1531,15 @@ export const TimeTrackerProvider = ({ children }) => {
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
       />
-      <BackupReminderModal
-        isOpen={showBackupReminder}
-        onExport={handleBackupNow}
-        onRemindLater={handleBackupLater}
-        onDismiss={handleDismissBackup}
-        onClose={handleCloseBackup}
-      />
+      <Suspense fallback={<div className="modal-loading-overlay">Loading...</div>}>
+        <BackupReminderModal
+          isOpen={showBackupReminder}
+          onExport={handleBackupNow}
+          onRemindLater={handleBackupLater}
+          onDismiss={handleDismissBackup}
+          onClose={handleCloseBackup}
+        />
+      </Suspense>
       <AlertModal
         isOpen={alertModal.isOpen}
         message={alertModal.message}

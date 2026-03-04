@@ -1,10 +1,13 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { useTimeTracker } from '../context/TimeTrackerContext';
+import { useTimeTracker } from '../context/TimeTrackerContext-optimized';
 import hapticFeedback from '../utils/hapticFeedback';
+import { debounce } from '../utils/performanceUtils';
 const ManualTimeModal = React.lazy(() => import('./ManualTimeModal'));
 const AddBreakModal = React.lazy(() => import('./AddBreakModal'));
 const EditEntryModal = React.lazy(() => import('./EditEntryModal'));
 import NoPeriodPrompt from './NoPeriodPrompt';
+import VirtualizedTimesheetTable from './VirtualizedTimesheetTable';
+import '../styles/performance-optimizations.css';
 
 // Memoized individual row component to prevent unnecessary re-renders
 const TimesheetRow = React.memo(({ 
@@ -129,6 +132,37 @@ function Timesheet() {
   const [showAddBreak, setShowAddBreak] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [showNoPeriodPrompt, setShowNoPeriodPrompt] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredEntries, setFilteredEntries] = useState([]);
+
+  // Debounced search function
+  const debouncedSearch = useMemo(
+    () => debounce((term) => {
+      if (!term.trim()) {
+        setFilteredEntries([]);
+      } else {
+        const filtered = entries.filter(entry => 
+          entry.date.includes(term) ||
+          entry.type.toLowerCase().includes(term.toLowerCase()) ||
+          (entry.notes && entry.notes.toLowerCase().includes(term.toLowerCase()))
+        );
+        setFilteredEntries(filtered);
+      }
+    }, 300),
+    [entries]
+  );
+
+  // Handle search input change
+  const handleSearchChange = useCallback((e) => {
+    const term = e.target.value;
+    setSearchTerm(term);
+    debouncedSearch(term);
+  }, [debouncedSearch]);
+
+  // Get entries to display (filtered or all)
+  const displayEntries = useMemo(() => {
+    return searchTerm.trim() ? filteredEntries : entries;
+  }, [searchTerm, filteredEntries, entries]);
 
   // Check if there are any periods
   const hasNoPeriods = periods.length === 0;
@@ -157,15 +191,21 @@ function Timesheet() {
 
   // Filter and sort entries for VIEWING period
   const periodEntries = useMemo(() => {
-    if (!viewingPeriod) return [...entries].sort((a, b) => a.date.localeCompare(b.date));
+    const entriesToUse = displayEntries;
+    
+    if (!viewingPeriod) return [...entriesToUse].sort((a, b) => a.date.localeCompare(b.date));
     
     const periodStart = viewingPeriod.start_date || viewingPeriod.start;
     const periodEnd = viewingPeriod.end_date || viewingPeriod.end;
     
-    return entries
+    return entriesToUse
       .filter(e => e.date >= periodStart && e.date <= periodEnd)
       .sort((a, b) => a.date.localeCompare(b.date));
-  }, [entries, viewingPeriod]);
+  }, [displayEntries, viewingPeriod]);
+
+  // Threshold for virtualization - use virtualized table for more than 50 entries
+  const VIRTUALIZATION_THRESHOLD = 50;
+  const shouldUseVirtualization = periodEntries.length > VIRTUALIZATION_THRESHOLD;
 
   // Convert 24h to 12h format
   const formatTime = useCallback((time24) => {
@@ -259,7 +299,7 @@ function Timesheet() {
 
       {/* Timesheet Controls */}
       <div className="timesheet-controls">
-        {/* ✅ UPDATED: Period Selector grouped by year */}
+                {/* ✅ UPDATED: Period Selector grouped by year */}
         <div className="month-selector">
           <label>Select Period:</label>
           <select 
@@ -309,6 +349,32 @@ function Timesheet() {
         </div>
       </div>
 
+      {/* Search Input */}
+        <div className="search-container"
+            style={{ display: "flex", gap: "10px", width: '100%'}}>
+          <input
+            type="text"
+            placeholder="Search by date, type, or notes..."
+            value={searchTerm}
+            onChange={handleSearchChange}
+            className="form-control search-input"
+          />
+          {searchTerm && (
+            <button
+              className="btn btn-sm btn-outline"
+              onClick={() => {
+                setSearchTerm('');
+                setFilteredEntries([]);
+              }}
+              style={{ minWidth: '40px' }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+      
+
       {/* Manual Time Actions */}
       <div className="manual-time-actions">
         <button 
@@ -343,66 +409,84 @@ function Timesheet() {
 
       {/* Table Container */}
       <div id="tableContainer">
-        <table className={`data-table ${detailedView ? 'detailed-view' : ''}`}>
-          <thead>
-            <tr>
-              <th>DATE</th>
-              <th>CHECK IN</th>
-              <th>CHECK OUT</th>
-              <th>HOURS SPENT</th>
-              {detailedView && (
+        {shouldUseVirtualization ? (
+          <VirtualizedTimesheetTable
+            periodEntries={displayEntries.filter(entry => {
+              if (!viewingPeriod) return true;
+              const periodStart = viewingPeriod.start_date || viewingPeriod.start;
+              const periodEnd = viewingPeriod.end_date || viewingPeriod.end;
+              return entry.date >= periodStart && entry.date <= periodEnd;
+            })}
+            detailedView={detailedView}
+            formatTime={formatTime}
+            calculateHoursWorked={calculateHoursWorked}
+            calculateHoursSpentOutside={calculateHoursSpentOutside}
+            onEdit={setEditingEntry}
+            onDelete={deleteEntry}
+            overtimeDetails={overtimeDetails}
+          />
+        ) : (
+          <table className={`data-table ${detailedView ? 'detailed-view' : ''}`}>
+            <thead>
+              <tr>
+                <th>DATE</th>
+                <th>CHECK IN</th>
+                <th>CHECK OUT</th>
+                <th>HOURS SPENT</th>
+                {detailedView && (
+                  <>
+                    <th className="hide-mobile">EXTRA HOURS</th>
+                    <th className="hide-mobile">EXTRA HOURS xFACTOR</th>
+                    <th className="hide-mobile">TYPE</th>
+                    <th className="hide-mobile">CHECK OUT WITHIN DAY</th>
+                    <th className="hide-mobile">CHECK IN WITHIN DAY</th>
+                    <th className="hide-mobile">HOURS SPENT OUTSIDE</th>
+                  </>
+                )}
+                <th>ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {periodEntries.length === 0 ? (
+                <tr>
+                  <td colSpan={detailedView ? "11" : "5"} style={{textAlign: 'center', padding: '20px'}}>
+                    No entries found for this period.
+                  </td>
+                </tr>
+              ) : (
                 <>
-                  <th className="hide-mobile">EXTRA HOURS</th>
-                  <th className="hide-mobile">EXTRA HOURS xFACTOR</th>
-                  <th className="hide-mobile">TYPE</th>
-                  <th className="hide-mobile">CHECK OUT WITHIN DAY</th>
-                  <th className="hide-mobile">CHECK IN WITHIN DAY</th>
-                  <th className="hide-mobile">HOURS SPENT OUTSIDE</th>
+                  {periodEntries.map((entry) => (
+                    <TimesheetRow 
+                      key={entry.date}
+                      entry={entry}
+                      detailedView={detailedView}
+                      formatTime={formatTime}
+                      calculateHoursWorked={calculateHoursWorked}
+                      calculateHoursSpentOutside={calculateHoursSpentOutside}
+                      onEdit={setEditingEntry}
+                      onDelete={deleteEntry}
+                    />
+                  ))}
+
+                  {/* Totals Row */}
+                  <tr className="totals-row">
+                    <td><strong>Total</strong></td>
+                    <td colSpan="2"></td>
+                    <td><strong>{overtimeDetails.totalHoursWorked.toFixed(2)}h</strong></td>
+                    {detailedView && (
+                      <>
+                        <td className="hide-mobile"><strong>{overtimeDetails.totalExtraHours.toFixed(2)}h</strong></td>
+                        <td className="hide-mobile"><strong>{overtimeDetails.totalExtraHoursWithFactor.toFixed(2)}h</strong></td>
+                        <td className="hide-mobile" colSpan="4"></td>
+                      </>
+                    )}
+                    <td></td>
+                  </tr>
                 </>
               )}
-              <th>ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {periodEntries.length === 0 ? (
-              <tr>
-                <td colSpan={detailedView ? "11" : "5"} style={{textAlign: 'center', padding: '20px'}}>
-                  No entries found for this period.
-                </td>
-              </tr>
-            ) : (
-              <>
-                {periodEntries.map((entry) => (
-                  <TimesheetRow 
-                    key={entry.date}
-                    entry={entry}
-                    detailedView={detailedView}
-                    formatTime={formatTime}
-                    calculateHoursWorked={calculateHoursWorked}
-                    calculateHoursSpentOutside={calculateHoursSpentOutside}
-                    onEdit={setEditingEntry}
-                    onDelete={deleteEntry}
-                  />
-                ))}
-
-                {/* Totals Row */}
-                <tr className="totals-row">
-                  <td><strong>Total</strong></td>
-                  <td colSpan="2"></td>
-                  <td><strong>{overtimeDetails.totalHoursWorked.toFixed(2)}h</strong></td>
-                  {detailedView && (
-                    <>
-                      <td className="hide-mobile"><strong>{overtimeDetails.totalExtraHours.toFixed(2)}h</strong></td>
-                      <td className="hide-mobile"><strong>{overtimeDetails.totalExtraHoursWithFactor.toFixed(2)}h</strong></td>
-                      <td className="hide-mobile" colSpan="4"></td>
-                    </>
-                  )}
-                  <td></td>
-                </tr>
-              </>
-            )}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* Modals */}

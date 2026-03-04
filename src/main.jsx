@@ -1,11 +1,11 @@
-// Force cache bust to ensure updated code loads
-
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import App from './App.jsx';
-import { TimeTrackerProvider } from './context/TimeTrackerContext';
+import { TimeTrackerProvider } from './context/TimeTrackerContext-optimized';
+import { TimeEntryProvider } from './context/TimeEntryContext';
+import { UserPreferencesProvider } from './context/UserPreferencesContext';
+import { PayPeriodProvider } from './context/PayPeriodContext';
 import { SupabaseAuthProvider } from './context/SupabaseAuthContext';
 import LoadingScreen from './components/LoadingScreen.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
@@ -43,9 +43,15 @@ const AppLoader = () => {
     <ErrorBoundary>
       <HashRouter>
         <SupabaseAuthProvider>
-          <TimeTrackerProvider>
-            <App />
-          </TimeTrackerProvider>
+          <TimeEntryProvider>
+            <UserPreferencesProvider>
+              <PayPeriodProvider>
+                <TimeTrackerProvider>
+                  <App />
+                </TimeTrackerProvider>
+              </PayPeriodProvider>
+            </UserPreferencesProvider>
+          </TimeEntryProvider>
         </SupabaseAuthProvider>
       </HashRouter>
     </ErrorBoundary>

@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSupabaseAuth } from '../context/SupabaseAuthContext';
 import { useUsernameValidation } from '../hooks/useUsernameValidation';
-import RecoveryModal from './RecoveryModal';
 import '../styles/login-screen.css';
+
+// Lazy load modal components for better code splitting
+const RecoveryModal = React.lazy(() => import('./RecoveryModal'));
 
 const LoginScreen = () => {
   const { login, register, resetPassword, isLoading, isFailsafeMode, networkStatus } = useSupabaseAuth();
@@ -454,9 +456,11 @@ const LoginScreen = () => {
       </div>
 
       {/* Recovery Modal */}
-      {showRecoveryModal && (
-        <RecoveryModal onClose={() => setShowRecoveryModal(false)} />
-      )}
+      <Suspense fallback={<div className="modal-loading-overlay">Loading...</div>}>
+        {showRecoveryModal && (
+          <RecoveryModal onClose={() => setShowRecoveryModal(false)} />
+        )}
+      </Suspense>
 
       {/* Password Reset Modal */}
       {showPasswordReset && (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useTimeTracker } from '../context/TimeTrackerContext';
+import { useTimeTracker } from '../context/TimeTrackerContext-optimized';
 import { useSupabaseAuth } from '../context/SupabaseAuthContext';
 import { supabaseData } from '../utils/supabaseData';
 import hapticFeedback from '../utils/hapticFeedback';

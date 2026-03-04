@@ -1,0 +1,65 @@
+/* Search input styles */
+.search-container {
+  position: relative;
+  display: inline-block;
+  margin-right: 20px;
+}
+
+.search-input {
+  padding-right: 40px;
+  transition: border-color 0.3s ease;
+}
+
+.search-input:focus {
+  border-color: #208589;
+  box-shadow: 0 0 5px rgba(32, 133, 137, 0.3);
+}
+
+/* Virtualized table styles */
+.virtualized-table-container {
+  overflow-x: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.virtualized-table-header {
+  background-color: #f8f9fa;
+  border-bottom: 2px solid #ddd;
+  font-weight: bold;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.virtualized-table-footer {
+  background-color: #f8f9fa;
+  font-weight: bold;
+  position: sticky;
+  bottom: 0;
+}
+
+/* Performance optimizations */
+.data-table {
+  will-change: scroll-position;
+}
+
+.timesheet-row {
+  contain: layout style paint;
+}
+
+/* Loading overlay for modals */
+.modal-loading-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  min-height: 100px;
+}
+
+/* Reduce repaints during animations */
+.main-content {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}

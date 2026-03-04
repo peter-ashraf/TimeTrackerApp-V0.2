@@ -1,11 +1,13 @@
-import React, { useState } from "react";
-import { useTimeTracker } from "../context/TimeTrackerContext";
+import React, { useState, Suspense } from "react";
+import { useTimeTracker } from "../context/TimeTrackerContext-optimized";
 import { useSupabaseAuth } from "../context/SupabaseAuthContext";
 import OfflineIndicator from "./OfflineIndicator";
 import LogoutModal from "./LogoutModal";
-import UserSettingsModal from "./UserSettingsModal";
 import SessionToast from "./SessionToast";
 import '../styles/fixed-header.css';
+
+// Lazy load modal components for better code splitting
+const UserSettingsModal = React.lazy(() => import("./UserSettingsModal"));
 
 function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
   const { theme, setTheme } = useTimeTracker();
@@ -104,11 +106,13 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
           onClose={cancelLogout}
           onConfirm={confirmLogout}
         />
-        <UserSettingsModal
-          isOpen={showUserSettingsModal}
-          onClose={closeUserSettings}
-          defaultTab={userSettingsDefaultTab}
-        />
+        <Suspense fallback={<div className="modal-loading-overlay">Loading...</div>}>
+          <UserSettingsModal
+            isOpen={showUserSettingsModal}
+            onClose={closeUserSettings}
+            defaultTab={userSettingsDefaultTab}
+          />
+        </Suspense>
         <SessionToast
           isVisible={showSessionWarning}
           message="You will be logged out in 5 minutes, click here to modify the session time"

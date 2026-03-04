@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSupabaseAuth } from '../context/SupabaseAuthContext';
-import { useTimeTracker } from '../context/TimeTrackerContext';
+import { useTimeTracker } from '../context/TimeTrackerContext-optimized';
 import ModalShell from './ModalShell';
 import '../styles/user-settings-modal.css';
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useTimeTracker } from '../context/TimeTrackerContext';
+import { useTimeTracker } from '../context/TimeTrackerContext-optimized';
 import ModalShell from './ModalShell';
 import AlertModal from './AlertModal';
 
