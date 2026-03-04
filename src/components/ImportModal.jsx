@@ -309,13 +309,12 @@ function ImportModal({ onClose }) {
       });
 
       const workbook = XLSX.read(data, { type: 'array', cellDates: false });
-
       const parsedData = [];
       const errors = [];
 
-      workbook.SheetNames.forEach((sheetName) => {
+      for (const sheetName of workbook.SheetNames) {
         if (sheetName.toLowerCase().includes('instruction')) {
-          return;
+          continue;
         }
 
         const worksheet = workbook.Sheets[sheetName];
@@ -323,7 +322,7 @@ function ImportModal({ onClose }) {
 
         if (jsonData.length < 2) {
           errors.push(`Sheet "${sheetName}": No data found`);
-          return;
+          continue;
         }
 
         const headers = jsonData[0];
@@ -336,7 +335,7 @@ function ImportModal({ onClose }) {
 
         if (dateCol === -1 || typeCol === -1) {
           errors.push(`Sheet "${sheetName}": Missing required columns (Date and Type)`);
-          return;
+          continue;
         }
 
         const dataRows = jsonData.slice(1).filter(row => {
@@ -345,7 +344,7 @@ function ImportModal({ onClose }) {
           return firstCell !== 'total' && firstCell !== '';
         });
 
-          // Process rows asynchronously
+        // Process rows asynchronously
         for (const [rowIndex, row] of dataRows.entries()) {
           try {
             const dateStr = await excelDateToString(row[dateCol]);
@@ -353,150 +352,115 @@ function ImportModal({ onClose }) {
             const checkOut = checkOutCol !== -1 ? excelTimeToString(row[checkOutCol]) : null;
             const type = typeCol !== -1 && row[typeCol] ? row[typeCol].toString().trim() : 'Regular';
 
-              let breakIntervals = [];
-              if (breakOutCol !== -1 && breakInCol !== -1) {
-                const breakOutValue = row[breakOutCol];
-                const breakInValue = row[breakInCol];
+            let breakIntervals = [];
+            if (breakOutCol !== -1 && breakInCol !== -1) {
+              const breakOutValue = row[breakOutCol];
+              const breakInValue = row[breakInCol];
 
-                if (breakOutValue && breakOutValue !== '-') {
-                  // For break times, we need to handle both single values and comma-separated values
-                  let breakOutTimes = [];
-                  let breakInTimes = [];
+              if (breakOutValue && breakOutValue !== '-') {
+                let breakOutTimes = [];
+                let breakInTimes = [];
 
-                  if (typeof breakOutValue === 'number') {
-                    // Single break out time as number
-                    const converted = excelTimeToString(breakOutValue);
-                    if (converted) breakOutTimes.push(converted);
-                  } else if (typeof breakOutValue === 'string') {
-                    // Multiple break out times as comma-separated string
-                    breakOutTimes = breakOutValue.split(',').map(t => excelTimeToString(t.trim())).filter(t => t);
-                  }
-
-                  if (breakInValue) {
-                    if (typeof breakInValue === 'number') {
-                      // Single break in time as number
-                      const converted = excelTimeToString(breakInValue);
-                      if (converted) breakInTimes.push(converted);
-                    } else if (typeof breakInValue === 'string') {
-                      // Multiple break in times as comma-separated string
-                      breakInTimes = breakInValue.split(',').map(t => excelTimeToString(t.trim())).filter(t => t);
-                    }
-                  }
-
-                  breakIntervals = breakOutTimes.map((out, i) => ({
-                    out: breakInTimes[i] || null,  // break IN time becomes interval.out (break end)
-                    in: out                        // break OUT time becomes interval.in (break start)
-                  }));
+                if (typeof breakOutValue === 'number') {
+                  const converted = excelTimeToString(breakOutValue);
+                  if (converted) breakOutTimes.push(converted);
+                } else if (typeof breakOutValue === 'string') {
+                  breakOutTimes = breakOutValue.split(',').map(t => excelTimeToString(t.trim())).filter(t => t);
                 }
-              }
 
-              const entry = {
-                date: dateStr,
-                type: type,
-                intervals: []
-              };
-
-              if (checkIn && checkOut) {
-                if (breakIntervals.length > 0) {
-                  // Original structure: [work, break, break, break...]
-                  entry.intervals.push({
-                    in: checkIn,
-                    out: checkOut
-                  });
-                  
-                  // Add all breaks after work
-                  breakIntervals.forEach((breakInterval, index) => {
-                    // Allow breaks with either in or out time, or both
-                    if (breakInterval.in || breakInterval.out) {
-                      entry.intervals.push({
-                        in: breakInterval.in || null,
-                        out: breakInterval.out || null
-                      });
-                    }
-                  });
-                } else {
-                  // No breaks, single work interval
-                  entry.intervals.push({
-                    in: checkIn,
-                    out: checkOut
-                  });
+                if (breakInValue) {
+                  if (typeof breakInValue === 'number') {
+                    const converted = excelTimeToString(breakInValue);
+                    if (converted) breakInTimes.push(converted);
+                  } else if (typeof breakInValue === 'string') {
+                    breakInTimes = breakInValue.split(',').map(t => excelTimeToString(t.trim())).filter(t => t);
+                  }
                 }
+
+                breakIntervals = breakOutTimes.map((out, i) => ({
+                  out: breakInTimes[i] || null,
+                  in: out
+                }));
               }
-
-              if (entry.type === 'Regular' && entry.intervals.length > 0) {
-                const hoursWorked = calculateHoursWorked 
-                  ? calculateHoursWorked(entry.intervals, dateStr)
-                  : 0;
-
-                const hoursSpentOutside = calculateHoursSpentOutside
-                  ? calculateHoursSpentOutside(entry.intervals)
-                  : 0;
-
-                const dayOfWeek = new Date(dateStr).getDay();
-                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-                const standardHours = isWeekend ? 0 : 9;
-                const extraHours = hoursWorked - standardHours;
-                const extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
-
-                entry.hoursWorked = hoursWorked;
-                entry.extraHours = extraHours;
-                entry.extraHoursWithFactor = extraHoursWithFactor;
-                entry.hoursSpentOutside = hoursSpentOutside;
-              } else {
-                entry.hoursWorked = 0;
-                entry.extraHours = 0;
-                entry.extraHoursWithFactor = 0;
-                entry.hoursSpentOutside = 0;
-              }
-
-              
-
-              parsedData.push({
-                sheetName,
-                entry
-              });
-            } catch (err) {
-              errors.push(`Sheet "${sheetName}", Row ${rowIndex + 2}: ${err.message}`);
             }
+
+            const entry = {
+              date: dateStr,
+              type: type,
+              intervals: []
+            };
+
+            if (checkIn && checkOut) {
+              if (breakIntervals.length > 0) {
+                entry.intervals.push({ in: checkIn, out: checkOut });
+                breakIntervals.forEach((breakInterval) => {
+                  if (breakInterval.in || breakInterval.out) {
+                    entry.intervals.push({
+                      in: breakInterval.in || null,
+                      out: breakInterval.out || null
+                    });
+                  }
+                });
+              } else {
+                entry.intervals.push({ in: checkIn, out: checkOut });
+              }
+            }
+
+            if (entry.type === 'Regular' && entry.intervals.length > 0) {
+              const hoursWorked = calculateHoursWorked ? calculateHoursWorked(entry.intervals, dateStr) : 0;
+              const hoursSpentOutside = calculateHoursSpentOutside ? calculateHoursSpentOutside(entry.intervals) : 0;
+              const dayOfWeek = new Date(dateStr).getDay();
+              const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+              const standardHours = isWeekend ? 0 : 9;
+              const extraHours = hoursWorked - standardHours;
+              const extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
+
+              entry.hoursWorked = hoursWorked;
+              entry.extraHours = extraHours;
+              entry.extraHoursWithFactor = extraHoursWithFactor;
+              entry.hoursSpentOutside = hoursSpentOutside;
+            } else {
+              entry.hoursWorked = 0;
+              entry.extraHours = 0;
+              entry.extraHoursWithFactor = 0;
+              entry.hoursSpentOutside = 0;
+            }
+
+            parsedData.push({ sheetName, entry });
+          } catch (err) {
+            errors.push(`Sheet "${sheetName}", Row ${rowIndex + 2}: ${err.message}`);
           }
-
-        setValidationErrors(errors);
-        setPreviewData(parsedData);
-        setIsProcessing(false);
-
-        // AUTO-SUGGEST PERIOD after parsing
-        if (parsedData.length > 0) {
-          const { start, end } = extractDateRange(parsedData);
-          const autoSuggestedPeriod = {
-            id: `period-${Date.now()}`,
-            label: formatPeriodLabel(start, end),
-            start,
-            end
-          };
-          setSelectedPeriod(autoSuggestedPeriod);
-          setPeriodOption('auto');
-          setCustomStartDate(start);
-          setCustomEndDate(end);
         }
-
-        if (errors.length > 0) {
-          setValidationErrors(errors);
-        }
-        
-        setIsProcessing(false);
-        
-      } catch (err) {
-        setConfirmModal({
-          isOpen: true,
-          title: 'Parse Error',
-          message: 'Failed to parse Excel file. Please check the file format and try again.',
-          type: 'danger',
-          confirmText: 'OK',
-          showCancel: false,
-          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
-        });
-        setIsProcessing(false);
       }
+
+      setValidationErrors(errors);
+      setPreviewData(parsedData);
+
+      if (parsedData.length > 0) {
+        const { start, end } = extractDateRange(parsedData);
+        setSelectedPeriod({
+          id: `period-${Date.now()}`,
+          label: formatPeriodLabel(start, end),
+          start,
+          end
+        });
+        setPeriodOption('auto');
+        setCustomStartDate(start);
+        setCustomEndDate(end);
+      }
+      
+      setIsProcessing(false);
+    } catch (err) {
+      setConfirmModal({
+        isOpen: true,
+        title: 'Parse Error',
+        message: 'Failed to parse Excel file. Please check the file format and try again.',
+        type: 'danger',
+        confirmText: 'OK',
+        showCancel: false,
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      });
+      setIsProcessing(false);
     }
   };
 
