@@ -163,6 +163,34 @@ export const TimeTrackerProvider = ({ children }) => {
     const timeString = now.toTimeString().split(' ')[0];
     
     try {
+      // Check if there's already an entry for today
+      const todayEntry = timeEntryContext.entries.find(e => e.date === today);
+      
+      if (todayEntry) {
+        // Check if there's already an active check-in (interval without out time)
+        const hasActiveCheckIn = todayEntry.intervals && 
+          todayEntry.intervals.length > 0 && 
+          todayEntry.intervals.some(interval => interval.in && !interval.out);
+        
+        if (hasActiveCheckIn) {
+          showAlert('You are already checked in!', 'warning');
+          return;
+        }
+        
+        // If there's an entry but no active check-in, add new interval
+        const updatedEntry = { ...todayEntry };
+        updatedEntry.intervals = [...updatedEntry.intervals, { in: timeString, out: null }];
+        updatedEntry.lastModified = now.toISOString();
+        
+        // Update entries
+        const updatedEntries = [updatedEntry, ...timeEntryContext.entries.filter(e => e.date !== today)];
+        timeEntryContext.setEntries(updatedEntries);
+        
+        showAlert('Successfully checked in!', 'success');
+        return;
+      }
+      
+      // No entry exists for today, create new one
       const newEntry = {
         date: today,
         intervals: [{ in: timeString, out: null }],

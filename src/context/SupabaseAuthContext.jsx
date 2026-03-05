@@ -199,7 +199,6 @@ export const SupabaseAuthProvider = ({ children }) => {
 
   // Initialize auth state on mount
   useEffect(() => {
-    // Get initial session
     const getInitialSession = async () => {
       // Fail-safe timeout: Ensure loading state is cleared even if Supabase/network hangs
       const failSafeTimeout = setTimeout(() => {
@@ -210,7 +209,7 @@ export const SupabaseAuthProvider = ({ children }) => {
           }
           return prev;
         });
-      }, 5000); // Reduced to 5 seconds
+      }, 1000); // Reduced to 1 second for instant loading
 
       try {
         // Check for remember me state first
@@ -238,7 +237,7 @@ export const SupabaseAuthProvider = ({ children }) => {
         // Try Supabase with timeout
         try {
           const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Supabase timeout')), 3000); // Reduced to 3 seconds
+            setTimeout(() => reject(new Error('Supabase timeout')), 500); // Reduced to 0.5 seconds
           });
 
           const sessionPromise = supabase.auth.getSession();
@@ -249,7 +248,7 @@ export const SupabaseAuthProvider = ({ children }) => {
           sessionError = timeoutError;
         }
 
-        if (sessionError || !sessionData?.session) {
+      if (sessionError || !sessionData?.session) {
           // Try multiple fallback strategies
           
           // Strategy 1: If offline and we have cached user/profile, use them

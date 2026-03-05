@@ -50,10 +50,21 @@ function Dashboard() {
     const periodStart = currentPeriod.start_date || currentPeriod.start;
     const periodEnd = currentPeriod.end_date || currentPeriod.end;
     
-    return entries.filter(e => 
-      e.date >= periodStart && e.date <= periodEnd
-    );
+    return entries.filter(entry => {
+      const entryDate = new Date(entry.date);
+      return entryDate >= new Date(periodStart) && entryDate <= new Date(periodEnd);
+    });
   }, [entries, currentPeriod]);
+
+  // Check if user is already checked in
+  const isCheckedIn = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const todayEntry = entries.find(e => e.date === today);
+    
+    if (!todayEntry || !todayEntry.intervals) return false;
+    
+    return todayEntry.intervals.some(interval => interval.in && !interval.out);
+  }, [entries]);
 
   // ✅ Memoize leave statistics
   const leaveStats = useMemo(() => {
@@ -223,10 +234,16 @@ function Dashboard() {
 
       {/* Quick Actions */}
       <div className="quick-actions">
-        <button className="btn btn-primary" onClick={() => {
-          hapticFeedback.checkIn();
-          checkIn();
-        }}>Check In</button>
+        <button 
+          className={`btn btn-primary ${isCheckedIn ? 'disabled' : ''}`}
+          onClick={() => {
+            if (!isCheckedIn) {
+              hapticFeedback.checkIn();
+              checkIn();
+            }
+          }}
+          disabled={isCheckedIn}
+        >Check In</button>
         <button className="btn btn-primary" onClick={() => {
           hapticFeedback.checkOut();
           checkOut();

@@ -2,13 +2,16 @@ import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useTimeTracker } from './context/TimeTrackerContext-optimized';
 import { useSupabaseAuth } from './context/SupabaseAuthContext';
+import { useInstantData } from './hooks/useInstantData';
 import { backgroundSync } from './utils/backgroundSync';
 import { supabaseData } from './utils/supabaseData';
+// import { swManager } from './utils/serviceWorkerManager';
 import Header from './components/Header';
 import AppLoading from './components/AppLoading';
 import AutoSaveIndicator from './components/AutoSaveIndicator';
 import RefreshIndicator from './components/RefreshIndicator';
 import ConfirmModal from './components/ConfirmModal';
+import NetworkStatus from './components/NetworkStatus';
 import './styles/app-transitions.css';
 import './styles/fixed-header.css';
 
@@ -33,6 +36,7 @@ function App() {
   const swipeTimeoutRef = useRef(null);
   const { lastSaved, lastRefreshed, entries, theme, setEntries, setLastRefreshed, setRefreshing } = useTimeTracker();
   const { currentUser, isAuthenticated, getUserData, saveUserData, isAppLoading, isLoading: authLoading } = useSupabaseAuth();
+  const { data: instantData, cacheStatus, forceRefresh, isOnline } = useInstantData();
   const [refreshing, setRefreshingState] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
@@ -297,12 +301,28 @@ function App() {
     return mergedEntries;
   };
 
-  // Enhanced refresh data function with offline sync
+  // Enhanced refresh data function with offline sync and instant cache
   const refreshData = useCallback(async () => {
     if (!currentUser || !isAuthenticated) return;
 
     try {
       setRefreshing(true);
+      
+      // Use instant data refresh if available
+      if (instantData.timeEntries.length > 0 || !navigator.onLine) {
+        // If we have cached data or are offline, use instant refresh
+        await forceRefresh();
+        setEntries(instantData.timeEntries || []);
+        setLastRefreshed(new Date().toISOString());
+        return {
+          success: true,
+          entriesCount: instantData.timeEntries?.length || 0,
+          isOnline: navigator.onLine,
+          fromCache: true
+        };
+      }
+
+      // Original refresh logic for online with no cache
       const currentEntries = [...entries];
       await backgroundSync.forceSync();
       const syncStatus = backgroundSync.getStatus();
@@ -344,7 +364,6 @@ function App() {
       const mergedEntries = mergeEntries(currentEntries, validatedLoadedEntries);
 
       // Additional merge logic to handle deleted entries
-      // If an entry exists in currentEntries but not in Supabase data, remove it
       if (currentUser && !currentUser.isLocalOnly && syncStatus.isOnline) {
         try {
           const freshSupabaseEntries = await supabaseData.getTimeEntries(currentUser.id);
@@ -375,7 +394,8 @@ function App() {
         success: true,
         entriesCount: mergedEntries.length,
         syncStatus,
-        isOnline: syncStatus.isOnline
+        isOnline: syncStatus.isOnline,
+        fromCache: false
       };
     } catch (error) {
       
@@ -383,10 +403,13 @@ function App() {
     } finally {
       setRefreshing(false);
     }
-  }, [currentUser, isAuthenticated, entries, getUserData, setEntries, setLastRefreshed, setRefreshing, saveUserData]);
+  }, [currentUser, isAuthenticated, entries, instantData, getUserData, setEntries, setLastRefreshed, setRefreshing, saveUserData, forceRefresh]);
 
   // ✅ ALL EFFECTS ARE NOW AT TOP LEVEL
   useEffect(() => {
+    // Service Worker is handled by Vite PWA plugin
+    // Custom registration disabled to avoid conflicts
+    
     const initTimer = setTimeout(() => {
       backgroundSync.init().catch(error => {
         
@@ -548,6 +571,7 @@ function App() {
 
               <AutoSaveIndicator lastSaved={lastSaved} />
               <RefreshIndicator lastRefreshed={lastRefreshed} />
+              <NetworkStatus />
 
               {/* Scroll to Top Button - Completely outside all containers */}
               {(showScrollTop || isHidingScrollTop) && (
