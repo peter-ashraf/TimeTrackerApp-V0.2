@@ -12,9 +12,9 @@ const AppLoading = () => {
           </div>
           
           <div className="loading-animation">
-            <div className="loading-spinner">
+            {/* <div className="loading-spinner">
               <div className="spinner-ring"></div>
-            </div>
+            </div> */}
             <div className="loading-text">
               <h2>Loading your workspace...</h2>
               <div className="loading-steps">

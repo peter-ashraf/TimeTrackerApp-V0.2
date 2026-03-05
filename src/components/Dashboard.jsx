@@ -29,7 +29,7 @@ function Dashboard() {
   const [vacationModalType, setVacationModalType] = useState(null);
 
   // Temporary delay to test skeleton loading
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Set to true to show skeleton initially
   
   React.useEffect(() => {
     const timer = setTimeout(() => {

@@ -3,7 +3,7 @@ import '../styles/dashboard-skeleton.css';
 
 function DashboardSkeleton() {
   return (
-    <main className="main-content">
+    <div className="dashboard-skeleton-container">
       <h1>Dashboard</h1>
 
       {/* Employee Info Card Skeleton */}
@@ -59,7 +59,7 @@ function DashboardSkeleton() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 

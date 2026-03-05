@@ -1,5 +1,7 @@
 /* Dashboard Skeleton Loading Styles */
-
+.dashboard-skeleton-container {
+  padding: var(--space-20);
+}
 /* Base skeleton styles */
 .skeleton-card {
   background: var(--color-surface);
