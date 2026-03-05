@@ -140,8 +140,8 @@ function Settings() {
     periods,
     currentPeriodId,
     hideSalary,
-    updateEmployee,
-    updateLeaveSettings,
+    setEmployee,
+    setLeaveSettings,
     clearAllData,
     confirmModal,
     setConfirmModal,
@@ -308,8 +308,8 @@ function Settings() {
     if (!hideSalary) {
       employeeData.salary = parsedSalary;
     }
-    updateEmployee(employeeData);
-    updateLeaveSettings({ annualVacation: parsedVacation, sickDays: parsedSickDays });
+    setEmployee(employeeData);
+    setLeaveSettings({ annualVacation: parsedVacation, sickDays: parsedSickDays });
 
     // ✅ NEW: Save display name to localStorage when name changes
     if (nameChanged && name.trim()) {
