@@ -1,0 +1,258 @@
+/* Dashboard Skeleton Loading Styles */
+
+/* Base skeleton styles */
+.skeleton-card {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--color-border);
+}
+
+/* Employee Card Skeleton */
+.employee-card-skeleton {
+  min-height: 200px;
+}
+
+.skeleton-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.skeleton-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--color-secondary);
+}
+
+.skeleton-title {
+  height: 24px;
+  width: 200px;
+  border-radius: 4px;
+  background: var(--color-secondary);
+}
+
+.skeleton-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.skeleton-line {
+  height: 20px;
+  border-radius: 4px;
+  background: var(--color-secondary);
+}
+
+.skeleton-line:nth-child(1) { width: 60%; }
+.skeleton-line:nth-child(2) { width: 80%; }
+.skeleton-line:nth-child(3) { width: 70%; }
+
+/* Button Skeletons */
+.manual-time-actions {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.manual-time-actions .skeleton-button {
+  height: 44px;
+
+  border-radius: 8px;
+  background: var(--color-secondary);
+}
+
+.quick-actions {
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.quick-actions .skeleton-button {
+  height: 48px;
+  
+  border-radius: 8px;
+  background: var(--color-secondary);
+}
+
+.quick-actions .skeleton-button.primary {
+  background: var(--color-primary);
+}
+
+.quick-actions .skeleton-button.secondary {
+  background: var(--color-secondary);
+}
+
+.quick-actions .skeleton-button.outline {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+/* Vacation Cards Skeleton */
+.vacation-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.vacation-card-skeleton {
+  min-height: 150px;
+}
+
+.vacation-top-section {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  
+}
+
+.vacation-top-section.double-stat {
+  grid-template-columns: 1fr 1fr;
+  justify-items: center;
+}
+
+.skeleton-stat {
+  height: 60px;
+  width: 100px;
+  border-radius: 8px;
+  background: var(--color-secondary);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.skeleton-balance {
+  height: 40px;
+  width: 100%;
+  border-radius: 8px;
+  background: var(--color-secondary);
+}
+
+/* Shimmer Animation */
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: linear-gradient(90deg, #ddd 0px, #e8e8e8 40px, #ddd 80px);
+  background-size: 200px 100%;
+  animation: shine-lines 1.8s infinite linear;
+}
+
+/* Avatar-specific animation */
+.skeleton-avatar.skeleton-shimmer::after {
+  animation: shine-avatar 1.8s infinite linear;
+}
+
+/* Dark theme shimmer */
+[data-theme="dark"] .skeleton-shimmer::after {
+  background-image: linear-gradient(90deg, #333 0px, #444 40px, #333 80px);
+}
+
+@keyframes shine-lines {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: 200px 0;
+  }
+}
+
+@keyframes shine-avatar {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: 200px 0;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .skeleton-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .skeleton-title {
+    width: 150px;
+  }
+  
+  .manual-time-actions {
+    justify-content: center;
+  }
+  
+  .manual-time-actions .skeleton-button {
+    flex: 1;
+    min-width: 100px;
+  }
+  
+  .quick-actions {
+    justify-content: center;
+  }
+  
+  .quick-actions .skeleton-button {
+    flex: 1;
+    min-width: 80px;
+  }
+  
+  .vacation-cards {
+    grid-template-columns: 1fr;
+  }
+  
+  .vacation-top-section {
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  
+  .skeleton-stat {
+    
+    height: 50px;
+  }
+}
+
+@media (max-width: 480px) {
+  .skeleton-card {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .skeleton-title {
+    width: 120px;
+  }
+  
+  .quick-actions .skeleton-button {
+    height: 44px;
+
+  }
+  
+  .skeleton-stat {
+    
+    height: 45px;
+  }
+}
+
+/* Performance optimization */
+.skeleton-shimmer {
+  will-change: transform;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer::after {
+    animation: none;
+  }
+}

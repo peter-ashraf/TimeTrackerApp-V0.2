@@ -303,8 +303,22 @@ export const TimeTrackerProvider = ({ children }) => {
     
     const lastBackup = localStorage.getItem('lastBackupDate');
     const dismissedReminder = localStorage.getItem('dismissedBackupReminder');
+    const reminderDate = localStorage.getItem('backupReminderDate');
     
     if (dismissedReminder === 'true') return;
+    
+    // If there's a reminder date set, check if it's time to show the modal again
+    if (reminderDate) {
+      const today = new Date();
+      const reminderDateTime = new Date(reminderDate);
+      
+      if (today >= reminderDateTime) {
+        // Clear the reminder date and show the modal
+        localStorage.removeItem('backupReminderDate');
+        setShowBackupReminder(true);
+      }
+      return;
+    }
     
     const today = new Date();
     
@@ -447,7 +461,11 @@ export const TimeTrackerProvider = ({ children }) => {
     showAlert('Backup completed successfully!', 'success');
   }, [showAlert]);
 
-  const handleBackupLater = useCallback(() => {
+  const handleBackupLater = useCallback((days) => {
+    // Set a reminder date for when to show the modal again
+    const reminderDate = new Date();
+    reminderDate.setDate(reminderDate.getDate() + days);
+    localStorage.setItem('backupReminderDate', reminderDate.toISOString());
     setShowBackupReminder(false);
   }, []);
 

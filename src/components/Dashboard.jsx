@@ -6,6 +6,7 @@ import AddBreakModal from './AddBreakModal';
 import AddDayModal from './AddDayModal';
 import ViewHoursModal from './ViewHoursModal';
 import VacationDetailsModal from './VacationDetailsModal';
+import DashboardSkeleton from './DashboardSkeleton';
 
 function Dashboard() {
   const {
@@ -26,6 +27,17 @@ function Dashboard() {
   const [showAddDay, setShowAddDay] = useState(false);
   const [showViewHours, setShowViewHours] = useState(false);
   const [vacationModalType, setVacationModalType] = useState(null);
+
+  // Temporary delay to test skeleton loading
+  const [isLoading, setIsLoading] = useState(true);
+  
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000); // 2 seconds
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   const currentPeriod = useMemo(() => {
     return getCurrentPeriod();
@@ -72,7 +84,6 @@ function Dashboard() {
   // Destructure for use in JSX
   const { vacationTaken, toBeAdded, sickUsed, vacationBalance, sickBalance } = leaveStats;
 
-
   // Calculate overtime
   const overtimeDetails = useMemo(() => {
     if (!calculateOvertimeDetails || !currentPeriod) {
@@ -98,7 +109,11 @@ function Dashboard() {
     return { overtimeMoney, totalSalary };
   }, [employee.salary, overtime]);
 
-const { overtimeMoney, totalSalary } = salaryData;
+  const { overtimeMoney, totalSalary } = salaryData;
+  
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <main className="main-content">

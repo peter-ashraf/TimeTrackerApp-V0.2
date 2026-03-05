@@ -11,10 +11,10 @@ import RefreshIndicator from './components/RefreshIndicator';
 import ConfirmModal from './components/ConfirmModal';
 import './styles/app-transitions.css';
 import './styles/fixed-header.css';
-import './styles/route-loading.css';
 
 // Lazy load major view components
 const Dashboard = React.lazy(() => import('./components/Dashboard'));
+import DashboardSkeleton from './components/DashboardSkeleton';
 const Timesheet = React.lazy(() => import('./components/Timesheet'));
 const Settings = React.lazy(() => import('./components/Settings'));
 const LoginScreen = React.lazy(() => import('./components/LoginScreen'));
@@ -475,14 +475,7 @@ function App() {
   return (
     <Routes>
       <Route path="/reset-password" element={
-        <Suspense fallback={
-          <div className="route-loading">
-            <div className="loading-spinner">
-              <div className="spinner"></div>
-              <p>Loading reset page...</p>
-            </div>
-          </div>
-        }>
+        <Suspense fallback={<div>Loading reset page...</div>}>
           <PasswordResetPage />
         </Suspense>
       } />
@@ -490,14 +483,7 @@ function App() {
         isAuthenticated ? (
           <Navigate to="/" replace />
         ) : (
-          <Suspense fallback={
-            <div className="route-loading">
-              <div className="loading-spinner">
-                <div className="spinner"></div>
-                <p>Loading login...</p>
-              </div>
-            </div>
-          }>
+          <Suspense fallback={<div>Loading login...</div>}>
             <LoginScreen />
           </Suspense>
         )
@@ -543,38 +529,17 @@ function App() {
                   WebkitOverflowScrolling: 'touch'
                 }}
               >
-                <Suspense fallback={
-                  <div className="route-loading">
-                    <div className="loading-spinner">
-                      <div className="spinner"></div>
-                      <p>Loading dashboard...</p>
-                    </div>
-                  </div>
-                }>
+                <Suspense fallback={<DashboardSkeleton />}>
                   <div className={`view-container dashboard-container ${currentView === 'dashboard' ? 'active' : ''}`} data-scrollable>
                     <Dashboard />
                   </div>
                 </Suspense>
-                <Suspense fallback={
-                  <div className="route-loading">
-                    <div className="loading-spinner">
-                      <div className="spinner"></div>
-                      <p>Loading timesheet...</p>
-                    </div>
-                  </div>
-                }>
+                <Suspense fallback={<div>Loading timesheet...</div>}>
                   <div className={`view-container timesheet-container ${currentView === 'timesheet' ? 'active' : ''}`} data-scrollable>
                     <Timesheet />
                   </div>
                 </Suspense>
-                <Suspense fallback={
-                  <div className="route-loading">
-                    <div className="loading-spinner">
-                      <div className="spinner"></div>
-                      <p>Loading settings...</p>
-                    </div>
-                  </div>
-                }>
+                <Suspense fallback={<div>Loading settings...</div>}>
                   <div className={`view-container settings-container ${currentView === 'settings' ? 'active' : ''}`} data-scrollable>
                     <Settings />
                   </div>

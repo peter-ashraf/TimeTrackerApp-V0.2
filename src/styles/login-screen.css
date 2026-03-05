@@ -130,6 +130,10 @@
   animation: slideInUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .login-header {
@@ -444,18 +448,33 @@
 }
 
 .loading-spinner {
-  text-align: center;
-  color: white;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  text-align: center !important;
+  color: white !important;
+  min-height: 200px !important;
+  width: 100% !important;
+  position: relative !important;
 }
 
 .spinner {
-  width: 3rem;
-  height: 3rem;
-  border: 3px solid rgba(255, 255, 255, 0.3);
-  border-top: 3px solid white;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 1rem;
+  width: 3rem !important;
+  height: 3rem !important;
+  border: 3px solid rgba(255, 255, 255, 0.3) !important;
+  border-top: 3px solid white !important;
+  border-radius: 50% !important;
+  animation: spin 1s linear infinite !important;
+  margin: 0 auto 1rem !important;
+}
+
+.loading-spinner p {
+  margin: 0 !important;
+  font-size: 1rem !important;
+  font-weight: 500 !important;
+  opacity: 0.9 !important;
+  letter-spacing: 0.5px !important;
 }
 
 .forgot-password {
@@ -690,6 +709,12 @@
   .login-container {
     padding: 2rem;
     margin: 0.5rem;
+    min-height: auto;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
   }
 
   .app-icon {
