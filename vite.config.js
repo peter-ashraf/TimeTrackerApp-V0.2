@@ -42,7 +42,7 @@ export default defineConfig({
     },
     VitePWA({
       registerType: 'autoUpdate',
-      strategies: 'networkFirst',
+      strategies: 'StaleWhileRevalidate',
       // Let Vite PWA generate the service worker
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {

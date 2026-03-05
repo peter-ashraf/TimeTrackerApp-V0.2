@@ -14,7 +14,8 @@ function BackupReminderModal({ isOpen, onExport, onRemindLater, onDismiss, onClo
   };
 
   return (
-    <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="backup-reminder-modal">
+    <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="backup-reminder-modal" overlayClassName="backup-reminder-overlay">
+      <div className="backup-reminder-modal-content">
       <div className="backup-icon">💾</div>
       <h3>Time to Back Up Your Data!</h3>
       <p className="backup-message">
@@ -70,6 +71,7 @@ function BackupReminderModal({ isOpen, onExport, onRemindLater, onDismiss, onClo
           <span>📤</span> Export Now
         </button>
       </div>
+    </div>
     </ModalShell>
   );
 }

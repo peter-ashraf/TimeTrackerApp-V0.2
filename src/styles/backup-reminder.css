@@ -4,6 +4,29 @@
   padding: 1rem;
 }
 
+.backup-reminder-modal-content {
+  position: relative;
+  z-index: 10001; /* Higher than header (1000) and other modals (2000) */
+  margin-top: 60px; /* Add space for fixed header */
+}
+
+/* Backup reminder overlay with highest z-index */
+.backup-reminder-overlay {
+  z-index: 10002 !important; /* Highest priority to appear above everything */
+}
+
+/* Force modal overlay to be on top for backup reminder */
+.modal-overlay:has(.backup-reminder-modal),
+.modal-overlay .backup-reminder-modal {
+  z-index: 10001 !important;
+}
+
+/* More specific selector to override base modal styles */
+div.modal-overlay div.backup-reminder-modal {
+  z-index: 10001 !important;
+  position: relative !important;
+}
+
 .backup-icon {
   font-size: 4rem;
   margin-bottom: 1rem;

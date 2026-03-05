@@ -342,72 +342,82 @@ export const TimeTrackerProvider = ({ children }) => {
     if (needsMigration) {
       migrationRef.current = true;
       
-      const migratedEntries = timeEntryContext.entries.map(entry => {
-        if (
-          entry.hoursWorked !== undefined && 
-          entry.extraHours !== undefined &&
-          entry.hoursSpentOutside !== undefined
-        ) {
-          return entry;
-        }
+      // Defer heavy migration calculations to improve startup performance
+      const runMigration = () => {
+        const migratedEntries = timeEntryContext.entries.map(entry => {
+          if (
+            entry.hoursWorked !== undefined && 
+            entry.extraHours !== undefined &&
+            entry.hoursSpentOutside !== undefined
+          ) {
+            return entry;
+          }
+          
+          const hoursWorked = calculateHoursWorked(entry.intervals, entry.date);
+          const dayOfWeek = new Date(entry.date).getDay();
+          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+          const isSpecialDay = entry.type === 'Holiday' || entry.type === 'Vacation';
+          const useDoubleFactor = isWeekend || isSpecialDay;
+          
+          const isHalfDaySpecial = (entry.duration === 0.5) &&
+            (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
+          
+          const isFullDaySpecial = (entry.duration === 1) &&
+            (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
+          
+          let extraHours = 0;
+          let extraHoursWithFactor = 0;
+          
+          if (isFullDaySpecial) {
+            extraHours = 0;
+            extraHoursWithFactor = 0;
+          } else if (isHalfDaySpecial) {
+            const halfDayBaseline = 4.5;
+            extraHours = hoursWorked - halfDayBaseline;
+            extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
+          } else if (entry.doubleHours) {
+            extraHours = hoursWorked;
+            extraHoursWithFactor = hoursWorked * 2;
+          } else if (useDoubleFactor && entry.type !== 'Regular') {
+            extraHours = hoursWorked;
+            extraHoursWithFactor = hoursWorked * 2;
+          } else {
+            const standardHours = isWeekend ? 0 : 9;
+            extraHours = hoursWorked - standardHours;
+            const factor = useDoubleFactor ? 2 : 1.5;
+            extraHoursWithFactor = extraHours > 0 ? extraHours * factor : extraHours;
+          }
+          
+          const hoursSpentOutside = calculateHoursSpentOutside(entry.intervals);
+          
+          return {
+            id: entry.id,
+            date: entry.date,
+            intervals: entry.intervals,
+            type: entry.type,
+            duration: entry.duration,
+            doubleHours: entry.doubleHours,
+            notes: entry.notes,
+            hoursWorked,
+            extraHours,
+            extraHoursWithFactor,
+            hoursSpentOutside
+          };
+        });
         
-        const hoursWorked = calculateHoursWorked(entry.intervals, entry.date);
-        const dayOfWeek = new Date(entry.date).getDay();
-        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-        const isSpecialDay = entry.type === 'Holiday' || entry.type === 'Vacation';
-        const useDoubleFactor = isWeekend || isSpecialDay;
+        timeEntryContext.setEntries(migratedEntries);
         
-        const isHalfDaySpecial = (entry.duration === 0.5) &&
-          (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
-        
-        const isFullDaySpecial = (entry.duration === 1) &&
-          (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
-        
-        let extraHours = 0;
-        let extraHoursWithFactor = 0;
-        
-        if (isFullDaySpecial) {
-          extraHours = 0;
-          extraHoursWithFactor = 0;
-        } else if (isHalfDaySpecial) {
-          const halfDayBaseline = 4.5;
-          extraHours = hoursWorked - halfDayBaseline;
-          extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
-        } else if (entry.doubleHours) {
-          extraHours = hoursWorked;
-          extraHoursWithFactor = hoursWorked * 2;
-        } else if (useDoubleFactor && entry.type !== 'Regular') {
-          extraHours = hoursWorked;
-          extraHoursWithFactor = hoursWorked * 2;
-        } else {
-          const standardHours = isWeekend ? 0 : 9;
-          extraHours = hoursWorked - standardHours;
-          const factor = useDoubleFactor ? 2 : 1.5;
-          extraHoursWithFactor = extraHours > 0 ? extraHours * factor : extraHours;
-        }
-        
-        const hoursSpentOutside = calculateHoursSpentOutside(entry.intervals);
-        
-        return {
-          id: entry.id,
-          date: entry.date,
-          intervals: entry.intervals,
-          type: entry.type,
-          duration: entry.duration,
-          doubleHours: entry.doubleHours,
-          notes: entry.notes,
-          hoursWorked,
-          extraHours,
-          extraHoursWithFactor,
-          hoursSpentOutside
-        };
-      });
-      
-      timeEntryContext.setEntries(migratedEntries);
-      
-      setTimeout(() => {
-        migrationRef.current = false;
-      }, 100);
+        setTimeout(() => {
+          migrationRef.current = false;
+        }, 100);
+      };
+
+      // Use requestIdleCallback or fallback to setTimeout for better startup performance
+      if (window.requestIdleCallback) {
+        window.requestIdleCallback(runMigration, { timeout: 2000 });
+      } else {
+        setTimeout(runMigration, 0);
+      }
     }
   }, [timeEntryContext.entries.length, currentUser, isContextReady, calculateHoursWorked, calculateHoursSpentOutside]);
 
@@ -450,98 +460,180 @@ export const TimeTrackerProvider = ({ children }) => {
     setShowBackupReminder(false);
   }, []);
 
-  // Combine all context values
-  const contextValue = useMemo(() => ({
-    // From TimeEntryContext
-    ...timeEntryContext,
-    
-    // From UserPreferencesContext
-    ...userPreferencesContext,
-    
-    // From PayPeriodContext
-    ...payPeriodContext,
-    
-    // TimeTracker specific functionality
-    checkIn,
-    checkOut,
-    calculateOvertimeDetails,
-    calculateHoursWorked,
-    calculateHoursSpentOutside,
-    timeToSeconds,
-    secondsToTime,
-    secondsToHours,
-    formatTimeDisplay,
-    
-    // State management
-    isContextReady,
-    showAlert,
-    
-    // Modal state
-    confirmModal,
-    setConfirmModal,
-    alertModal,
-    setAlertModal,
-    showBackupReminder,
-    setShowBackupReminder,
-    
-    // Backup handlers
-    handleBackupNow,
-    handleBackupLater,
-    handleDismissBackup,
-    handleCloseBackup
-  }), [
-    timeEntryContext,
-    userPreferencesContext,
-    payPeriodContext,
-    checkIn,
-    checkOut,
-    calculateOvertimeDetails,
-    calculateHoursWorked,
-    calculateHoursSpentOutside,
-    timeToSeconds,
-    secondsToTime,
-    secondsToHours,
-    formatTimeDisplay,
-    isContextReady,
-    showAlert,
-    confirmModal,
-    alertModal,
-    showBackupReminder,
-    handleBackupNow,
-    handleBackupLater,
-    handleDismissBackup,
-    handleCloseBackup
-  ]);
+  const recalculateEntryFields = useCallback((entry) => {
+      if (!entry.intervals || entry.intervals.length === 0) {
+        return {
+          ...entry,
+          hoursWorked: 0,
+          extraHours: 0,
+          extraHoursWithFactor: 0,
+          hoursSpentOutside: 0
+        };
+      }
+      
+      const hoursWorked = calculateHoursWorked(entry.intervals, entry.date);
+      const dayOfWeek = new Date(entry.date).getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const isSpecialDay = entry.type === 'Holiday' || entry.type === 'Vacation';
+      const useDoubleFactor = isWeekend || isSpecialDay;
+      
+      const isHalfDaySpecial = (entry.duration === 0.5) &&
+        (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
+      
+      const isFullDaySpecial = (entry.duration === 1) &&
+        (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
+      
+      let extraHours = 0;
+      let extraHoursWithFactor = 0;
+      
+      if (isFullDaySpecial) {
+        extraHours = 0;
+        extraHoursWithFactor = 0;
+      } else if (isHalfDaySpecial) {
+        const halfDayBaseline = 4.5;
+        extraHours = hoursWorked - halfDayBaseline;
+        extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
+      } else if (entry.doubleHours) {
+        extraHours = hoursWorked;
+        extraHoursWithFactor = hoursWorked * 2;
+      } else if (useDoubleFactor && entry.type !== 'Regular') {
+        extraHours = hoursWorked;
+        extraHoursWithFactor = hoursWorked * 2;
+      } else {
+        const standardHours = isWeekend ? 0 : 9;
+        extraHours = hoursWorked - standardHours;
+        const factor = useDoubleFactor ? 2 : 1.5;
+        extraHoursWithFactor = extraHours > 0 ? extraHours * factor : extraHours;
+      }
+      
+      const hoursSpentOutside = calculateHoursSpentOutside(entry.intervals);
+      
+      return {
+        ...entry,
+        hoursWorked,
+        extraHours,
+        extraHoursWithFactor,
+        hoursSpentOutside
+      };
+    }, [calculateHoursWorked, calculateHoursSpentOutside]);
+  
+    const updateEntry = useCallback((date, updates) => {
+      let changedEntry = null;
+      const updatedEntries = timeEntryContext.entries.map(entry => {
+        if (entry.date === date) {
+          const updatedEntry = {
+            ...entry,
+            ...updates
+          };
+          changedEntry = recalculateEntryFields(updatedEntry);
+          return changedEntry;
+        }
+        return entry;
+      });
+      
+      timeEntryContext.setEntries(updatedEntries);
+      
+      // Pass only the single delta entry to the upload flow
+      if (changedEntry) {
+        timeEntryContext.saveTimeEntriesData(changedEntry);
+      }
+    }, [timeEntryContext, recalculateEntryFields]);
+  
+    // Combine all context values
+    const contextValue = useMemo(() => ({
+      // From TimeEntryContext
+      ...timeEntryContext,
+      
+      // From UserPreferencesContext
+      ...userPreferencesContext,
+      
+      // From PayPeriodContext
+      ...payPeriodContext,
+      
+      // TimeTracker specific functionality
 
-  return (
-    <TimeTrackerContext.Provider value={contextValue}>
-      {children}
-      <ConfirmModal
-        isOpen={confirmModal.isOpen}
-        title={confirmModal.title}
-        message={confirmModal.message}
-        type={confirmModal.type}
-        confirmText={confirmModal.confirmText || 'Confirm'}
-        cancelText={confirmModal.cancelText || 'Cancel'}
-        showCancel={confirmModal.showCancel !== false}
-        onConfirm={confirmModal.onConfirm}
-        onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
-      />
-      <Suspense fallback={<div className="modal-loading-overlay">Loading...</div>}>
-        <BackupReminderModal
-          isOpen={showBackupReminder}
-          onExport={handleBackupNow}
-          onRemindLater={handleBackupLater}
-          onDismiss={handleDismissBackup}
-          onClose={handleCloseBackup}
+      checkIn,
+      checkOut,
+      updateEntry,
+      calculateOvertimeDetails,
+      calculateHoursWorked,
+      calculateHoursSpentOutside,
+      timeToSeconds,
+      secondsToTime,
+      secondsToHours,
+      formatTimeDisplay,
+      
+      // State management
+      isContextReady,
+      showAlert,
+      
+      // Modal state
+      confirmModal,
+      setConfirmModal,
+      alertModal,
+      setAlertModal,
+      showBackupReminder,
+      setShowBackupReminder,
+      
+      // Backup handlers
+      handleBackupNow,
+      handleBackupLater,
+      handleDismissBackup,
+      handleCloseBackup
+    }), [
+      timeEntryContext,
+      userPreferencesContext,
+      payPeriodContext,
+      checkIn,
+      checkOut,
+      updateEntry,
+      calculateOvertimeDetails,
+      calculateHoursWorked,
+      calculateHoursSpentOutside,
+      timeToSeconds,
+      secondsToTime,
+      secondsToHours,
+      formatTimeDisplay,
+      isContextReady,
+      showAlert,
+      confirmModal,
+      alertModal,
+      showBackupReminder,
+      handleBackupNow,
+      handleBackupLater,
+      handleDismissBackup,
+      handleCloseBackup
+    ]);
+  
+    return (
+      <TimeTrackerContext.Provider value={contextValue}>
+        {children}
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          type={confirmModal.type}
+          confirmText={confirmModal.confirmText || 'Confirm'}
+          cancelText={confirmModal.cancelText || 'Cancel'}
+          showCancel={confirmModal.showCancel !== false}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
         />
-      </Suspense>
-      <AlertModal
-        isOpen={alertModal.isOpen}
-        message={alertModal.message}
-        type={alertModal.type}
-        onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
-      />
-    </TimeTrackerContext.Provider>
-  );
-};
+        <Suspense fallback={<div className="modal-loading-overlay">Loading...</div>}>
+          <BackupReminderModal
+            isOpen={showBackupReminder}
+            onExport={handleBackupNow}
+            onRemindLater={handleBackupLater}
+            onDismiss={handleDismissBackup}
+            onClose={handleCloseBackup}
+          />
+        </Suspense>
+        <AlertModal
+          isOpen={alertModal.isOpen}
+          message={alertModal.message}
+          type={alertModal.type}
+          onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
+        />
+      </TimeTrackerContext.Provider>
+    );
+  };

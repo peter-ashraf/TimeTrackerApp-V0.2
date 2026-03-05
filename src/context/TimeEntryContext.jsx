@@ -49,7 +49,7 @@ export const TimeEntryProvider = ({ children }) => {
   }, []);
 
   // Save time entries data
-  const saveTimeEntriesData = useCallback(async (entries) => {
+  const saveTimeEntriesData = useCallback(async (entriesToSave) => {
     if (!currentUser) return;
 
     let retryCount = 0;
@@ -59,17 +59,27 @@ export const TimeEntryProvider = ({ children }) => {
     const attemptSave = async () => {
       try {
         if (currentUser && isAuthenticated && !currentUser.isLocalOnly) {
-          for (const entry of entries) {
-            await supabaseData.saveTimeEntry(currentUser.id, entry);
+          // Instead of looping, we expect `entriesToSave` to be a single entry Delta
+          // OR we let backgroundSync handle it if it's a massive payload.
+          // For now, if it's an array, we only save the first one if we can identify it, 
+          // or we handle the delta where the function is called.
+          
+          if (Array.isArray(entriesToSave)) {
+            // We shouldn't be here in the optimal flow, but as fallback, we save locally.
+            // The optimal flow will pass a single `entry` object instead of the array.
+            const entriesKey = `timeEntries_${currentUser.id}`;
+            setSimpleEncryptedItem(entriesKey, entriesToSave, currentUser.username);
+            return;
           }
+
+          // Single entry delta save
+          await supabaseData.saveTimeEntry(currentUser.id, entriesToSave);
         }
       } catch (error) {
-        console.error('Failed to save time entries to Supabase:', error);
+        console.error('Failed to save time entry to Supabase:', error);
         
         // Handle auth-related errors
         if (error.status === 401 || error.status === 406 || (error.message && (error.message.includes('401') || error.message.includes('406')))) {
-          const entriesKey = `timeEntries_${currentUser.id}`;
-          setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
           return;
         }
 
@@ -81,10 +91,6 @@ export const TimeEntryProvider = ({ children }) => {
             return attemptSave();
           }
         }
-        
-        // Fallback to localStorage for any other error
-        const entriesKey = `timeEntries_${currentUser.id}`;
-        setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
       }
     };
 
@@ -104,29 +110,27 @@ export const TimeEntryProvider = ({ children }) => {
       const localEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
       setEntries(localEntries);
       
-      // Defer Supabase sync
-      setTimeout(async () => {
-        if (navigator.onLine && currentUser && !currentUser.isLocalOnly) {
-          try {
-            const entriesData = await supabaseData.getTimeEntries(currentUser.id);
-            if (entriesData && entriesData.length > 0) {
-              // Smart merge entries
-              setEntries(prev => {
-                const prevMap = new Map(prev.map(e => [e.date, e]));
-                entriesData.forEach(entry => {
-                  const existing = prevMap.get(entry.date);
-                  if (!existing || new Date(entry.updated_at || 0) > new Date(existing.lastModified || 0)) {
-                    prevMap.set(entry.date, entry);
-                  }
-                });
-                return Array.from(prevMap.values()).sort((a, b) => b.date.localeCompare(a.date));
+      // Immediate Supabase sync instead of delayed
+      if (navigator.onLine && currentUser && !currentUser.isLocalOnly) {
+        try {
+          const entriesData = await supabaseData.getTimeEntries(currentUser.id);
+          if (entriesData && entriesData.length > 0) {
+            // Smart merge entries
+            setEntries(prev => {
+              const prevMap = new Map(prev.map(e => [e.date, e]));
+              entriesData.forEach(entry => {
+                const existing = prevMap.get(entry.date);
+                if (!existing || new Date(entry.updated_at || 0) > new Date(existing.lastModified || 0)) {
+                  prevMap.set(entry.date, entry);
+                }
               });
-            }
-          } catch (onlineError) {
-            console.error('Failed to fetch from Supabase, staying with local data', onlineError);
+              return Array.from(prevMap.values()).sort((a, b) => b.date.localeCompare(a.date));
+            });
           }
+        } catch (onlineError) {
+          console.error('Failed to fetch from Supabase, staying with local data', onlineError);
         }
-      }, 500);
+      }
       
     } catch (error) {
       console.error('loadTimeEntriesData critical error:', error);
@@ -135,14 +139,17 @@ export const TimeEntryProvider = ({ children }) => {
     }
   }, [currentUser, isAuthenticated]);
 
-  // Save entries when they change
+  // Only save local storage heavily on array change.
+  // We remove the cloud save from here to prevent loops on 100 items.
   useEffect(() => {
     if (!currentUser || !entries) return;
     if (isRefreshingRef.current) return;
     
-    saveTimeEntriesData(entries);
+    // Always store to local encrypted storage instantly for offline access
+    const entriesKey = `timeEntries_${currentUser.id}`;
+    setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
     multiTabSync.notifyDataChange('timeEntries', entries, currentUser.username);
-  }, [entries, currentUser, saveTimeEntriesData]);
+  }, [entries, currentUser]);
 
   // Load entries when user changes
   useEffect(() => {

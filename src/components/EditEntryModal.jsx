@@ -47,13 +47,13 @@ function EditEntryModal({ entry, onClose }) {
     return timeRegex.test(timeStr);
   };
 
-  // ✅ Handle time picker input (now returns HH:MM:SS with step="1")
+  // ✅ Handle time picker input (now returns HH:MM(::SS) properly)
   const handleTimePickerChange = (index, field, value) => {
-    // With step="1", time picker returns HH:MM:SS directly
-    handleIntervalChange(index, field, value);
+    // value from time picker is already valid HH:MM or HH:MM:SS
+    const newIntervals = [...editedEntry.intervals];
+    newIntervals[index] = { ...newIntervals[index], [field]: value };
+    setEditedEntry({ ...editedEntry, intervals: newIntervals });
   };
-
-  // ✅ Show validation modal using existing system
   const showValidationError = (title, message, type = 'warning') => {
     setConfirmModal({
       isOpen: true,
@@ -239,7 +239,12 @@ function EditEntryModal({ entry, onClose }) {
                           type="time"
                           step="1"
                           className="time-picker-input"
-                          value={interval.in || ''}
+                          value={
+                            isValidTime(interval.in) || 
+                            /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(interval.in) 
+                              ? interval.in 
+                              : ''
+                          }
                           onChange={(e) => handleTimePickerChange(index, 'in', e.target.value)}
                           title="Pick time (HH:MM:SS)"
                         />
@@ -275,7 +280,12 @@ function EditEntryModal({ entry, onClose }) {
                           type="time"
                           step="1"
                           className="time-picker-input"
-                          value={interval.out || ''}
+                          value={
+                            isValidTime(interval.out) || 
+                            /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(interval.out) 
+                              ? interval.out 
+                              : ''
+                          }
                           onChange={(e) => handleTimePickerChange(index, 'out', e.target.value)}
                           title="Pick time (HH:MM:SS)"
                         />
