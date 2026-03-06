@@ -4535,7 +4535,7 @@ body.salary-blur .overtime-money-amount {
     }
 
     .connection-text {
-      display: inline !important;
+      display: none !important;
       font-size: 8px !important;
     }
 

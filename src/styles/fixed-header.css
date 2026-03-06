@@ -1,52 +1,29 @@
 /* Fixed Header Styles - Override Everything */
 
-.username-display.clickable {
-  background: none;
-  border: none;
-  padding: 0.25rem 0.5rem;
-  border-radius: 6px;
+.btn-refresh {
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(var(--color-text-secondary-rgb), 0.15);
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: inherit;
-  font-family: inherit;
-  color: inherit;
-}
-
-.username-display.clickable:hover {
-  background: rgba(79, 70, 229, 0.1);
-  transform: translateY(-1px);
-}
-
-.username-display.clickable:active {
-  transform: translateY(0);
-}
-
-/* Refresh Button Styles */
-.refresh-btn {
-  background: var(--color-primary);
-  border: 1px solid var(--color-primary);
-  border-radius: 6px;
-  padding: 8px 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 36px;
-  height: 36px;
-  color: white;
-  font-size: 14px;
-  font-weight: bold;
-  margin-left: 8px;
+
+  border-radius: var(--radius-base);
+  color: var(--color-text-secondary);
+  font-size: 18px;
 }
 
-.refresh-btn:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-  transform: scale(1.05);
-  box-shadow: 0 2px 8px rgba(32, 201, 151, 0.3);
+.btn-refresh:hover {
+  
+  transform: scale(1.1);
+  box-shadow: 0 8px 25px rgba(var(--color-primary-rgb), 0.3);
+  color: var(--color-white);
 }
 
-.refresh-btn:disabled {
+.btn-refresh:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
@@ -54,7 +31,6 @@
 
 .refresh-spinner {
   animation: spin 1s linear infinite;
-  display: inline-block;
 }
 
 @keyframes spin {
@@ -62,37 +38,65 @@
   to { transform: rotate(360deg); }
 }
 
-/* Network Status Styles */
-.network-status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.network-status-indicator .icon {
-  font-size: 16px;
-}
-
-.network-status-indicator .text {
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.network-status-indicator .text.desktop-only {
-  display: block;
-}
-
-/* Mobile responsiveness */
+/* Mobile responsive styling for refresh button */
 @media (max-width: 768px) {
-  .network-status-indicator .text.desktop-only {
-    display: none;
+  .btn-refresh {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 12px !important;
+    min-width: 28px !important;
   }
 }
 
-[data-theme="dark"] .username-display.clickable:hover {
-  background: rgba(129, 140, 248, 0.1);
+.username-display.clickable {
+
+  background: none;
+
+  border: none;
+
+  padding: 0.25rem 0.5rem;
+
+  border-radius: 6px;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+
+  font-size: inherit;
+
+  font-family: inherit;
+
+  color: inherit;
+
 }
 
-[data-theme="dark"] .refresh-btn:hover:not(:disabled) {
-  background: var(--color-primary);
+
+
+.username-display.clickable:hover {
+
+  background: rgba(79, 70, 229, 0.1);
+
+  transform: translateY(-1px);
+
 }
+
+
+
+.username-display.clickable:active {
+
+  transform: translateY(0);
+
+}
+
+
+
+[data-theme="dark"] .username-display.clickable:hover {
+
+  background: rgba(129, 140, 248, 0.1);
+
+}
+
+
+
+
+

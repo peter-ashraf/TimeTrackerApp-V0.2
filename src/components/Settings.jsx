@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext-optimized';
-import { useSupabaseAuth } from '../context/SupabaseAuthContext';
+import { useSupabaseAuth, supabase } from '../context/SupabaseAuthContext';
 import { supabaseData } from '../utils/supabaseData';
 import hapticFeedback from '../utils/hapticFeedback';
 const ExportModal = React.lazy(() => import('./ExportModal'));
@@ -222,7 +222,7 @@ function Settings() {
     }
   }, [employeeType]);
 
-  const handleSaveAll = (e) => {
+  const handleSaveAll = async (e) => {
     e.preventDefault();
 
     // Parse values
@@ -259,8 +259,10 @@ function Settings() {
       return; // Stop - don't save
     }
 
-    // Check what changed (exclude salary if it's hidden)
-    const nameChanged = name !== employee.name;
+    // Check what changed (exclude salary if it's hidden) - use original employee state
+    const originalName = employee.name;
+    const nameChanged = name !== originalName;
+    
     const salaryChanged = !hideSalary && parsedSalary !== employee.salary;
     const vacationChanged = parsedVacation !== leaveSettings.annualVacation;
     const sickDaysChanged = parsedSickDays !== leaveSettings.sickDays;
@@ -274,6 +276,7 @@ function Settings() {
 
     // If nothing changed, alert user
     if (!anyChanges) {
+      
       setConfirmModal({
         isOpen: true,
         title: 'No Changes Detected',
@@ -308,13 +311,80 @@ function Settings() {
     if (!hideSalary) {
       employeeData.salary = parsedSalary;
     }
-    setEmployee(employeeData);
-    setLeaveSettings({ annualVacation: parsedVacation, sickDays: parsedSickDays });
-
-    // ✅ NEW: Save display name to localStorage when name changes
+    
+    // IMPORTANT: Save to database FIRST before updating local state
+    // This prevents conflicts with TimeTrackerContext's auto-save useEffect
+    // Set flag to prevent auto-save during manual name changes
+    localStorage.setItem('manualNameChange', 'true');
+    
+    // NEW: Save display name to localStorage and DB when name changes
     if (nameChanged && name.trim()) {
       localStorage.setItem('userDisplayName', name.trim());
+      localStorage.setItem('userDisplayNameTimestamp', Date.now().toString());
+      
+
+// Also save full_name to database when user explicitly changes it in Settings
+      if (currentUser) {
+        try {
+          
+          // Use direct Supabase client to bypass any potential wrapper issues
+          const { error } = await supabase
+            .from('profiles')
+            .update({
+              full_name: name.trim(),
+              employee_type: employeeType,
+              daily_hours: parsedDailyHours,
+              monthly_hours: parsedMonthlyHours,
+              work_days_per_week: parsedWorkDaysPerWeek,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', currentUser.id);
+
+
+          
+          if (error) {
+            console.error('❌ [Settings] Failed to save display name to database:', error.message);
+          } else {
+            
+            setEmployee(prev => ({ ...prev, name: name.trim() }));
+            
+            // Set flag to disable background sync permanently (until page refresh)
+            localStorage.setItem('disableBackgroundSync', 'true');
+            // Don't auto-remove - let user refresh page to reset
+            
+            // Clear manual name change flag after save is complete
+            setTimeout(() => {
+              localStorage.removeItem('manualNameChange');
+            }, 1000);
+          }
+          
+        } catch (error) {
+          console.error('❌ [Settings] Failed to save display name to database:', error.message);
+        }
+      } else {
+        console.warn('⚠️ [Settings] No currentUser, skipping DB save');
+      }
+    } else {
+      // Only save employee type fields if name didn't change but other fields did
+      if (employeeTypeChanged || dailyHoursChanged || workDaysPerWeekChanged || monthlyHoursChanged) {
+        if (currentUser) {
+          try {
+            const result = await supabaseData.saveUserProfile(currentUser.id, {
+              employee_type: employeeType,
+              daily_hours: parsedDailyHours,
+              monthly_hours: parsedMonthlyHours,
+              work_days_per_week: parsedWorkDaysPerWeek
+            });
+          } catch (error) {
+            console.error('❌ [Settings] Failed to save employee settings to database:', error);
+          }
+        }
+      }
     }
+    
+    // NOW update local state after database save (or queue)
+    setEmployee(employeeData);
+    setLeaveSettings({ annualVacation: parsedVacation, sickDays: parsedSickDays });
 
     // ✅ IMMEDIATE SAVE: Force immediate salary save to localStorage
     if (salaryChanged && !hideSalary && currentUser) {
@@ -333,12 +403,18 @@ function Settings() {
       // Multiple changes - formatted list
       summaryMessage = `${changedItems.length} settings updated:\n\n${changedItems.join('\n')}`;
     }
+    
+    // Check if there are queued database saves to add warning
+    const queue = JSON.parse(localStorage.getItem('dbSaveQueue') || '[]');
+    if (queue.length > 0) {
+      summaryMessage += '\n\n⚠️ Note: Database connectivity issues detected. Changes will sync when connection is restored.';
+    }
 
     setConfirmModal({
       isOpen: true,
       title: '✓ Settings Saved',
       message: summaryMessage,
-      type: 'success',
+      type: queue.length > 0 ? 'warning' : 'success',
       confirmText: 'OK',
       showCancel: false,
       onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })

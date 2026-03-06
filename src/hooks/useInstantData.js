@@ -66,20 +66,14 @@ export const useInstantData = () => {
     setData(prev => ({ ...prev, refreshing: true }));
 
     try {
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Network timeout')), 15000)
-      );
-
-      // Parallel fetch of all data with timeout
-      const dataPromise = Promise.all([
+      // Remove timeout to prevent hanging - let the calls complete naturally
+      // Parallel fetch of all data
+      const [timeEntries, userProfile, payPeriods, leaveSettings] = await Promise.all([
         supabaseData.getTimeEntries(currentUser.id),
         supabaseData.getUserProfile(currentUser.id),
         supabaseData.getPayPeriods(currentUser.id),
         supabaseData.getLeaveSettings(currentUser.id)
       ]);
-
-      const [timeEntries, userProfile, payPeriods, leaveSettings] = await Promise.race([dataPromise, timeoutPromise]);
 
       // Update cache with fresh data
       cacheManager.setCachedData('timeEntries', timeEntries);
@@ -99,14 +93,35 @@ export const useInstantData = () => {
       }));
 
       setCacheStatus(cacheManager.getCacheStatus());
+      
+      // If successful and we have a profile with full_name, save it to localStorage for cross-device sync
+      if (userProfile && userProfile.full_name) {
+        localStorage.setItem('userDisplayName', userProfile.full_name);
+      }
+      
+      // Process any queued database saves now that connectivity is restored
+      const queue = JSON.parse(localStorage.getItem('dbSaveQueue') || '[]');
+      if (queue.length > 0) {
+        console.log('Processing queued database saves:', queue.length, 'items');
+        
+        for (const queuedSave of queue) {
+          try {
+            if (queuedSave.type === 'userProfile' && currentUser) {
+              await supabaseData.saveUserProfile(currentUser.id, queuedSave.data);
+              console.log('Queued save processed successfully:', queuedSave);
+            }
+          } catch (error) {
+            console.error('Failed to process queued save:', queuedSave, error);
+          }
+        }
+        
+        // Clear the queue after processing
+        localStorage.removeItem('dbSaveQueue');
+      }
+      
     } catch (error) {
       console.error('Background refresh failed:', error);
       setData(prev => ({ ...prev, refreshing: false }));
-      
-      // If network fails, try to use cached data
-      if (error.message === 'Network timeout') {
-        console.log('Network timeout, using cached data');
-      }
     }
   }, [currentUser]);
 

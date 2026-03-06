@@ -81,7 +81,7 @@ export const UserPreferencesProvider = ({ children }) => {
       
       setEmployee(prev => ({
         ...prev,
-        name: currentUser.fullName || currentUser.username || 'User',
+        name: localStorage.getItem('userDisplayName') || currentUser.fullName || currentUser.username || 'User',
         salary: localSalary
       }));
       setLeaveSettings(localLeaveSettings);
@@ -96,9 +96,14 @@ export const UserPreferencesProvider = ({ children }) => {
             ]);
             
             if (profileData) {
+              // Check if user recently changed name locally (within last 5 seconds)
+              const lastNameChange = localStorage.getItem('userDisplayNameTimestamp');
+              const recentlyChanged = lastNameChange && (Date.now() - parseInt(lastNameChange)) < 5000;
+              
               setEmployee(prev => ({
                 ...prev,
-                name: profileData.full_name || prev.name,
+                // Don't overwrite local name if user just changed it
+                name: recentlyChanged ? prev.name : (profileData.full_name || prev.name),
                 employeeType: profileData.employee_type || 'full-time',
                 dailyHours: profileData.daily_hours || 9,
                 monthlyHours: profileData.monthly_hours || 187,
@@ -133,8 +138,11 @@ export const UserPreferencesProvider = ({ children }) => {
     
     const saveEmployeeData = async () => {
       try {
+        // Only save employee type fields to Supabase - NEVER save full_name automatically!
+        // full_name should only be updated when user explicitly changes it in Settings
         await supabaseData.saveUserProfile(currentUser.id, {
-          full_name: employee.name,
+          // ❌ CRITICAL: Never save full_name automatically - it overwrites database!
+          // full_name: employee.name, // REMOVED - this was overwriting the database!
           employee_type: employee.employeeType,
           daily_hours: employee.dailyHours,
           monthly_hours: employee.monthlyHours,

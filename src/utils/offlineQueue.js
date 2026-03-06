@@ -33,6 +33,11 @@ class OfflineQueue {
    * Add an action to the queue
    */
   async addAction(action, data, username = null, priority = 'normal') {
+    // Ensure queue is initialized as an array
+    if (!Array.isArray(this.queue)) {
+      this.queue = [];
+    }
+
     const queueItem = {
       id: this.generateId(),
       action,
@@ -68,6 +73,11 @@ class OfflineQueue {
    * Process the queue when online
    */
   async processQueue(processor) {
+    // Ensure queue is initialized as an array
+    if (!Array.isArray(this.queue)) {
+      this.queue = [];
+    }
+
     if (this.isProcessing || this.queue.length === 0) {
       return { processed: 0, failed: 0 };
     }
@@ -128,6 +138,11 @@ class OfflineQueue {
    * Get queue status
    */
   getStatus() {
+    // Ensure queue is initialized as an array
+    if (!Array.isArray(this.queue)) {
+      this.queue = [];
+    }
+
     const pending = this.queue.filter(item => item.status === 'pending').length;
     const processing = this.queue.filter(item => item.status === 'processing').length;
     const completed = this.queue.filter(item => item.status === 'completed').length;

@@ -204,6 +204,147 @@ class CacheManager {
   }
 
   /**
+   * Intelligent data sync with differential updates
+   */
+  async intelligentSync(key, newData, options = {}) {
+    const { forceUpdate = false, mergeStrategy = 'smart' } = options;
+    
+    try {
+      const cacheKey = `${this.cachePrefix}${key}`;
+      const existing = this.getCachedData(key);
+      
+      if (!forceUpdate && existing && this.shouldSkipSync(key, existing, newData)) {
+        console.log(`Skipping sync for ${key} - data unchanged`);
+        return existing;
+      }
+
+      const mergedData = this.mergeData(existing, newData, mergeStrategy);
+      this.setCachedData(key, mergedData);
+      
+      return mergedData;
+    } catch (error) {
+      console.warn(`Intelligent sync failed for ${key}:`, error);
+      return newData;
+    }
+  }
+
+  /**
+   * Determine if sync can be skipped based on data comparison
+   */
+  shouldSkipSync(key, existing, newData) {
+    if (!existing || !newData) return false;
+    
+    // For arrays (like timeEntries), compare length and last modified
+    if (Array.isArray(existing) && Array.isArray(newData)) {
+      if (existing.length !== newData.length) return false;
+      
+      // Compare last items (assuming sorted by date)
+      const lastExisting = existing[existing.length - 1];
+      const lastNew = newData[newData.length - 1];
+      
+      if (lastExisting?.updated_at === lastNew?.updated_at) {
+        return true;
+      }
+    }
+    
+    // For objects, compare version/timestamp fields
+    if (typeof existing === 'object' && typeof newData === 'object') {
+      if (existing.updated_at === newData.updated_at ||
+          existing.version === newData.version ||
+          existing.lastModified === newData.lastModified) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Merge data based on strategy
+   */
+  mergeData(existing, newData, strategy) {
+    switch (strategy) {
+      case 'replace':
+        return newData;
+        
+      case 'merge':
+        if (Array.isArray(existing) && Array.isArray(newData)) {
+          // Merge arrays, removing duplicates
+          const merged = [...existing];
+          newData.forEach(item => {
+            const existingIndex = merged.findIndex(existingItem => 
+              existingItem.id === item.id
+            );
+            if (existingIndex >= 0) {
+              merged[existingIndex] = item;
+            } else {
+              merged.push(item);
+            }
+          });
+          return merged.sort((a, b) => new Date(b.date) - new Date(a.date));
+        }
+        return { ...existing, ...newData };
+        
+      case 'smart':
+      default:
+        if (Array.isArray(existing) && Array.isArray(newData)) {
+          // Smart merge: only update changed items
+          return this.smartMergeArrays(existing, newData);
+        }
+        return this.smartMergeObjects(existing, newData);
+    }
+  }
+
+  /**
+   * Smart merge for arrays (timeEntries, etc.)
+   */
+  smartMergeArrays(existing, newData) {
+    const merged = [...existing];
+    
+    newData.forEach(newItem => {
+      const existingIndex = merged.findIndex(existingItem => 
+        existingItem.id === newItem.id
+      );
+      
+      if (existingIndex >= 0) {
+        // Only update if data has actually changed
+        if (this.hasItemChanged(merged[existingIndex], newItem)) {
+          merged[existingIndex] = newItem;
+        }
+      } else {
+        // Add new items
+        merged.push(newItem);
+      }
+    });
+    
+    // Sort by date (newest first)
+    return merged.sort((a, b) => new Date(b.date || b.created_at) - new Date(a.date || b.created_at));
+  }
+
+  /**
+   * Smart merge for objects
+   */
+  smartMergeObjects(existing, newData) {
+    const merged = { ...existing };
+    
+    Object.keys(newData).forEach(key => {
+      if (existing[key] !== newData[key]) {
+        merged[key] = newData[key];
+      }
+    });
+    
+    return merged;
+  }
+
+  /**
+   * Check if an item has meaningful changes
+   */
+  hasItemChanged(existing, newItem) {
+    const fieldsToCompare = ['updated_at', 'status', 'hours', 'notes', 'date'];
+    return fieldsToCompare.some(field => existing[field] !== newItem[field]);
+  }
+
+  /**
    * Clear all cache (for logout)
    */
   clearCache() {

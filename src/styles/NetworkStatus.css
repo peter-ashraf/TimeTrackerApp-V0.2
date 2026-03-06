@@ -43,45 +43,6 @@
   white-space: nowrap;
 }
 
-.refresh-button {
-  background: var(--color-primary);
-  border: 1px solid var(--color-primary);
-  border-radius: 6px;
-  padding: 6px 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  height: 32px;
-  order: 10; /* Ensure button appears after other elements */
-  z-index: 1; /* Ensure button is on top */
-  color: white;
-}
-
-.refresh-button:hover:not(:disabled) {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  transform: scale(1.1);
-}
-
-.refresh-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.refresh-spinner {
-  animation: spin 1s linear infinite;
-  font-size: 16px;
-  font-weight: bold;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 @keyframes slideDown {
   from {
     opacity: 0;
@@ -137,16 +98,10 @@
   }
   
   .network-status-text {
-    display: none; /* Hide text on mobile to make space */
+    display: none;
   }
-  
-  .refresh-button {
-    min-width: 28px;
-    height: 28px;
-    padding: 4px 6px;
-  }
-  
-  .refresh-spinner {
-    font-size: 14px;
+
+  .connection-text {
+    display: none;
   }
 }

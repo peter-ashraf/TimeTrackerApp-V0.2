@@ -304,12 +304,21 @@ export const TimeTrackerProvider = ({ children }) => {
       const localPeriods = getSimpleEncryptedItem(periodsKey, currentUser.username) || [];
       const localCurrentPeriodId = localStorage.getItem(currentPeriodIdKey);
 
-      // Set initial local data
+      // Set initial local data - try to get cached name first
+      const cachedName = getSimpleEncryptedItem('employeeName', currentUser.username) || 
+                        localStorage.getItem('userDisplayName') ||
+                        currentUser.username ||
+                        'User';
       setEmployee(prev => ({
         ...prev,
-        name: currentUser.fullName || currentUser.username || 'User',
+        name: cachedName,
         salary: localSalary
       }));
+      
+      // If we have a cached name, also cache it with the current username for future use
+      if (cachedName && cachedName !== currentUser.username) {
+        setSimpleEncryptedItem('employeeName', cachedName, currentUser.username);
+      }
       setEntries(localEntries);
       setLeaveSettings(localLeaveSettings);
       setPeriods(localPeriods);
@@ -333,14 +342,21 @@ export const TimeTrackerProvider = ({ children }) => {
           // (Implemented in a separate updateEntries function or using mergeEntries logic from App.jsx)
           
           if (profileData) {
-            setEmployee(prev => ({
-              ...prev,
-              name: profileData.full_name || prev.name,
-              employeeType: profileData.employee_type || 'full-time',
-              dailyHours: profileData.daily_hours || 9,
-              monthlyHours: profileData.monthly_hours || 187,
-              workDaysPerWeek: profileData.work_days_per_week || 5
-            }));
+            setEmployee(prev => {
+              const newName = profileData.full_name || prev.name;
+              // Cache the name for future use
+              setSimpleEncryptedItem('employeeName', newName, currentUser.username);
+              return {
+                ...prev,
+                name: newName,
+                employeeType: profileData.employee_type || 'full-time',
+                dailyHours: profileData.daily_hours || 9,
+                monthlyHours: profileData.monthly_hours || 187,
+                workDaysPerWeek: profileData.work_days_per_week || 5
+              };
+            });
+          } else {
+            // Don't change the name if database fails, keep what we have
           }
 
           if (entriesData && entriesData.length > 0) {
@@ -379,7 +395,7 @@ export const TimeTrackerProvider = ({ children }) => {
           console.error('Failed to fetch from Supabase, staying with local data', onlineError);
         }
       }
-      }, 500); // Defer Supabase sync by 500ms
+      }, 0); // Sync immediately to prevent race conditions
       
       isLoadingRef.current = false;
       
@@ -392,6 +408,9 @@ export const TimeTrackerProvider = ({ children }) => {
   
   // ✅ LOAD USER DATA WHEN USER CHANGES
   useEffect(() => {
+    // Reset background sync flag on page load to allow normal sync
+    localStorage.removeItem('disableBackgroundSync');
+    
     if (!currentUser) {
       // Reset to defaults if no user
       setEmployee({ 
@@ -410,9 +429,35 @@ export const TimeTrackerProvider = ({ children }) => {
       return;
     }
     
+    // Check if there was a recent manual name change in Settings
+    const recentNameChange = localStorage.getItem('userDisplayNameTimestamp');
+    const recentlyChanged = recentNameChange && (Date.now() - parseInt(recentNameChange)) < 30000; // Within 30 seconds
+    
+    // Also check if Settings component is currently active (has focus)
+    const settingsActive = document.activeElement?.classList?.contains('settings') || 
+                         document.activeElement?.classList?.contains('modal') ||
+                         document.activeElement?.id === 'name';
+    
+    // Check for global flag to disable background sync completely
+    const disableBackgroundSync = localStorage.getItem('disableBackgroundSync') === 'true';
+    
     // Async function to handle migrations and data loading
     const initializeUserData = async () => {
       try {
+        // Skip background sync if there was a recent manual name change OR Settings is active OR disabled globally
+        console.log('🔍 [TimeTracker] Background sync check:', {
+          recentNameChange,
+          recentlyChanged,
+          settingsActive,
+          disableBackgroundSync
+        });
+        
+        if (recentlyChanged || settingsActive || disableBackgroundSync) {
+          console.log('🔍 [TimeTracker] Skipping background sync - manual change detected or Settings active or disabled');
+          setIsContextReady(true);
+          return;
+        }
+        
         // Check if data migration is needed
         const dataMigrationNeeded = dataMigration.isMigrationNeeded(currentUser.id, currentUser.username);
         
@@ -467,12 +512,22 @@ export const TimeTrackerProvider = ({ children }) => {
   useEffect(() => {
     if (!currentUser || !isContextReady) return;
     
+    // Check if there's a manual name change in progress
+    const manualNameChange = localStorage.getItem('manualNameChange') === 'true';
+    
     const saveEmployeeData = async () => {
       try {
-        // Save employee type fields to Supabase (exclude username - it should never change!)
+        // Skip auto-save during manual name changes to prevent conflicts
+        if (manualNameChange) {
+          console.log('🔍 [TimeTracker] Skipping auto-save due to manual name change');
+          return;
+        }
+        
+        // Only save employee type fields to Supabase - NEVER save full_name automatically!
+        // full_name should only be updated when user explicitly changes it in Settings
         await supabaseData.saveUserProfile(currentUser.id, {
-          // ❌ REMOVED: username: employee.name - Display name should NOT update username
-          full_name: employee.name,
+          // ❌ CRITICAL: Never save full_name automatically - it overwrites database!
+          // full_name: employee.name, // REMOVED - this was overwriting the database!
           employee_type: employee.employeeType,
           daily_hours: employee.dailyHours,
           monthly_hours: employee.monthlyHours,
@@ -1407,7 +1462,31 @@ export const TimeTrackerProvider = ({ children }) => {
     }
   }, [periods, currentUser, currentPeriodId]);
 
-  
+  // Add refresh function that can be called from outside
+  const refreshEmployeeData = useCallback(async () => {
+    if (!currentUser) return;
+    
+    try {
+      const profileData = await supabaseData.getUserProfile(currentUser.id);
+      
+      if (profileData) {
+        const employeeName = profileData.full_name || employee.name;
+        setEmployee(prev => ({
+          ...prev,
+          name: employeeName,
+          employeeType: profileData.employee_type || 'full-time',
+          dailyHours: profileData.daily_hours || 9,
+          monthlyHours: profileData.monthly_hours || 187,
+          workDaysPerWeek: profileData.work_days_per_week || 5
+        }));
+        // Cache the name for future use
+        setSimpleEncryptedItem('employeeName', employeeName, currentUser.username);
+      }
+    } catch (error) {
+      console.error('TimeTrackerContext: Failed to refresh employee data:', error);
+    }
+  }, [currentUser, employee.name]);
+
   const value = useMemo(() => ({
     employee,
     leaveSettings,
@@ -1514,7 +1593,8 @@ export const TimeTrackerProvider = ({ children }) => {
     showAlert,
     validateEmployeeType,
     calculateMonthlyHours,
-    calculateActualMonthlyHours
+    calculateActualMonthlyHours,
+    refreshEmployeeData
   ]);
   
   return (

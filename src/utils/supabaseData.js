@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../context/SupabaseAuthContext';
 
 // Create supabase client with cache busting
@@ -86,7 +85,6 @@ export const supabaseData = {
         updated_at: entry.updated_at
       }));
     } catch (error) {
-
       return usePagination ? { entries: [], totalCount: 0, currentPage: 1, totalPages: 0 } : [];
     }
   },
@@ -338,6 +336,7 @@ export const supabaseData = {
   // User Profile (for salary and other profile data)
   async getUserProfile(userId) {
     try {
+      // Remove individual timeout - let the main timeout handle it
       const { data, error } = await supabase
         .from('profiles')
         .select('full_name, username, employee_type, daily_hours, monthly_hours, work_days_per_week')
@@ -345,7 +344,6 @@ export const supabaseData = {
         .single();
 
       if (error) {
-
         return {
           full_name: '',
           username: '',
@@ -357,7 +355,6 @@ export const supabaseData = {
       }
       return data;
     } catch (error) {
-
       return {
         full_name: '',
         username: '',
@@ -370,26 +367,32 @@ export const supabaseData = {
   },
 
   async saveUserProfile(userId, profile) {
+    
     try {
       // Remove salary and username from profile data
-      // salary: never syncs to cloud
-      // username: must NEVER be changed by display name updates (only via dedicated username change flow)
       const { salary, username, ...safeProfile } = profile;
-
-      const { data, error } = await supabase
+      
+      const startTime = Date.now();
+      const { error } = await supabase
         .from('profiles')
         .update({
           ...safeProfile,
           updated_at: new Date().toISOString()
         })
-        .eq('id', userId)
-        .select()
-        .single();
+        .eq('id', userId);
 
-      if (error) throw error;
-      return data;
+      const endTime = Date.now();
+      
+
+      if (error) {
+        
+        throw error;
+      }
+      
+      
+      return { success: true };
     } catch (error) {
-
+      
       throw error;
     }
   },

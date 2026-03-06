@@ -19,7 +19,14 @@ class BackgroundSync {
    * Initialize the sync system
    */
   async init() {
-    console.log('Background sync initialized');
+    
+    
+    // Check for manual name change flag
+    const manualNameChange = localStorage.getItem('manualNameChange') === 'true';
+    if (manualNameChange) {
+      
+      return;
+    }
     
     // If online, process any pending syncs
     if (this.isOnline) {
@@ -31,7 +38,7 @@ class BackgroundSync {
    * Handle coming online
    */
   async handleOnline() {
-    console.log('Network connection restored');
+    
     this.isOnline = true;
     
     // Wait a moment for stable connection
@@ -47,7 +54,7 @@ class BackgroundSync {
    * Handle going offline
    */
   handleOffline() {
-    console.log('Network connection lost');
+    
     this.isOnline = false;
     this.notifyListeners('offline');
   }
@@ -83,7 +90,7 @@ class BackgroundSync {
     }
 
     this.isSyncing = true;
-    console.log(`Processing ${this.syncQueue.length} sync actions`);
+    
 
     try {
       const actionsToProcess = [...this.syncQueue];
@@ -99,7 +106,7 @@ class BackgroundSync {
           }
           
         } catch (error) {
-          console.error('Failed to sync action:', error);
+          
           
           // Increment retry count
           action.retryCount++;
@@ -109,7 +116,7 @@ class BackgroundSync {
             const index = this.syncQueue.findIndex(a => a.id === action.id);
             if (index > -1) {
               this.syncQueue.splice(index, 1);
-              console.warn('Action removed after max retries:', action);
+              
             }
           }
         }
@@ -119,7 +126,7 @@ class BackgroundSync {
       this.saveSyncQueue();
       
     } catch (error) {
-      console.error('Sync process failed:', error);
+      
     } finally {
       this.isSyncing = false;
       this.notifyListeners('sync-complete');
@@ -131,7 +138,7 @@ class BackgroundSync {
    */
   async processAction(action) {
     // This would integrate with your actual data sync logic
-    console.log('Processing sync action:', action);
+    
     
     // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -183,10 +190,10 @@ class BackgroundSync {
       const saved = localStorage.getItem('tt_sync_queue');
       if (saved) {
         this.syncQueue = JSON.parse(saved);
-        console.log(`Loaded ${this.syncQueue.length} pending sync actions`);
+        
       }
     } catch (error) {
-      console.warn('Failed to load sync queue:', error);
+      
       this.syncQueue = [];
     }
   }
