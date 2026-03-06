@@ -717,7 +717,7 @@ body {
 .view-container .main-content {
   min-height: auto;
   padding: var(--space-20);
-  
+  margin-top: 20px;
 }
 
 /* Swipe feedback */
@@ -854,6 +854,16 @@ body {
   }
   .main-content {
     transform: none !important;
+    margin-top: 20px !important;
+  }
+  .view-container .main-content {
+    margin-top: 20px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .view-container .main-content {
+    margin-top: 0 !important;
   }
 }
 

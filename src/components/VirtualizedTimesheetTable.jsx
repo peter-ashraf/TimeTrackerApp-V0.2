@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { List } from 'react-window';
-import TimesheetRow from './Timesheet';
+import { TimesheetRow } from './Timesheet.jsx';
 
 const VirtualizedTimesheetTable = ({ 
   periodEntries, 
@@ -51,6 +51,7 @@ const VirtualizedTimesheetTable = ({
     if (detailedView) {
       return {
         date: 100,
+        day: 80,
         checkIn: 120,
         checkOut: 120,
         hours: 100,
@@ -65,6 +66,7 @@ const VirtualizedTimesheetTable = ({
     } else {
       return {
         date: 100,
+        day: 80,
         checkIn: 120,
         checkOut: 120,
         hours: 100,
@@ -82,6 +84,7 @@ const VirtualizedTimesheetTable = ({
       {/* Header */}
       <div className="virtualized-table-header" style={{ display: 'flex', width: `${totalWidth}px` }}>
         <div style={{ width: `${columnWidths.date}px`, padding: '8px', fontWeight: 'bold' }}>DATE</div>
+        <div style={{ width: `${columnWidths.day}px`, padding: '8px', fontWeight: 'bold' }}>DAY</div>
         <div style={{ width: `${columnWidths.checkIn}px`, padding: '8px', fontWeight: 'bold' }}>CHECK IN</div>
         <div style={{ width: `${columnWidths.checkOut}px`, padding: '8px', fontWeight: 'bold' }}>CHECK OUT</div>
         <div style={{ width: `${columnWidths.hours}px`, padding: '8px', fontWeight: 'bold' }}>HOURS SPENT</div>
@@ -118,6 +121,7 @@ const VirtualizedTimesheetTable = ({
           {/* Totals Row */}
           <div className="virtualized-table-footer" style={{ display: 'flex', width: `${totalWidth}px`, borderTop: '2px solid #ddd' }}>
             <div style={{ width: `${columnWidths.date}px`, padding: '8px', fontWeight: 'bold' }}>Total</div>
+            <div style={{ width: `${columnWidths.day}px`, padding: '8px' }}></div>
             <div style={{ width: `${columnWidths.checkIn}px`, padding: '8px' }}></div>
             <div style={{ width: `${columnWidths.checkOut}px`, padding: '8px' }}></div>
             <div style={{ width: `${columnWidths.hours}px`, padding: '8px', fontWeight: 'bold' }}>

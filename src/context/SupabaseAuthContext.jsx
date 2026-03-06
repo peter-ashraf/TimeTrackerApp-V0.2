@@ -362,7 +362,6 @@ export const SupabaseAuthProvider = ({ children }) => {
                   session.user.user_metadata?.username ||
                   "User",
                 displayName:
-                  localStorage.getItem("userDisplayName") ||
                   session.user.user_metadata?.full_name ||
                   session.user.user_metadata?.username ||
                   "User",
@@ -380,7 +379,6 @@ export const SupabaseAuthProvider = ({ children }) => {
                 email: session.user.email,
                 fullName: profile.full_name || profile.username || "User",
                 displayName:
-                  localStorage.getItem("userDisplayName") ||
                   profile.full_name ||
                   profile.username ||
                   "User",
@@ -409,7 +407,6 @@ export const SupabaseAuthProvider = ({ children }) => {
                 session.user.user_metadata?.username ||
                 "User",
               displayName:
-                localStorage.getItem("userDisplayName") ||
                 session.user.user_metadata?.full_name ||
                 session.user.user_metadata?.username ||
                 "User",
@@ -473,7 +470,6 @@ export const SupabaseAuthProvider = ({ children }) => {
                 session.user.user_metadata?.username ||
                 "User",
               displayName:
-                localStorage.getItem("userDisplayName") ||
                 session.user.user_metadata?.full_name ||
                 session.user.user_metadata?.username ||
                 "User",
@@ -485,12 +481,11 @@ export const SupabaseAuthProvider = ({ children }) => {
               username:
                 profile.username ||
                 session.user.user_metadata?.username ||
-                session.user.email?.split("@")[0] ||
+                session.user.user_metadata?.email?.split("@")[0] ||
                 "User",
               email: session.user.email,
               fullName: profile.full_name || profile.username || "User",
               displayName:
-                localStorage.getItem("userDisplayName") ||
                 profile.full_name ||
                 profile.username ||
                 "User",
@@ -515,7 +510,6 @@ export const SupabaseAuthProvider = ({ children }) => {
               session.user.user_metadata?.username ||
               "User",
             displayName:
-              localStorage.getItem("userDisplayName") ||
               session.user.user_metadata?.full_name ||
               session.user.user_metadata?.username ||
               "User",
@@ -924,7 +918,6 @@ export const SupabaseAuthProvider = ({ children }) => {
                 username ||
                 "User",
               displayName:
-                localStorage.getItem("userDisplayName") ||
                 directAuthData.user.user_metadata?.full_name ||
                 username ||
                 "User",
@@ -995,7 +988,6 @@ export const SupabaseAuthProvider = ({ children }) => {
           email: fallbackEmail,
           fullName: data.user.user_metadata?.full_name || username || "User",
           displayName:
-            localStorage.getItem("userDisplayName") ||
             data.user.user_metadata?.full_name ||
             username ||
             "User",
@@ -1082,7 +1074,6 @@ export const SupabaseAuthProvider = ({ children }) => {
         email: profile.email,
         fullName: data.user.user_metadata?.full_name || username || "User",
         displayName:
-          localStorage.getItem("userDisplayName") ||
           data.user.user_metadata?.full_name ||
           username ||
           "User",

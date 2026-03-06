@@ -30,6 +30,9 @@ export const useInstantData = () => {
     if (!currentUser) return;
 
     try {
+      // Clear any corrupted cache first
+      cacheManager.clearOldVersionCache();
+      
       // Load from cache instantly
       const cachedData = await cacheManager.preloadEssentialData(currentUser.id);
       
@@ -42,9 +45,11 @@ export const useInstantData = () => {
       // Update cache status
       setCacheStatus(cacheManager.getCacheStatus());
 
-      // If online, refresh data in background
+      // If online, refresh data in background with delay to avoid conflicts
       if (navigator.onLine) {
-        refreshDataInBackground();
+        setTimeout(() => {
+          refreshDataInBackground();
+        }, 500);
       }
     } catch (error) {
       console.error('Failed to load instant data:', error);
@@ -61,13 +66,20 @@ export const useInstantData = () => {
     setData(prev => ({ ...prev, refreshing: true }));
 
     try {
-      // Parallel fetch of all data
-      const [timeEntries, userProfile, payPeriods, leaveSettings] = await Promise.all([
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Network timeout')), 15000)
+      );
+
+      // Parallel fetch of all data with timeout
+      const dataPromise = Promise.all([
         supabaseData.getTimeEntries(currentUser.id),
         supabaseData.getUserProfile(currentUser.id),
         supabaseData.getPayPeriods(currentUser.id),
         supabaseData.getLeaveSettings(currentUser.id)
       ]);
+
+      const [timeEntries, userProfile, payPeriods, leaveSettings] = await Promise.race([dataPromise, timeoutPromise]);
 
       // Update cache with fresh data
       cacheManager.setCachedData('timeEntries', timeEntries);
@@ -90,6 +102,11 @@ export const useInstantData = () => {
     } catch (error) {
       console.error('Background refresh failed:', error);
       setData(prev => ({ ...prev, refreshing: false }));
+      
+      // If network fails, try to use cached data
+      if (error.message === 'Network timeout') {
+        console.log('Network timeout, using cached data');
+      }
     }
   }, [currentUser]);
 

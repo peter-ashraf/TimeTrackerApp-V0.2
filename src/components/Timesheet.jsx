@@ -43,10 +43,14 @@ const TimesheetRow = React.memo(({
   const firstIn = entry.intervals?.[0]?.in;
   const lastOut = entry.intervals?.[0]?.out;
   const breakIntervals = entry.intervals?.slice(1) || [];
+  
+  // Calculate day of week display
+  const dayOfWeekDisplay = new Date(entry.date).toLocaleDateString('en-US', { weekday: 'short' });
 
   return (
     <tr key={entry.date}>
       <td>{entry.date}</td>
+      <td>{dayOfWeekDisplay}</td>
       <td>{formatTime(firstIn)}</td>
       <td>{formatTime(lastOut)}</td>
       <td>
@@ -430,6 +434,7 @@ function Timesheet() {
             <thead>
               <tr>
                 <th>DATE</th>
+                <th>DAY</th>
                 <th>CHECK IN</th>
                 <th>CHECK OUT</th>
                 <th>HOURS SPENT</th>
@@ -449,7 +454,7 @@ function Timesheet() {
             <tbody>
               {periodEntries.length === 0 ? (
                 <tr>
-                  <td colSpan={detailedView ? "11" : "5"} style={{textAlign: 'center', padding: '20px'}}>
+                  <td colSpan={detailedView ? "12" : "6"} style={{textAlign: 'center', padding: '20px'}}>
                     No entries found for this period.
                   </td>
                 </tr>
@@ -471,6 +476,7 @@ function Timesheet() {
                   {/* Totals Row */}
                   <tr className="totals-row">
                     <td><strong>Total</strong></td>
+                    <td></td>
                     <td colSpan="2"></td>
                     <td><strong>{overtimeDetails.totalHoursWorked.toFixed(2)}h</strong></td>
                     {detailedView && (
@@ -503,4 +509,5 @@ function Timesheet() {
   );
 }
 
+export { TimesheetRow };
 export default Timesheet;

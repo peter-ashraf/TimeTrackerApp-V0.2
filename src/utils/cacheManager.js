@@ -5,11 +5,14 @@
 
 class CacheManager {
   constructor() {
-    this.cacheVersion = '1.0.0';
+    this.cacheVersion = '2.0.0';
     this.cachePrefix = 'tt_cache_';
     this.isOnline = navigator.onLine;
     this.refreshQueue = new Map();
     this.lastCacheUpdate = null;
+    
+    // Clear old version cache on initialization
+    this.clearOldVersionCache();
     
     // Listen for network changes
     window.addEventListener('online', () => {
@@ -42,6 +45,7 @@ class CacheManager {
       
       if (version !== this.cacheVersion) {
         // Cache version mismatch, clear and use fallback
+        console.log(`Cache version mismatch for ${key}: expected ${this.cacheVersion}, got ${version}`);
         localStorage.removeItem(cacheKey);
         return fallbackData;
       }
@@ -173,6 +177,30 @@ class CacheManager {
     };
     
     return defaults[key] || null;
+  }
+
+  /**
+   * Clear old version cache to prevent conflicts
+   */
+  clearOldVersionCache() {
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith(this.cachePrefix)) {
+        try {
+          const cached = localStorage.getItem(key);
+          if (cached) {
+            const { version } = JSON.parse(cached);
+            if (version !== this.cacheVersion) {
+              console.log(`Clearing old cache version: ${key}`);
+              localStorage.removeItem(key);
+            }
+          }
+        } catch (error) {
+          // Remove corrupted cache entries
+          localStorage.removeItem(key);
+        }
+      }
+    });
   }
 
   /**

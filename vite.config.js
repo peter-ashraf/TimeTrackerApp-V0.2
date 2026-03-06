@@ -42,7 +42,7 @@ export default defineConfig({
     },
     VitePWA({
       registerType: 'autoUpdate',
-      strategies: 'StaleWhileRevalidate',
+      strategies: 'CacheFirst',
       // Let Vite PWA generate the service worker
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
@@ -84,12 +84,16 @@ export default defineConfig({
           },
           {
             urlPattern: /^https:\/\/api\./i,
-            handler: 'NetworkFirst',
+            handler: 'CacheFirst',
             options: {
               cacheName: 'api-cache',
-              networkTimeoutSeconds: 3,
+              networkTimeoutSeconds: 10,
               cacheableResponse: {
                 statuses: [0, 200]
+              },
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 5 * 60 // 5 minutes
               }
             }
           }

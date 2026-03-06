@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useTimeTracker } from './context/TimeTrackerContext-optimized';
 import { useSupabaseAuth } from './context/SupabaseAuthContext';
 import { useInstantData } from './hooks/useInstantData';
-import { backgroundSync } from './utils/backgroundSync';
+import { backgroundSync } from './utils/backgroundSync-enhanced';
 import { supabaseData } from './utils/supabaseData';
 // import { swManager } from './utils/serviceWorkerManager';
 import Header from './components/Header';
@@ -301,7 +301,7 @@ function App() {
     return mergedEntries;
   };
 
-  // Enhanced refresh data function with offline sync and instant cache
+  // Enhanced refresh data function with proper PWA integration
   const refreshData = useCallback(async () => {
     if (!currentUser || !isAuthenticated) return;
 
@@ -322,9 +322,13 @@ function App() {
         };
       }
 
-      // Original refresh logic for online with no cache
-      const currentEntries = [...entries];
-      await backgroundSync.forceSync();
+      // Try background sync first
+      try {
+        await backgroundSync.forceSync();
+      } catch (syncError) {
+        console.warn('Background sync failed, using fallback:', syncError);
+      }
+
       const syncStatus = backgroundSync.getStatus();
 
       const loadedEmployee = {
@@ -345,12 +349,14 @@ function App() {
           const supabaseEntries = await supabaseData.getTimeEntries(currentUser.id);
           if (supabaseEntries && supabaseEntries.length > 0) {
             // Save Supabase data to localStorage for offline use
-            getUserData('timeEntries') && saveUserData('timeEntries', supabaseEntries);
+            if (getUserData('timeEntries')) {
+              saveUserData('timeEntries', supabaseEntries);
+            }
             loadedEntries = supabaseEntries;
           }
         }
       } catch (supabaseError) {
-        
+        console.warn('Supabase fetch failed, using localStorage:', supabaseError);
       }
 
       // Fallback to localStorage if Supabase failed or user is local-only
@@ -361,7 +367,7 @@ function App() {
       const validatedLoadedEntries = validateTimeEntries(loadedEntries);
       
       // Merge current entries with loaded entries, prioritizing Supabase data
-      const mergedEntries = mergeEntries(currentEntries, validatedLoadedEntries);
+      const mergedEntries = mergeEntries(entries, validatedLoadedEntries);
 
       // Additional merge logic to handle deleted entries
       if (currentUser && !currentUser.isLocalOnly && syncStatus.isOnline) {
@@ -398,7 +404,7 @@ function App() {
         fromCache: false
       };
     } catch (error) {
-      
+      console.error('Refresh data failed:', error);
       throw error;
     } finally {
       setRefreshing(false);
@@ -407,14 +413,13 @@ function App() {
 
   // ✅ ALL EFFECTS ARE NOW AT TOP LEVEL
   useEffect(() => {
-    // Service Worker is handled by Vite PWA plugin
-    // Custom registration disabled to avoid conflicts
-    
+    // Initialize enhanced background sync
     const initTimer = setTimeout(() => {
       backgroundSync.init().catch(error => {
-        
+        console.warn('Background sync initialization failed:', error);
       });
     }, 1000);
+    
     return () => clearTimeout(initTimer);
   }, []);
 
