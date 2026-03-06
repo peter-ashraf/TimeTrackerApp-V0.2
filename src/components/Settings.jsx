@@ -155,7 +155,7 @@ function Settings() {
   const { currentUser, deleteUser } = useSupabaseAuth();
 
   // Employee form
-  const [name, setName] = useState(localStorage.getItem('userDisplayName') || employee.name);
+  const [name, setName] = useState(employee.name);
   const [salary, setSalary] = useState(employee.salary);
   const [employeeType, setEmployeeType] = useState(employee.employeeType);
   const [dailyHours, setDailyHours] = useState(employee.dailyHours);

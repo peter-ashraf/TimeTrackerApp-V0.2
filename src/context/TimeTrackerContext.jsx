@@ -307,7 +307,7 @@ export const TimeTrackerProvider = ({ children }) => {
       // Set initial local data
       setEmployee(prev => ({
         ...prev,
-        name: localStorage.getItem('userDisplayName') || currentUser.username || 'User',
+        name: currentUser.fullName || currentUser.username || 'User',
         salary: localSalary
       }));
       setEntries(localEntries);
@@ -790,7 +790,7 @@ export const TimeTrackerProvider = ({ children }) => {
       const localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
       
       setEmployee({
-        name: localStorage.getItem('userDisplayName') || profileData?.full_name || profileData?.username || currentUser.username || 'User',
+        name: profileData?.full_name || currentUser.fullName || profileData?.username || currentUser.username || 'User',
         salary: localSalary
       });
       

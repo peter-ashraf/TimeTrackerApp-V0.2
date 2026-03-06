@@ -21,8 +21,78 @@
   transform: translateY(0);
 }
 
+/* Refresh Button Styles */
+.refresh-btn {
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  margin-left: 8px;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(32, 201, 151, 0.3);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.refresh-spinner {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Network Status Styles */
+.network-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.network-status-indicator .icon {
+  font-size: 16px;
+}
+
+.network-status-indicator .text {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.network-status-indicator .text.desktop-only {
+  display: block;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .network-status-indicator .text.desktop-only {
+    display: none;
+  }
+}
+
 [data-theme="dark"] .username-display.clickable:hover {
   background: rgba(129, 140, 248, 0.1);
 }
 
-
+[data-theme="dark"] .refresh-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+}

@@ -11,7 +11,7 @@ import AppLoading from './components/AppLoading';
 import AutoSaveIndicator from './components/AutoSaveIndicator';
 import RefreshIndicator from './components/RefreshIndicator';
 import ConfirmModal from './components/ConfirmModal';
-import NetworkStatus from './components/NetworkStatus';
+// import NetworkStatus from './components/NetworkStatus';
 import './styles/app-transitions.css';
 import './styles/fixed-header.css';
 
@@ -576,7 +576,6 @@ function App() {
 
               <AutoSaveIndicator lastSaved={lastSaved} />
               <RefreshIndicator lastRefreshed={lastRefreshed} />
-              <NetworkStatus onRefresh={refreshData} />
 
               {/* Scroll to Top Button - Completely outside all containers */}
               {(showScrollTop || isHidingScrollTop) && (

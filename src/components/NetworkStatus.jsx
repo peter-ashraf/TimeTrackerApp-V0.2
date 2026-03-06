@@ -67,13 +67,17 @@ const NetworkStatus = ({ onRefresh }) => {
           {isRefreshing ? 'Syncing...' : isOnline ? 'Back online' : 'You\'re offline'}
         </div>
         {isOnline && (
-          <button 
+          <button
             className="refresh-button"
             onClick={handleRefresh}
             disabled={isRefreshing}
             title="Refresh data from server"
           >
-            ⟳
+            {isRefreshing ? (
+              <div className="refresh-spinner">⟳</div>
+            ) : (
+              <span>⟳</span>
+            )}
           </button>
         )}
       </div>

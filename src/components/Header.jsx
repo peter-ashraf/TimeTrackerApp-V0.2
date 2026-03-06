@@ -4,6 +4,7 @@ import { useSupabaseAuth } from "../context/SupabaseAuthContext";
 import OfflineIndicator from "./OfflineIndicator";
 import LogoutModal from "./LogoutModal";
 import SessionToast from "./SessionToast";
+import NetworkStatus from "./NetworkStatus";
 import '../styles/fixed-header.css';
 
 // Lazy load modal components for better code splitting
@@ -12,11 +13,24 @@ const UserSettingsModal = React.lazy(() => import("./UserSettingsModal"));
 function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
   const { theme, setTheme } = useTimeTracker();
   const { currentUser, logout, showSessionWarning, setShowSessionWarning } = useSupabaseAuth();
+  const { refreshData } = useTimeTracker();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showUserSettingsModal, setShowUserSettingsModal] = useState(false);
   const [userSettingsDefaultTab, setUserSettingsDefaultTab] = useState('username');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { employee } = useTimeTracker();
+
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      await refreshData();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const toggleTheme = () => {
     const newTheme = theme === "dark" ? "light" : "dark";
@@ -71,7 +85,22 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed }) {
             <h1 id="appName">TimeTracker</h1>
           </div>
           <div id="headerButtons">
-            <OfflineIndicator />
+            <button
+              className="refresh-btn"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              title="Refresh data from server"
+            >
+              {isRefreshing ? (
+                <span className="refresh-spinner">⟳</span>
+              ) : (
+                <span>⟳</span>
+              )}
+            </button>
+            <div className="network-status-indicator">
+              <span className="icon">🚀</span>
+              <span className="text desktop-only">ONLINE</span>
+            </div>
             <button
               id="themeToggle"
               className="btn-theme"

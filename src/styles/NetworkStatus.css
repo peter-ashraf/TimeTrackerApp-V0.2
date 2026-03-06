@@ -44,8 +44,8 @@
 }
 
 .refresh-button {
-  background: rgba(var(--color-text-secondary-rgb), 0.15);
-  border: 1px solid var(--color-border);
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
   border-radius: 6px;
   padding: 6px 8px;
   cursor: pointer;
@@ -55,6 +55,9 @@
   justify-content: center;
   min-width: 32px;
   height: 32px;
+  order: 10; /* Ensure button appears after other elements */
+  z-index: 1; /* Ensure button is on top */
+  color: white;
 }
 
 .refresh-button:hover:not(:disabled) {

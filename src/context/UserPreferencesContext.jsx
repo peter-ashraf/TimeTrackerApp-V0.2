@@ -81,7 +81,7 @@ export const UserPreferencesProvider = ({ children }) => {
       
       setEmployee(prev => ({
         ...prev,
-        name: localStorage.getItem('userDisplayName') || currentUser.username || 'User',
+        name: currentUser.fullName || currentUser.username || 'User',
         salary: localSalary
       }));
       setLeaveSettings(localLeaveSettings);
