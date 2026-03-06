@@ -1,9 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/NetworkStatus.css';
 
-const NetworkStatus = () => {
+const NetworkStatus = ({ onRefresh }) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showStatus, setShowStatus] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (isRefreshing || !isOnline) return;
+    
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     const handleOnline = () => {
@@ -33,7 +45,9 @@ const NetworkStatus = () => {
     <div className={`network-status ${isOnline ? 'online' : 'offline'}`}>
       <div className="network-status-content">
         <div className="network-status-icon">
-          {isOnline ? (
+          {isRefreshing ? (
+            <div className="refresh-spinner">⟳</div>
+          ) : isOnline ? (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
               <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
@@ -50,8 +64,18 @@ const NetworkStatus = () => {
           )}
         </div>
         <div className="network-status-text">
-          {isOnline ? 'Back online' : 'You\'re offline'}
+          {isRefreshing ? 'Syncing...' : isOnline ? 'Back online' : 'You\'re offline'}
         </div>
+        {isOnline && (
+          <button 
+            className="refresh-button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            title="Refresh data from server"
+          >
+            ⟳
+          </button>
+        )}
       </div>
     </div>
   );

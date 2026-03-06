@@ -576,7 +576,7 @@ function App() {
 
               <AutoSaveIndicator lastSaved={lastSaved} />
               <RefreshIndicator lastRefreshed={lastRefreshed} />
-              <NetworkStatus />
+              <NetworkStatus onRefresh={refreshData} />
 
               {/* Scroll to Top Button - Completely outside all containers */}
               {(showScrollTop || isHidingScrollTop) && (
