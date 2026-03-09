@@ -2657,7 +2657,7 @@ body.salary-blur .overtime-money-amount {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 9999;
   padding: var(--space-16);
   backdrop-filter: blur(2px);
   height: 100%;
@@ -3137,7 +3137,7 @@ body.salary-blur .overtime-money-amount {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 9999;
   padding: var(--space-20);
 }
 
@@ -3161,7 +3161,7 @@ body.salary-blur .overtime-money-amount {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
+  z-index: 9999;
 }
 
 .modal-content {
