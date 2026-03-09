@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useTimeTracker } from '../context/TimeTrackerContext-optimized';
+import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 import AlertModal from './AlertModal';
 
@@ -15,7 +15,7 @@ function AddBreakModal({ onClose }) {
     setAlertModal({ isOpen: true, message, type });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!breakStart || !breakEnd) {
       showAlert('Please enter both break start and end times', 'warning');
       return;
@@ -52,7 +52,7 @@ function AddBreakModal({ onClose }) {
       }
     ];
 
-    updateEntry(selectedDate, {
+    await updateEntry(selectedDate, {
       intervals: updatedIntervals
     });
 

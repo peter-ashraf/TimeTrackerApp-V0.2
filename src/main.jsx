@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import App from './App.jsx';
-import { TimeTrackerProvider } from './context/TimeTrackerContext-optimized';
+import { useTimeTracker, TimeTrackerProvider } from './context/TimeTrackerContext';
 import { TimeEntryProvider } from './context/TimeEntryContext';
 import { UserPreferencesProvider } from './context/UserPreferencesContext';
 import { PayPeriodProvider } from './context/PayPeriodContext';

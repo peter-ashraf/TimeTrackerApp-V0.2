@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useTimeTracker } from '../context/TimeTrackerContext-optimized';
+import { useTimeTracker } from '../context/TimeTrackerContext';
 import hapticFeedback from '../utils/hapticFeedback';
 import ManualTimeModal from './ManualTimeModal';
 import AddBreakModal from './AddBreakModal';

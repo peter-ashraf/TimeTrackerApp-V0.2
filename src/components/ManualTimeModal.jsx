@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { useTimeTracker } from '../context/TimeTrackerContext-optimized';
+import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 import ConfirmModal from './ConfirmModal';
 
 function ManualTimeModal({ mode, onClose }) {
-  const { setEntries, entries, formatDate, getCurrentPeriod, updateEntry, setConfirmModal, confirmModal } = useTimeTracker();
+  const { setEntries, entries, formatDate, getCurrentPeriod, updateEntry, setConfirmModal, confirmModal, timeEntryContext, showAlert } = useTimeTracker();
   const [applyMode, setApplyMode] = useState('today');
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [timeValue, setTimeValue] = useState('');
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const dateToUse = applyMode === 'today' ? formatDate(new Date()) : selectedDate;
     
     if (!timeValue) {
@@ -59,20 +59,28 @@ function ManualTimeModal({ mode, onClose }) {
         }
         
         // Add new check-in interval
-        updateEntry(dateToUse, {
+        await updateEntry(dateToUse, {
           intervals: [...existingEntry.intervals, { in: timeWithSeconds, out: null }]
         });
       } else {
-        // Create new entry
-        setEntries([...entries, {
+        // Create new entry with proper structure
+        const newEntry = {
           date: dateToUse,
           type: 'Regular',
           intervals: [{ in: timeWithSeconds, out: null }],
+          lastModified: new Date().toISOString(),
           hoursWorked: 0,
           extraHours: 0,
           extraHoursWithFactor: 0,
           hoursSpentOutside: 0
-        }]);
+        };
+        
+        // Update entries locally first
+        const updatedEntries = [newEntry, ...entries.filter(e => e.date !== dateToUse)];
+        setEntries(updatedEntries);
+        
+        // Save to Supabase with retry logic
+        await timeEntryContext.saveTimeEntriesData(newEntry, showAlert);
       }
       setConfirmModal({
         isOpen: true,
@@ -122,7 +130,7 @@ function ManualTimeModal({ mode, onClose }) {
           : interval
       );
 
-      updateEntry(dateToUse, {
+      await updateEntry(dateToUse, {
         intervals: updatedIntervals
       });
       

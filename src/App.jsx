@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react
 
 import { Routes, Route, Navigate } from 'react-router-dom';
 
-import { useTimeTracker } from './context/TimeTrackerContext-optimized';
+import { useTimeTracker } from './context/TimeTrackerContext';
 
 import { useSupabaseAuth } from './context/SupabaseAuthContext';
 
@@ -25,6 +25,7 @@ import RefreshIndicator from './components/RefreshIndicator';
 import ConfirmModal from './components/ConfirmModal';
 
 import NetworkStatus from './components/NetworkStatus';
+import SaveStatusIndicator from './components/SaveStatusIndicator';
 
 import './styles/app-transitions.css';
 
@@ -70,7 +71,7 @@ function App() {
 
   const swipeTimeoutRef = useRef(null);
 
-  const { lastSaved, lastRefreshed, entries, theme, setEntries, setLastRefreshed, setRefreshing, refreshEmployeeData } = useTimeTracker();
+  const { lastSaved, lastRefreshed, entries, theme, setEntries, setLastRefreshed, setRefreshing, refreshEmployeeData, isSaving, saveStatus } = useTimeTracker();
 
   const { currentUser, isAuthenticated, getUserData, saveUserData, isAppLoading, isLoading: authLoading } = useSupabaseAuth();
 
@@ -1155,10 +1156,9 @@ function App() {
 
 
               <AutoSaveIndicator lastSaved={lastSaved} />
-
               <RefreshIndicator lastRefreshed={lastRefreshed} />
-
               <NetworkStatus onRefresh={forceRefresh} />
+              <SaveStatusIndicator isSaving={isSaving} saveStatus={saveStatus} />
 
 
 

@@ -21,6 +21,8 @@ export const TimeEntryProvider = ({ children }) => {
   const [entries, setEntries] = useState([]);
   const [lastSaved, setLastSaved] = useState(null);
   const [lastRefreshed, setLastRefreshed] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
   
   // Refs to track state
   const isRefreshingRef = useRef(false);
@@ -48,53 +50,104 @@ export const TimeEntryProvider = ({ children }) => {
     }
   }, []);
 
-  // Save time entries data
-  const saveTimeEntriesData = useCallback(async (entriesToSave) => {
+  // Save time entries data with enhanced retry logic and user feedback
+  const saveTimeEntriesData = useCallback(async (entriesToSave, showAlert = null) => {
     if (!currentUser) return;
 
-    let retryCount = 0;
-    const maxRetries = 3;
-    const retryDelay = 1000;
+    setIsSaving(true);
+    setSaveStatus({ message: 'Saving...', type: 'info' });
 
+    let retryCount = 0;
+    const maxRetries = 5;
+    const baseRetryDelay = 1000;
+    
     const attemptSave = async () => {
       try {
-        if (currentUser && isAuthenticated && !currentUser.isLocalOnly) {
-          // Instead of looping, we expect `entriesToSave` to be a single entry Delta
-          // OR we let backgroundSync handle it if it's a massive payload.
-          // For now, if it's an array, we only save the first one if we can identify it, 
-          // or we handle the delta where the function is called.
-          
-          if (Array.isArray(entriesToSave)) {
-            // We shouldn't be here in the optimal flow, but as fallback, we save locally.
-            // The optimal flow will pass a single `entry` object instead of the array.
-            const entriesKey = `timeEntries_${currentUser.id}`;
-            setSimpleEncryptedItem(entriesKey, entriesToSave, currentUser.username);
-            return;
-          }
+        // Always save to local storage first as backup
+        const entriesKey = `timeEntries_${currentUser.id}`;
+        if (Array.isArray(entriesToSave)) {
+          setSimpleEncryptedItem(entriesKey, entriesToSave, currentUser.username);
+        } else {
+          // For single entry, get current entries and update
+          const currentEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
+          const updatedEntries = currentEntries.filter(e => e.date !== entriesToSave.date);
+          updatedEntries.unshift(entriesToSave);
+          setSimpleEncryptedItem(entriesKey, updatedEntries, currentUser.username);
+        }
 
-          // Single entry delta save
-          await supabaseData.saveTimeEntry(currentUser.id, entriesToSave);
+        // Try to save to Supabase if online and not local-only
+        if (currentUser && isAuthenticated && !currentUser.isLocalOnly && navigator.onLine) {
+          if (Array.isArray(entriesToSave)) {
+            // Save each entry individually for better error handling
+            for (const entry of entriesToSave) {
+              await supabaseData.saveTimeEntry(currentUser.id, entry);
+            }
+          } else {
+            // Single entry delta save
+            await supabaseData.saveTimeEntry(currentUser.id, entriesToSave);
+          }
+          
+          console.log('✅ Successfully saved to Supabase');
+          setSaveStatus({ message: 'Saved to server', type: 'success' });
+          setLastSaved(new Date().toISOString());
+          return { success: true, savedTo: 'supabase' };
+        } else {
+          console.log('📱 Saved to local storage only (offline or local-only user)');
+          setSaveStatus({ message: 'Saved locally', type: 'info' });
+          setLastSaved(new Date().toISOString());
+          return { success: true, savedTo: 'local' };
         }
       } catch (error) {
-        console.error('Failed to save time entry to Supabase:', error);
+        console.error(`❌ Save attempt ${retryCount + 1} failed:`, error);
         
-        // Handle auth-related errors
+        // Handle auth-related errors - don't retry these
         if (error.status === 401 || error.status === 406 || (error.message && (error.message.includes('401') || error.message.includes('406')))) {
-          return;
+          console.warn('🔐 Authentication error - skipping retries');
+          setSaveStatus({ message: 'Auth error - saved locally', type: 'warning' });
+          if (showAlert) {
+            showAlert('Authentication issue. Data saved locally only.', 'warning');
+          }
+          return { success: false, error: 'auth', savedTo: 'local' };
         }
 
-        // Check if it's a Navigator Lock Manager timeout
-        if (error.message && error.message.includes('Navigator LockManager')) {
-          if (retryCount < maxRetries) {
-            retryCount++;
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
-            return attemptSave();
+        // Handle network errors with exponential backoff
+        if (retryCount < maxRetries) {
+          retryCount++;
+          const exponentialDelay = baseRetryDelay * Math.pow(2, retryCount - 1);
+          const jitter = Math.random() * 0.1 * exponentialDelay; // Add 10% jitter
+          const delay = exponentialDelay + jitter;
+          
+          console.log(`🔄 Retrying in ${Math.round(delay)}ms (attempt ${retryCount}/${maxRetries})`);
+          setSaveStatus({ message: `Retrying... (${retryCount}/${maxRetries})`, type: 'warning' });
+          
+          if (showAlert && retryCount === 2) {
+            showAlert('Connection issues. Retrying save...', 'info');
           }
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return attemptSave();
+        } else {
+          // Max retries reached - data is already saved locally
+          console.error('💥 Max retries reached - data saved locally only');
+          setSaveStatus({ message: 'Failed - saved locally', type: 'error' });
+          if (showAlert) {
+            showAlert('Failed to save to server. Data saved locally.', 'error');
+          }
+          return { success: false, error: 'max_retries', savedTo: 'local' };
         }
       }
     };
 
-    await attemptSave();
+    try {
+      const result = await attemptSave();
+      return result;
+    } finally {
+      // Clear save status after a delay
+      setTimeout(() => {
+        setIsSaving(false);
+        setSaveStatus({ message: '', type: '' });
+      }, 2000);
+    }
   }, [currentUser, isAuthenticated]);
 
   // Load time entries data
@@ -168,6 +221,8 @@ export const TimeEntryProvider = ({ children }) => {
     setLastSaved,
     lastRefreshed,
     setLastRefreshed,
+    isSaving,
+    saveStatus,
     
     // Helper functions
     formatDate,

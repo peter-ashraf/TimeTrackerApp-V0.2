@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { useTimeTracker } from '../context/TimeTrackerContext-optimized';
+import { useTimeTracker } from '../context/TimeTrackerContext';
 import hapticFeedback from '../utils/hapticFeedback';
 import { debounce } from '../utils/performanceUtils';
 const ManualTimeModal = React.lazy(() => import('./ManualTimeModal'));

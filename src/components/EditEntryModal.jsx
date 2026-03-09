@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useTimeTracker } from '../context/TimeTrackerContext-optimized';
+import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 
 function EditEntryModal({ entry, onClose }) {
@@ -98,7 +98,7 @@ function EditEntryModal({ entry, onClose }) {
     setEditedEntry({ ...editedEntry, intervals: newIntervals });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Check if user made any modifications
     if (!hasModifications) {
       showValidationError(
@@ -142,10 +142,14 @@ function EditEntryModal({ entry, onClose }) {
       }
     }
 
-    // ✅ Clean up intervals (remove empty ones)
-    const validIntervals = editedEntry.intervals.filter(interval => 
-      interval.in || interval.out
-    );
+    // ✅ Clean up intervals (remove empty ones and convert empty strings to null)
+    const validIntervals = editedEntry.intervals
+      .filter(interval => interval.in || interval.out) // Remove completely empty intervals
+      .map(interval => ({
+        ...interval,
+        in: interval.in || null, // Convert empty strings to null
+        out: interval.out || null  // Convert empty strings to null
+      }));
 
     if (editedEntry.type === 'Regular' && validIntervals.length === 0) {
       showValidationError(
@@ -157,7 +161,7 @@ function EditEntryModal({ entry, onClose }) {
     }
 
     // Update entry with all modified fields
-    updateEntry(entry.date, {
+    await updateEntry(entry.date, {
       type: editedEntry.type,
       intervals: validIntervals,
       duration: editedEntry.duration,

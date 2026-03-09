@@ -1,18 +1,14 @@
 import React, { useState } from 'react';
-import { useTimeTracker } from '../context/TimeTrackerContext-optimized';
+import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 import AlertModal from './AlertModal';
 
 function AddDayModal({ onClose }) {
-  const { setEntries, entries, formatDate } = useTimeTracker();
+  const { setEntries, entries, formatDate, saveTimeEntriesData, showAlert } = useTimeTracker();
   const [dayType, setDayType] = useState('Vacation Full Day');
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [dayNotes, setDayNotes] = useState('');
   const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', type: 'info' });
-
-  const showAlert = (message, type = 'info') => {
-    setAlertModal({ isOpen: true, message, type });
-  };
 
   const parseSpecialDayLabel = (label) => {
     if (label.includes('Half')) {
@@ -24,7 +20,7 @@ function AddDayModal({ onClose }) {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!dayType || !selectedDate) {
       showAlert('Please select day type and date', 'warning');
       return;
@@ -42,13 +38,25 @@ function AddDayModal({ onClose }) {
       return;
     }
 
-    setEntries([...entries, {
+    const newEntry = {
       date: selectedDate,
       type: type,
       duration: duration,
       intervals: [],
-      notes: dayNotes
-    }]);
+      notes: dayNotes,
+      lastModified: new Date().toISOString(),
+      hoursWorked: 0,
+      extraHours: 0,
+      extraHoursWithFactor: 0,
+      hoursSpentOutside: 0
+    };
+
+    // Update entries locally first
+    const updatedEntries = [newEntry, ...entries.filter(e => e.date !== selectedDate)];
+    setEntries(updatedEntries);
+    
+    // Save to Supabase with retry logic
+    await saveTimeEntriesData(newEntry, showAlert);
 
     showAlert(`${dayType} added for ${selectedDate}`, 'success');
     setTimeout(() => {

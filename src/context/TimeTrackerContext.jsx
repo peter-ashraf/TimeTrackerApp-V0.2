@@ -4,9 +4,10 @@ import AlertModal from '../components/AlertModal';
 import { useSupabaseAuth } from './SupabaseAuthContext';
 import { supabaseData } from '../utils/supabaseData';
 import { dataMigration } from '../utils/dataMigration';
-import { setSimpleEncryptedItem, getSimpleEncryptedItem } from '../utils/simple-encryption';
-import { multiTabSync } from '../utils/multiTabSync';
 import { backgroundSync } from '../utils/backgroundSync';
+import { useTimeEntry } from './TimeEntryContext';
+import { useUserPreferences } from './UserPreferencesContext';
+import { usePayPeriod } from './PayPeriodContext';
 
 // Lazy load modal components for better code splitting
 const BackupReminderModal = React.lazy(() => import('../components/BackupReminderModal'));
@@ -24,49 +25,13 @@ export const useTimeTracker = () => {
 export const TimeTrackerProvider = ({ children }) => {
   const { currentUser, isAuthenticated, getUserData, saveUserData } = useSupabaseAuth();
   
+  // Use the smaller contexts
+  const timeEntryContext = useTimeEntry();
+  const userPreferencesContext = useUserPreferences();
+  const payPeriodContext = usePayPeriod();
+  
   // ✅ CRITICAL: Don't load data until user is authenticated
   const [isContextReady, setIsContextReady] = useState(false);
-  
-  // Employee Data - using getUserData/saveUserData from SupabaseAuth
-  const [employee, setEmployee] = useState({ 
-    name: '', 
-    salary: 0,
-    employeeType: 'full-time',
-    dailyHours: 9,
-    monthlyHours: 187,
-    workDaysPerWeek: 5
-  });
-  
-  // Leave Settings
-  const [leaveSettings, setLeaveSettings] = useState({ annualVacation: 10, sickDays: 7 });
-  
-  // Time Entries
-  const [entries, setEntries] = useState([]);
-  
-  // Pay Periods
-  const [periods, setPeriods] = useState([]);
-  
-  const [currentPeriodId, setCurrentPeriodId] = useState(null);
-  
-  // UI State (these are NOT user-specific, they're app-wide preferences)
-  const [hideSalary, setHideSalary] = useState(() => {
-    const saved = localStorage.getItem('hideSalary');
-    return saved === 'true';
-  });
-  
-  const [lastSaved, setLastSaved] = useState(null);
-  
-  const [lastRefreshed, setLastRefreshed] = useState(null);
-  
-  const [use12Hour, setUse12Hour] = useState(() => {
-    const saved = localStorage.getItem('use12HourFormat');
-    return saved !== 'false';
-  });
-  
-  const [detailedView, setDetailedView] = useState(() => {
-    const saved = localStorage.getItem('detailedView');
-    return saved === 'true';
-  });
   
   // State Confirmation
   const [confirmModal, setConfirmModal] = useState({
@@ -77,16 +42,6 @@ export const TimeTrackerProvider = ({ children }) => {
     onConfirm: null
   });
   
-  // Theme State (app-wide)
-  const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem('theme');
-    if (saved) return saved;
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
-    return 'light';
-  });
-  
   // Backup reminder state
   const [showBackupReminder, setShowBackupReminder] = useState(false);
   
@@ -95,45 +50,19 @@ export const TimeTrackerProvider = ({ children }) => {
   
   // Ref to track migration state
   const migrationRef = useRef(false);
-  
-  // Ref to track when we're refreshing (to prevent save updates)
-  const isRefreshingRef = useRef(false);
 
-  const isLoadingRef = useRef(false);  // ← ADD near other refs
-
-  const isSavingPeriodsRef = useRef(false);  // ← ADD near other refs
-  
   // Function to show alerts
   const showAlert = useCallback((message, type = 'info') => {
     setAlertModal({ isOpen: true, message, type });
   }, []);
-  
-  // Function to set refresh flag (to prevent save updates during refresh)
-  const setRefreshing = useCallback((isRefreshing) => {
-    isRefreshingRef.current = isRefreshing;
+
+  // Helper function to ensure time format includes seconds
+  const ensureTimeSeconds = useCallback((timeStr) => {
+    if (!timeStr) return timeStr;
+    return timeStr.split(':').length === 2 ? timeStr + ':00' : timeStr;
   }, []);
-  
-  const formatDate = useCallback((date) => {
-    const d = new Date(date);
-    return d.toISOString().split('T')[0];
-  }, []);
-  
-  const formatTime = useCallback((date) => {
-    const d = new Date(date);
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const seconds = String(d.getSeconds()).padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
-  }, []);
-  
-  const updateEntries = useCallback((newEntries) => {
-    setEntries(newEntries);
-    // Only update lastSaved if we're not refreshing
-    if (!isRefreshingRef.current) {
-      setLastSaved(new Date().toISOString());
-    }
-  }, []);
-  
+
+  // Helper Functions
   const timeToSeconds = useCallback((timeStr) => {
     if (!timeStr || timeStr.trim() === '') return 0;
     const parts = timeStr.split(':').map(Number);
@@ -145,69 +74,23 @@ export const TimeTrackerProvider = ({ children }) => {
     return 0;
   }, []);
 
-  const saveTimeEntriesData = useCallback(async (entries) => {
-    if (!currentUser) return;
-
-    let retryCount = 0;
-    const maxRetries = 3;
-    const retryDelay = 1000; // 1 second between retries
-
-    const attemptSave = async () => {
-      try {
-        // Try to save to Supabase first
-        if (currentUser && isAuthenticated && !currentUser.isLocalOnly) {
-          for (const entry of entries) {
-            await supabaseData.saveTimeEntry(currentUser.id, entry);
-          }
-        }
-      } catch (error) {
-        
-        // Handle auth-related errors (401 Unauthorized, 406 Not Acceptable)
-        // 406 often happens when there is an issue with the session or RLS
-        if (error.status === 401 || error.status === 406 || (error.message && (error.message.includes('401') || error.message.includes('406')))) {
-          // Don't retry auth errors, just move to fallback
-          const entriesKey = `timeEntries_${currentUser.id}`;
-          setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
-          return;
-        }
-
-        // Check if it's a Navigator Lock Manager timeout
-        if (error.message && error.message.includes('Navigator LockManager')) {
-          if (retryCount < maxRetries) {
-            retryCount++;
-            
-            // Wait before retry
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
-            return attemptSave();
-          }
-        }
-        
-        // Fallback to localStorage for any other error
-        const entriesKey = `timeEntries_${currentUser.id}`;
-        setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
-      }
-    };
-
-    await attemptSave();
-  }, [currentUser, isAuthenticated, setSimpleEncryptedItem]);
-  
   const secondsToTime = useCallback((totalSeconds) => {
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }, []);
-  
+
   const secondsToHours = useCallback((seconds) => {
     return seconds / 3600;
   }, []);
-  
+
   const formatTimeDisplay = useCallback((timeStr) => {
     if (!timeStr) return '-';
     if (timeStr.split(':').length === 3) return timeStr;
     return timeStr + ':00';
   }, []);
-  
+
   const calculateHoursWorked = useCallback((intervals, date) => {
     if (!intervals || intervals.length === 0) {
       return 0;
@@ -247,7 +130,7 @@ export const TimeTrackerProvider = ({ children }) => {
     const netSeconds = Math.max(0, grossSeconds - deductedBreakSeconds);
     return secondsToHours(netSeconds);
   }, [timeToSeconds, secondsToHours]);
-  
+
   const calculateHoursSpentOutside = useCallback((intervals) => {
     if (!intervals || intervals.length <= 1) return 0;
     
@@ -277,628 +160,129 @@ export const TimeTrackerProvider = ({ children }) => {
     return hoursSpentOutside;
   }, [timeToSeconds, secondsToHours]);
 
-  // Load user-specific data with local-first strategy
-  const loadData = useCallback(async () => {
-    if (!currentUser || !isAuthenticated) {
-      return;
-    }
-
-    if (isLoadingRef.current) return;
+  // Check-in functionality
+  const checkIn = useCallback(async () => {
+    if (!currentUser || !isAuthenticated) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const timeString = ensureTimeSeconds(now.toTimeString().split(' ')[0]); // Format: HH:MM:SS
     
     try {
-      isLoadingRef.current = true;
+      // Check if there's already an entry for today
+      const todayEntry = timeEntryContext.entries.find(e => e.date === today);
       
-      // Step 1: Load from local storage immediately for fast UI
-      const salaryKey = `salary_${currentUser.id}`;
-      const entriesKey = `timeEntries_${currentUser.id}`;
-      const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
-      const periodsKey = `payPeriods_${currentUser.id}`;
-      const currentPeriodIdKey = `currentPeriodId_${currentUser.id}`;
-
-      let localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
-      const localEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
-      const localLeaveSettings = getSimpleEncryptedItem(leaveSettingsKey, currentUser.username) || {
-        annualVacation: 10,
-        sickDays: 7
+      if (todayEntry) {
+        // Check if there's already an active check-in (interval without out time)
+        const hasActiveCheckIn = todayEntry.intervals && 
+          todayEntry.intervals.length > 0 && 
+          todayEntry.intervals.some(interval => interval.in && !interval.out);
+        
+        if (hasActiveCheckIn) {
+          showAlert('You are already checked in!', 'warning');
+          return;
+        }
+        
+        // If there's an entry but no active check-in, add new interval
+        const updatedEntry = { ...todayEntry };
+        updatedEntry.intervals = [...updatedEntry.intervals, { in: timeString, out: null }];
+        updatedEntry.lastModified = now.toISOString();
+        
+        // Update entries locally first
+        const updatedEntries = [updatedEntry, ...timeEntryContext.entries.filter(e => e.date !== today)];
+        timeEntryContext.setEntries(updatedEntries);
+        
+        // Immediately save to storage with retry logic
+        const saveResult = await timeEntryContext.saveTimeEntriesData(updatedEntry, showAlert);
+        
+        if (saveResult.success) {
+          showAlert('Successfully checked in!', 'success');
+        } else if (saveResult.savedTo === 'local') {
+          showAlert('Checked in (saved locally)', 'success');
+        }
+        return;
+      }
+      
+      // No entry exists for today, create new one
+      const newEntry = {
+        date: today,
+        intervals: [{ in: timeString, out: null }],
+        type: 'Regular',
+        lastModified: now.toISOString()
       };
-      const localPeriods = getSimpleEncryptedItem(periodsKey, currentUser.username) || [];
-      const localCurrentPeriodId = localStorage.getItem(currentPeriodIdKey);
-
-      // Set initial local data - try to get cached name first
-      const cachedName = getSimpleEncryptedItem('employeeName', currentUser.username) || 
-                        localStorage.getItem('userDisplayName') ||
-                        currentUser.username ||
-                        'User';
-      setEmployee(prev => ({
-        ...prev,
-        name: cachedName,
-        salary: localSalary
-      }));
       
-      // If we have a cached name, also cache it with the current username for future use
-      if (cachedName && cachedName !== currentUser.username) {
-        setSimpleEncryptedItem('employeeName', cachedName, currentUser.username);
+      // Update entries through time entry context locally first
+      const updatedEntries = [newEntry, ...timeEntryContext.entries.filter(e => e.date !== today)];
+      timeEntryContext.setEntries(updatedEntries);
+      
+      // Immediately save to storage with retry logic
+      const saveResult = await timeEntryContext.saveTimeEntriesData(newEntry, showAlert);
+      
+      if (saveResult.success) {
+        showAlert('Successfully checked in!', 'success');
+      } else if (saveResult.savedTo === 'local') {
+        showAlert('Checked in (saved locally)', 'success');
       }
-      setEntries(localEntries);
-      setLeaveSettings(localLeaveSettings);
-      setPeriods(localPeriods);
-      if (localCurrentPeriodId) setCurrentPeriodId(localCurrentPeriodId);
-      
-      setIsContextReady(true); // App is usable with local data
-
-      // Step 2: Defer Supabase sync to improve initial load time
-      setTimeout(async () => {
-        if (navigator.onLine) {
-          try {
-            const [profileData, entriesData, leaveSettingsData, periodsData, currentPeriodData] = await Promise.all([
-              supabaseData.getUserProfile(currentUser.id),
-              supabaseData.getTimeEntries(currentUser.id),
-              supabaseData.getLeaveSettings(currentUser.id),
-              supabaseData.getPayPeriods(currentUser.id),
-              supabaseData.getCurrentPayPeriod(currentUser.id)
-          ]);
-          
-          // Merge logic: For entries, we should merge rather than overwrite
-          // (Implemented in a separate updateEntries function or using mergeEntries logic from App.jsx)
-          
-          if (profileData) {
-            setEmployee(prev => {
-              const newName = profileData.full_name || prev.name;
-              // Cache the name for future use
-              setSimpleEncryptedItem('employeeName', newName, currentUser.username);
-              return {
-                ...prev,
-                name: newName,
-                employeeType: profileData.employee_type || 'full-time',
-                dailyHours: profileData.daily_hours || 9,
-                monthlyHours: profileData.monthly_hours || 187,
-                workDaysPerWeek: profileData.work_days_per_week || 5
-              };
-            });
-          } else {
-            // Don't change the name if database fails, keep what we have
-          }
-
-          if (entriesData && entriesData.length > 0) {
-            // Smart merge entries to prevent overwriting fresh offline data
-            setEntries(prev => {
-              const prevMap = new Map(prev.map(e => [e.date, e]));
-              entriesData.forEach(entry => {
-                const existing = prevMap.get(entry.date);
-                if (!existing || new Date(entry.updated_at || 0) > new Date(existing.lastModified || 0)) {
-                  prevMap.set(entry.date, entry);
-                }
-              });
-              return Array.from(prevMap.values()).sort((a, b) => b.date.localeCompare(a.date));
-            });
-          }
-
-          if (leaveSettingsData) {
-            setLeaveSettings({
-              annualVacation: leaveSettingsData.annualVacation || 10,
-              sickDays: leaveSettingsData.sickDays || 7,
-              personalDays: leaveSettingsData.personalDays || 2,
-              usedVacationDays: leaveSettingsData.usedVacationDays || 0,
-              usedSickDays: leaveSettingsData.usedSickDays || 0,
-              usedPersonalDays: leaveSettingsData.usedPersonalDays || 0
-            });
-          }
-
-          if (periodsData && periodsData.length > 0) {
-            setPeriods(periodsData);
-            if (currentPeriodData) {
-              setCurrentPeriodId(currentPeriodData.id);
-              localStorage.setItem(currentPeriodIdKey, currentPeriodData.id);
-            }
-          }
-        } catch (onlineError) {
-          console.error('Failed to fetch from Supabase, staying with local data', onlineError);
-        }
-      }
-      }, 0); // Sync immediately to prevent race conditions
-      
-      isLoadingRef.current = false;
-      
     } catch (error) {
-      console.error('loadData critical error:', error);
-      isLoadingRef.current = false;
-      setIsContextReady(true); // Still try to be ready with whatever we have
+      console.error('Check-in failed:', error);
+      showAlert('Failed to check in. Please try again.', 'error');
     }
-  }, [currentUser, isAuthenticated]);
-  
-  // ✅ LOAD USER DATA WHEN USER CHANGES
-  useEffect(() => {
-    // Reset background sync flag on page load to allow normal sync
-    localStorage.removeItem('disableBackgroundSync');
-    
-    if (!currentUser) {
-      // Reset to defaults if no user
-      setEmployee({ 
-        name: '', 
-        salary: 0,
-        employeeType: 'full-time',
-        dailyHours: 9,
-        monthlyHours: 187,
-        workDaysPerWeek: 5
-      });
-      setLeaveSettings({ annualVacation: 10, sickDays: 7 });
-      setEntries([]);
-      setPeriods([]);
-      setCurrentPeriodId(null);
-      setIsContextReady(false);
-      return;
-    }
-    
-    // Check if there was a recent manual name change in Settings
-    const recentNameChange = localStorage.getItem('userDisplayNameTimestamp');
-    const recentlyChanged = recentNameChange && (Date.now() - parseInt(recentNameChange)) < 30000; // Within 30 seconds
-    
-    // Also check if Settings component is currently active (has focus)
-    const settingsActive = document.activeElement?.classList?.contains('settings') || 
-                         document.activeElement?.classList?.contains('modal') ||
-                         document.activeElement?.id === 'name';
-    
-    // Check for global flag to disable background sync completely
-    const disableBackgroundSync = localStorage.getItem('disableBackgroundSync') === 'true';
-    
-    // Async function to handle migrations and data loading
-    const initializeUserData = async () => {
-      try {
-        // Skip background sync if there was a recent manual name change OR Settings is active OR disabled globally
-        console.log('🔍 [TimeTracker] Background sync check:', {
-          recentNameChange,
-          recentlyChanged,
-          settingsActive,
-          disableBackgroundSync
-        });
-        
-        if (recentlyChanged || settingsActive || disableBackgroundSync) {
-          console.log('🔍 [TimeTracker] Skipping background sync - manual change detected or Settings active or disabled');
-          setIsContextReady(true);
-          return;
-        }
-        
-        // Check if data migration is needed
-        const dataMigrationNeeded = dataMigration.isMigrationNeeded(currentUser.id, currentUser.username);
-        
-        if (dataMigrationNeeded) {
-          // Migration needed for user
-          
-          // Perform migrations in parallel
-          const migrationPromises = [];
-          
-          if (dataMigrationNeeded) {
-            migrationPromises.push(
-              dataMigration.migrateUserData(currentUser.id, currentUser.username)
-                .then(result => ({ type: 'data', result }))
-                .catch(error => ({ type: 'data', error }))
-            );
-          }
-          
-          // Wait for all migrations to complete
-          Promise.allSettled(migrationPromises)
-            .then((results) => {
-              results.forEach((result) => {
-                if (result.status === 'fulfilled') {
-                  
-                } else {
-                  
-                }
-              });
-              
-              // Load data after migrations
-              loadData();
-            })
-            .catch((error) => {
-              
-              // Still load data even if migration fails
-              loadData();
-            });
-        } else {
-          // Load data normally
-          loadData();
-        }
-      } catch (error) {
-        
-        // Still load data even if initialization fails
-        loadData();
-      }
-    };
-    
-    initializeUserData();
-  }, [currentUser, loadData]);
-  
-  // ✅ SAVE USER DATA WHEN IT CHANGES (using Supabase with localStorage fallback)
-  useEffect(() => {
-    if (!currentUser || !isContextReady) return;
-    
-    // Check if there's a manual name change in progress
-    const manualNameChange = localStorage.getItem('manualNameChange') === 'true';
-    
-    const saveEmployeeData = async () => {
-      try {
-        // Skip auto-save during manual name changes to prevent conflicts
-        if (manualNameChange) {
-          console.log('🔍 [TimeTracker] Skipping auto-save due to manual name change');
-          return;
-        }
-        
-        // Only save employee type fields to Supabase - NEVER save full_name automatically!
-        // full_name should only be updated when user explicitly changes it in Settings
-        await supabaseData.saveUserProfile(currentUser.id, {
-          // ❌ CRITICAL: Never save full_name automatically - it overwrites database!
-          // full_name: employee.name, // REMOVED - this was overwriting the database!
-          employee_type: employee.employeeType,
-          daily_hours: employee.dailyHours,
-          monthly_hours: employee.monthlyHours,
-          work_days_per_week: employee.workDaysPerWeek
-        });
-        
-        // Save salary to encrypted localStorage only
-        const salaryKey = `salary_${currentUser.id}`;
-        setSimpleEncryptedItem(salaryKey, employee.salary, currentUser.username);
-        
-        
-      } catch (error) {
-        
-        
-        // Fallback - save salary to localStorage only (name already handled by Supabase sync)
-        const salaryKey = `salary_${currentUser.id}`;
-        setSimpleEncryptedItem(salaryKey, employee.salary, currentUser.username);
-        
-      }
-    };
-    
-    saveEmployeeData();
-    
-    // Notify other tabs of data change
-    multiTabSync.notifyDataChange('employee', employee, currentUser.username);
-  }, [employee, currentUser, isContextReady]);
-  
-  useEffect(() => {
-    if (!currentUser || !isContextReady) return;
-    
-    const saveLeaveSettingsData = async () => {
-      try {
-        // Save to Supabase
-        await supabaseData.saveLeaveSettings(currentUser.id, {
-          annual_vacation: leaveSettings.annualVacation,
-          sick_days: leaveSettings.sickDays,
-          personal_days: leaveSettings.personalDays,
-          used_vacation_days: leaveSettings.usedVacationDays,
-          used_sick_days: leaveSettings.usedSickDays,
-          used_personal_days: leaveSettings.usedPersonalDays
-        });
-        
-        
-      } catch (error) {
-        
-        
-        // Fallback to localStorage
-        const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
-        setSimpleEncryptedItem(leaveSettingsKey, leaveSettings, currentUser.username);
-        
-      }
-    };
-    
-    saveLeaveSettingsData();
-    
-    // Notify other tabs of data change
-    multiTabSync.notifyDataChange('leaveSettings', leaveSettings, currentUser.username);
-  }, [leaveSettings, currentUser, isContextReady]);
-  
-  useEffect(() => {
-    if (!currentUser || !isContextReady) return;
-    if (isRefreshingRef.current) return;
-    
-    saveTimeEntriesData(entries);
-    
-    // Notify other tabs of data change
-    multiTabSync.notifyDataChange('timeEntries', entries, currentUser.username);
-  }, [entries, currentUser, isContextReady, isRefreshingRef, saveTimeEntriesData]);
+  }, [currentUser, isAuthenticated, timeEntryContext, showAlert, ensureTimeSeconds]);
 
-  // Pay periods are now user-specific
-  useEffect(() => {
-  if (!currentUser || !isContextReady || isRefreshingRef.current) return;
-  if (isSavingPeriodsRef.current) return;  // ← blocks re-entry
-
-  const savePayPeriodsData = async () => {
-    isSavingPeriodsRef.current = true;  // ← lock
+  // Check-out functionality
+  const checkOut = useCallback(async () => {
+    if (!currentUser || !isAuthenticated) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const timeString = ensureTimeSeconds(now.toTimeString().split(' ')[0]); // Format: HH:MM:SS
+    
     try {
-      const updatedPeriods = [];
-      for (const period of periods) {
-        const saved = await supabaseData.savePayPeriod(currentUser.id, period);
-        // Merge: keep local fields, update with Supabase-returned id
-        updatedPeriods.push({ ...period, id: saved.id });
+      const todayEntry = timeEntryContext.entries.find(e => e.date === today);
+      if (!todayEntry) {
+        showAlert('No check-in found for today', 'error');
+        return;
       }
-
-      // Only update state if ids actually changed (avoids re-trigger)
-      const idsChanged = updatedPeriods.some(
-        (p, i) => p.id !== periods[i]?.id
+      
+      const updatedEntry = { ...todayEntry };
+      const lastInterval = updatedEntry.intervals[updatedEntry.intervals.length - 1];
+      if (lastInterval && !lastInterval.out) {
+        lastInterval.out = timeString;
+        updatedEntry.lastModified = now.toISOString();
+      }
+      
+      // Update entries locally first
+      const updatedEntries = timeEntryContext.entries.map(e => 
+        e.date === today ? updatedEntry : e
       );
-      if (idsChanged) {
-        setPeriods(updatedPeriods);  // ← only fires if UUIDs changed
-      }
-
+      timeEntryContext.setEntries(updatedEntries);
       
+      // Immediately save to storage with retry logic
+      const saveResult = await timeEntryContext.saveTimeEntriesData(updatedEntry, showAlert);
+      
+      if (saveResult.success) {
+        showAlert('Successfully checked out!', 'success');
+      } else if (saveResult.savedTo === 'local') {
+        showAlert('Checked out (saved locally)', 'success');
+      }
     } catch (error) {
-      
-      const periodsKey = `payPeriods_${currentUser.id}`;
-      setSimpleEncryptedItem(periodsKey, periods, currentUser.username);
-      
-    } finally {
-      isSavingPeriodsRef.current = false;  // ← always unlock
+      console.error('Check-out failed:', error);
+      showAlert('Failed to check out. Please try again.', 'error');
     }
-  };
+  }, [currentUser, isAuthenticated, timeEntryContext, showAlert, ensureTimeSeconds]);
 
-  savePayPeriodsData();
-  multiTabSync.notifyDataChange('payPeriods', periods, currentUser.username);
-}, [periods, currentUser, isContextReady]);
-
-
-  
-  // Persist UI preferences (app-wide, not user-specific)
-  useEffect(() => {
-    localStorage.setItem('theme', theme);
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
-  
-  useEffect(() => {
-    localStorage.setItem('hideSalary', hideSalary);
-  }, [hideSalary]);
-  
-  useEffect(() => {
-    localStorage.setItem('use12HourFormat', use12Hour);
-  }, [use12Hour]);
-  
-  useEffect(() => {
-    localStorage.setItem('detailedView', detailedView);
-  }, [detailedView]);
-  
-  // Listen for system theme changes
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
-    const handleThemeChange = (e) => {
-      const savedTheme = localStorage.getItem('theme');
-      if (!savedTheme) {
-        const newTheme = e.matches ? 'dark' : 'light';
-        setTheme(newTheme);
-      }
-    };
-    
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', handleThemeChange);
-      return () => mediaQuery.removeEventListener('change', handleThemeChange);
-    } else if (mediaQuery.addListener) {
-      mediaQuery.addListener(handleThemeChange);
-      return () => mediaQuery.removeListener(handleThemeChange);
-    }
-  }, []);
-  
-  // Check for backup reminder (run once on mount)
-  useEffect(() => {
-    if (!currentUser) return;
-    
-    const lastBackup = localStorage.getItem('lastBackupDate');
-    const dismissedReminder = localStorage.getItem('dismissedBackupReminder');
-    
-    if (dismissedReminder === 'true') return;
-    
-    const today = new Date();
-    
-    if (!lastBackup) {
-      if (entries.length > 0) {
-        const oldestEntry = entries.sort((a, b) => a.date.localeCompare(b.date))[0];
-        const oldestDate = new Date(oldestEntry.date);
-        const daysSinceFirst = Math.floor((today - oldestDate) / (1000 * 60 * 60 * 24));
-        
-        if (daysSinceFirst >= 7) {
-          setShowBackupReminder(true);
-        }
-      }
-    } else {
-      const lastBackupDate = new Date(lastBackup);
-      const daysSinceBackup = Math.floor((today - lastBackupDate) / (1000 * 60 * 60 * 24));
-      
-      if (daysSinceBackup >= 14) {
-        setShowBackupReminder(true);
-      }
-    }
-  }, [currentUser, entries.length]);
-  
-  // Migration effect - add calculated fields to entries
-  useEffect(() => {
-    if (!currentUser || !isContextReady || entries.length === 0) return;
-    if (migrationRef.current) return;
-    
-    const needsMigration = entries.some(e => 
-      e.hoursWorked === undefined || 
-      e.extraHours === undefined ||
-      e.hoursSpentOutside === undefined
-    );
-    
-    if (needsMigration) {
-      migrationRef.current = true;
-      
-      
-      const migratedEntries = entries.map(entry => {
-        if (
-          entry.hoursWorked !== undefined && 
-          entry.extraHours !== undefined &&
-          entry.hoursSpentOutside !== undefined
-        ) {
-          return entry;
-        }
-        
-        const hoursWorked = calculateHoursWorked(entry.intervals, entry.date);
-        const dayOfWeek = new Date(entry.date).getDay();
-        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-        const isSpecialDay = entry.type === 'Holiday' || entry.type === 'Vacation';
-        const useDoubleFactor = isWeekend || isSpecialDay;
-        
-        const isHalfDaySpecial = (entry.duration === 0.5) &&
-          (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
-        
-        const isFullDaySpecial = (entry.duration === 1) &&
-          (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
-        
-        let extraHours = 0;
-        let extraHoursWithFactor = 0;
-        
-        if (isFullDaySpecial) {
-          extraHours = 0;
-          extraHoursWithFactor = 0;
-        } else if (isHalfDaySpecial) {
-          const halfDayBaseline = 4.5;
-          extraHours = hoursWorked - halfDayBaseline;
-          extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
-        } else if (entry.doubleHours) {
-          extraHours = hoursWorked;
-          extraHoursWithFactor = hoursWorked * 2;
-        } else if (useDoubleFactor && entry.type !== 'Regular') {
-          extraHours = hoursWorked;
-          extraHoursWithFactor = hoursWorked * 2;
-        } else {
-          const standardHours = isWeekend ? 0 : 9;
-          extraHours = hoursWorked - standardHours;
-          const factor = useDoubleFactor ? 2 : 1.5;
-          extraHoursWithFactor = extraHours > 0 ? extraHours * factor : extraHours;
-        }
-        
-        const hoursSpentOutside = calculateHoursSpentOutside(entry.intervals);
-        
-        return {
-          id: entry.id,
-          date: entry.date,
-          intervals: entry.intervals,
-          type: entry.type,
-          duration: entry.duration,
-          doubleHours: entry.doubleHours,
-          notes: entry.notes,
-          hoursWorked,
-          extraHours,
-          extraHoursWithFactor,
-          hoursSpentOutside
-        };
-      });
-      
-      setEntries(migratedEntries);
-      
-      
-      setTimeout(() => {
-        migrationRef.current = false;
-      }, 100);
-    }
-  }, [entries.length, currentUser, isContextReady]);
-  
-  // Helper Functions
-  const getCurrentPeriod = useCallback(() => {
-    if (!periods || periods.length === 0) {
-      return null;
-    }
-    
-    // First try to find the period marked as current in the database
-    const currentFromDb = periods.find(p => p.is_current === true);
-    if (currentFromDb) {
-      return currentFromDb;
-    }
-    
-    // Fallback to currentPeriodId state
-    const found = periods.find(p => p.id === currentPeriodId);
-    if (found) {
-      return found;
-    }
-    
-    // Final fallback to first period
-    return periods[0];
-  }, [periods, currentPeriodId]);
-
-  // Ref to track when we're setting current period to prevent duplicates
-  const isSettingCurrentRef = useRef(false);
-  const refreshKeyRef = useRef(0);
-
-  const setCurrentPeriod = async (periodId) => {
-    if (!currentUser || !periodId || isSettingCurrentRef.current) return;
-    
-    isSettingCurrentRef.current = true;
-    
-    try {
-      
-      
-      await supabaseData.setCurrentPayPeriod(currentUser.id, periodId);
-      
-      // Add delay to ensure database trigger completes
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Force complete refresh of user data
-      
-      const [profileData, entriesData, leaveSettingsData, periodsData] = await Promise.all([
-        supabaseData.getUserProfile(currentUser.id),
-        supabaseData.getTimeEntries(currentUser.id),
-        supabaseData.getLeaveSettings(currentUser.id),
-        supabaseData.getPayPeriods(currentUser.id)
-      ]);
-      
-      // Update all context data - salary from localStorage only
-      const salaryKey = `salary_${currentUser.id}`;
-      const localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
-      
-      setEmployee({
-        name: profileData?.full_name || currentUser.fullName || profileData?.username || currentUser.username || 'User',
-        salary: localSalary
-      });
-      
-      setEntries(entriesData || []);
-      setLeaveSettings({
-        annualVacation: leaveSettingsData?.annual_vacation || leaveSettingsData?.annualVacation || 10,
-        sickDays: leaveSettingsData?.sick_days || leaveSettingsData?.sickDays || 7,
-        personalDays: leaveSettingsData?.personal_days || leaveSettingsData?.personalDays || 2,
-        usedVacationDays: leaveSettingsData?.used_vacation_days || leaveSettingsData?.usedVacationDays || 0,
-        usedSickDays: leaveSettingsData?.used_sick_days || leaveSettingsData?.usedSickDays || 0,
-        usedPersonalDays: leaveSettingsData?.used_personal_days || leaveSettingsData?.usedPersonalDays || 0
-      });
-      
-      setPeriods(periodsData || []);
-      setCurrentPeriodId(periodId);
-      
-      // Increment refresh key to trigger Timesheet re-render
-      refreshKeyRef.current += 1;
-      
-      
-      
-      
-      
-    } catch (error) {
-      
-    } finally {
-      isSettingCurrentRef.current = false;
-    }
-  };
-  
-  
+  // Calculate overtime details
   const calculateOvertimeDetails = useCallback((entries, periodStart, periodEnd) => {
     const periodEntries = entries.filter(e => 
       e.date >= periodStart && 
       e.date <= periodEnd
     );
     
-    
-    
     let totalHoursWorked = 0;
     let totalExtraHours = 0;
     let totalExtraHoursWithFactor = 0;
     
     periodEntries.forEach((entry, index) => {
-      const entryData = {
-        date: entry.date,
-        type: entry.type,
-        hoursWorked: entry.hoursWorked,
-        extraHours: entry.extraHours,
-        extraHoursWithFactor: entry.extraHoursWithFactor,
-        intervals: entry.intervals
-      };
-      
       // Skip entries without complete check-in/check-out data
       if (!entry.intervals || entry.intervals.length === 0) {
         return;
@@ -952,20 +336,12 @@ export const TimeTrackerProvider = ({ children }) => {
         } else {
           const standardHours = isWeekend ? 0 : 9;
           extraHours = actualHours - standardHours;
-          
           const factor = useDoubleFactor ? 2 : 1.5;
-          if (extraHours > 0) {
-            extraHoursWithFactor = extraHours * factor;
-          } else {
-            extraHoursWithFactor = extraHours;
-          }
+          extraHoursWithFactor = extraHours > 0 ? extraHours * factor : extraHours;
         }
       }
       
-      if (entry.type === 'Regular') {
-        totalHoursWorked += actualHours;
-      }
-      
+      totalHoursWorked += actualHours;
       totalExtraHours += extraHours;
       totalExtraHoursWithFactor += extraHoursWithFactor;
     });
@@ -976,656 +352,381 @@ export const TimeTrackerProvider = ({ children }) => {
       totalExtraHoursWithFactor
     };
   }, [calculateHoursWorked]);
-  
-  const recalculateEntryFields = useCallback((entry) => {
-    if (!entry.intervals || entry.intervals.length === 0) {
-      return {
-        ...entry,
-        hoursWorked: 0,
-        extraHours: 0,
-        extraHoursWithFactor: 0,
-        hoursSpentOutside: 0
-      };
-    }
+
+  // Check for backup reminder
+  useEffect(() => {
+    if (!currentUser) return;
     
-    const hoursWorked = calculateHoursWorked(entry.intervals, entry.date);
-    const dayOfWeek = new Date(entry.date).getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    const isSpecialDay = entry.type === 'Holiday' || entry.type === 'Vacation';
-    const useDoubleFactor = isWeekend || isSpecialDay;
+    const lastBackup = localStorage.getItem('lastBackupDate');
+    const dismissedReminder = localStorage.getItem('dismissedBackupReminder');
+    const reminderDate = localStorage.getItem('backupReminderDate');
     
-    const isHalfDaySpecial = (entry.duration === 0.5) &&
-      (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
+    if (dismissedReminder === 'true') return;
     
-    const isFullDaySpecial = (entry.duration === 1) &&
-      (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
-    
-    let extraHours = 0;
-    let extraHoursWithFactor = 0;
-    
-    if (isFullDaySpecial) {
-      extraHours = 0;
-      extraHoursWithFactor = 0;
-    } else if (isHalfDaySpecial) {
-      const halfDayBaseline = 4.5;
-      extraHours = hoursWorked - halfDayBaseline;
-      extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
-    } else if (entry.doubleHours) {
-      extraHours = hoursWorked;
-      extraHoursWithFactor = hoursWorked * 2;
-    } else if (useDoubleFactor && entry.type !== 'Regular') {
-      extraHours = hoursWorked;
-      extraHoursWithFactor = hoursWorked * 2;
-    } else {
-      const standardHours = isWeekend ? 0 : 9;
-      extraHours = hoursWorked - standardHours;
-      const factor = useDoubleFactor ? 2 : 1.5;
-      extraHoursWithFactor = extraHours > 0 ? extraHours * factor : extraHours;
-    }
-    
-    const hoursSpentOutside = calculateHoursSpentOutside(entry.intervals);
-    
-    return {
-      ...entry,
-      hoursWorked,
-      extraHours,
-      extraHoursWithFactor,
-      hoursSpentOutside
-    };
-  }, [calculateHoursWorked, calculateHoursSpentOutside]);
-  
-  const updateEntry = useCallback((date, updates) => {
-    updateEntries(entries.map(entry => {
-      if (entry.date === date) {
-        const updatedEntry = {
-          ...entry,
-          ...updates
-        };
-        return recalculateEntryFields(updatedEntry);
+    // If there's a reminder date set, check if it's time to show the modal again
+    if (reminderDate) {
+      const today = new Date();
+      const reminderDateTime = new Date(reminderDate);
+      
+      if (today >= reminderDateTime) {
+        // Clear the reminder date and show the modal
+        localStorage.removeItem('backupReminderDate');
+        setShowBackupReminder(true);
       }
-      return entry;
-    }));
-  }, [entries, updateEntries, recalculateEntryFields]);
-  
-  const showConfirm = useCallback((title, message, type, onConfirmCallback) => {
-    return new Promise((resolve) => {
-      setConfirmModal({
-        isOpen: true,
-        title,
-        message,
-        type,
-        onConfirm: () => {
-          onConfirmCallback();
-          setConfirmModal(prev => ({ ...prev, isOpen: false }));
-          resolve(true);
+      return;
+    }
+    
+    const today = new Date();
+    
+    if (!lastBackup) {
+      if (timeEntryContext.entries.length > 0) {
+        const oldestEntry = timeEntryContext.entries.sort((a, b) => a.date.localeCompare(b.date))[0];
+        const oldestDate = new Date(oldestEntry.date);
+        const daysSinceFirst = Math.floor((today - oldestDate) / (1000 * 60 * 60 * 24));
+        
+        if (daysSinceFirst >= 7) {
+          setShowBackupReminder(true);
         }
-      });
-    });
-  }, [setConfirmModal]);
-  
-  const calculateOvertime = useCallback((entries, periodStart, periodEnd) => {
-    const details = calculateOvertimeDetails(entries, periodStart, periodEnd);
-    return details.totalExtraHoursWithFactor;
-  }, [calculateOvertimeDetails]);
-
-  // Employee type validation functions
-  const validateEmployeeType = useCallback((employeeData) => {
-    const errors = [];
-    
-    // Validate employee type
-    if (!employeeData.employeeType || !['full-time', 'part-time'].includes(employeeData.employeeType)) {
-      errors.push('Employee type must be either full-time or part-time');
-    }
-    
-    // Validate daily hours
-    if (employeeData.employeeType === 'part-time') {
-      if (!employeeData.dailyHours || employeeData.dailyHours < 6 || employeeData.dailyHours > 9) {
-        errors.push('Part-time daily hours must be between 6 and 9');
       }
     } else {
-      if (employeeData.dailyHours && employeeData.dailyHours !== 9) {
-        errors.push('Full-time daily hours must be 9');
+      const lastBackupDate = new Date(lastBackup);
+      const daysSinceBackup = Math.floor((today - lastBackupDate) / (1000 * 60 * 60 * 24));
+      
+      if (daysSinceBackup >= 14) {
+        setShowBackupReminder(true);
       }
     }
-  
-    // Validate work days per week
-    if (employeeData.employeeType === 'part-time') {
-      if (!employeeData.workDaysPerWeek || employeeData.workDaysPerWeek < 3 || employeeData.workDaysPerWeek > 5) {
-        errors.push('Part-time work days must be between 3 and 5');
-      }
-    } else {
-      if (employeeData.workDaysPerWeek && employeeData.workDaysPerWeek !== 5) {
-        errors.push('Full-time work days must be 5');
-      }
-    }
-    
-    return errors;
-  }, []);
+  }, [currentUser, timeEntryContext.entries.length]);
 
-  const calculateMonthlyHours = useCallback((employeeType, dailyHours, workDaysPerWeek) => {
-    if (employeeType === 'full-time') {
-      return 187;
-    }
-    // For part-time, return 0 as it will be calculated based on actual hours worked
-    return 0;
-  }, []);
-
-  // Calculate actual monthly hours worked for part-time employees based on entries in a period
-  const calculateActualMonthlyHours = useCallback((entries, periodStart, periodEnd) => {
-    if (employee.employeeType === 'full-time') {
-      return 187;
-    }
+  // Migration effect - add calculated fields to entries
+  useEffect(() => {
+    if (!currentUser || !isContextReady || timeEntryContext.entries.length === 0) return;
+    if (migrationRef.current) return;
     
-    // Filter entries within the period
-    const periodEntries = entries.filter(entry => 
-      entry.date >= periodStart && entry.date <= periodEnd
+    const needsMigration = timeEntryContext.entries.some(e => 
+      e.hoursWorked === undefined || 
+      e.extraHours === undefined ||
+      e.hoursSpentOutside === undefined
     );
     
-    // Calculate total hours worked (excluding leave days)
-    const totalHours = periodEntries.reduce((sum, entry) => {
-      if (entry.type === 'Work Day' && entry.hoursWorked) {
-        return sum + entry.hoursWorked;
-      }
-      return sum;
-    }, 0);
-    
-    return totalHours;
-  }, [employee.employeeType]);
-
-  const checkIn = useCallback(() => {
-    const today = formatDate(new Date());
-    const now = new Date();
-    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-    
-    const existingEntry = entries.find(e => e.date === today);
-    
-    if (existingEntry) {
-      const lastInterval = existingEntry.intervals?.[existingEntry.intervals.length - 1];
+    if (needsMigration) {
+      migrationRef.current = true;
       
-      if (lastInterval && !lastInterval.out) {
-        setConfirmModal({
-          isOpen: true,
-          title: 'Already Checked In',
-          message: 'You are already checked in. Please check out first.',
-          type: 'info',
-          confirmText: 'OK',
-          showCancel: false,
-          onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
-        });
-        return;
-      }
-      
-      const updatedIntervals = [...(Array.isArray(existingEntry.intervals) ? existingEntry.intervals : []), { in: time, out: null }];
-      updateEntries(entries.map(e =>
-        e.date === today
-          ? { ...e, intervals: updatedIntervals }
-          : e
-      ));
-    } else {
-      updateEntries([...entries, {
-        date: today,
-        type: 'Regular',
-        intervals: [{ in: time, out: null }],
-        hoursWorked: 0,
-        extraHours: 0,
-        extraHoursWithFactor: 0,
-        hoursSpentOutside: 0
-      }]);
-    }
-    
-    setConfirmModal({
-      isOpen: true,
-      title: '✓ Checked In Successfully',
-      message: `Checked in at ${time}`,
-      type: 'success',
-      confirmText: 'OK',
-      showCancel: false,
-      onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
-    });
-  }, [entries, formatDate, updateEntries, setConfirmModal]);
-  
-  const checkOut = useCallback(() => {
-    const today = formatDate(new Date());
-    const now = new Date();
-    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-    
-    const existingEntry = entries.find(e => e.date === today);
-    
-    if (!existingEntry || !existingEntry.intervals?.length) {
-      setConfirmModal({
-        isOpen: true,
-        title: 'No Check-In Found',
-        message: 'You need to check in first before checking out.',
-        type: 'warning',
-        confirmText: 'OK',
-        showCancel: false,
-        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
-      });
-      return;
-    }
-    
-    const lastInterval = existingEntry.intervals[existingEntry.intervals.length - 1];
-    
-    if (lastInterval.out) {
-      setConfirmModal({
-        isOpen: true,
-        title: 'Already Checked Out',
-        message: 'You are already checked out. Check in again to start a new session.',
-        type: 'info',
-        confirmText: 'OK',
-        showCancel: false,
-        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
-      });
-      return;
-    }
-    
-    const updatedIntervals = existingEntry.intervals.map((interval, idx) =>
-      idx === existingEntry.intervals.length - 1
-        ? { ...interval, out: time }
-        : interval
-    );
-    
-    const hoursWorked = calculateHoursWorked(updatedIntervals, today);
-    const dayOfWeek = new Date(today).getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    const standardHours = isWeekend ? 0 : 9;
-    const extraHours = hoursWorked - standardHours;
-    const extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
-    const hoursSpentOutside = calculateHoursSpentOutside(updatedIntervals);
-    
-    updateEntries(entries.map(e =>
-      e.date === today
-        ? {
-            ...e,
-            intervals: updatedIntervals,
+      // Defer heavy migration calculations to improve startup performance
+      const runMigration = () => {
+        const migratedEntries = timeEntryContext.entries.map(entry => {
+          if (
+            entry.hoursWorked !== undefined && 
+            entry.extraHours !== undefined &&
+            entry.hoursSpentOutside !== undefined
+          ) {
+            return entry;
+          }
+          
+          const hoursWorked = calculateHoursWorked(entry.intervals, entry.date);
+          const dayOfWeek = new Date(entry.date).getDay();
+          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+          const isSpecialDay = entry.type === 'Holiday' || entry.type === 'Vacation';
+          const useDoubleFactor = isWeekend || isSpecialDay;
+          
+          const isHalfDaySpecial = (entry.duration === 0.5) &&
+            (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
+          
+          const isFullDaySpecial = (entry.duration === 1) &&
+            (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
+          
+          let extraHours = 0;
+          let extraHoursWithFactor = 0;
+          
+          if (isFullDaySpecial) {
+            extraHours = 0;
+            extraHoursWithFactor = 0;
+          } else if (isHalfDaySpecial) {
+            const halfDayBaseline = 4.5;
+            extraHours = hoursWorked - halfDayBaseline;
+            extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
+          } else if (entry.doubleHours) {
+            extraHours = hoursWorked;
+            extraHoursWithFactor = hoursWorked * 2;
+          } else if (useDoubleFactor && entry.type !== 'Regular') {
+            extraHours = hoursWorked;
+            extraHoursWithFactor = hoursWorked * 2;
+          } else {
+            const standardHours = isWeekend ? 0 : 9;
+            extraHours = hoursWorked - standardHours;
+            const factor = useDoubleFactor ? 2 : 1.5;
+            extraHoursWithFactor = extraHours > 0 ? extraHours * factor : extraHours;
+          }
+          
+          const hoursSpentOutside = calculateHoursSpentOutside(entry.intervals);
+          
+          return {
+            id: entry.id,
+            date: entry.date,
+            intervals: entry.intervals,
+            type: entry.type,
+            duration: entry.duration,
+            doubleHours: entry.doubleHours,
+            notes: entry.notes,
             hoursWorked,
             extraHours,
             extraHoursWithFactor,
             hoursSpentOutside
-          }
-        : e
-    ));
-    
-    setConfirmModal({
-      isOpen: true,
-      title: '✓ Checked Out Successfully',
-      message: `Checked out at ${time}\n\nHours worked today: ${hoursWorked.toFixed(2)}h`,
-      type: 'success',
-      confirmText: 'OK',
-      showCancel: false,
-      onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
-    });
-  }, [entries, formatDate, updateEntries, setConfirmModal, calculateHoursWorked, calculateHoursSpentOutside]);
-  
-  const deleteEntry = useCallback(async (date) => {
-    setConfirmModal({
-      isOpen: true,
-      title: 'Delete Entry',
-      message: `Are you sure you want to delete entry for ${date}? This cannot be undone.`,
-      type: 'danger',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
-      showCancel: true,
-      onConfirm: async () => {
-        try {
-          // Delete from Supabase first (if online and not local-only user)
-          if (currentUser && isAuthenticated && !currentUser.isLocalOnly) {
-            try {
-              await supabaseData.deleteTimeEntry(currentUser.id, date);
-            } catch (supabaseError) {
-              
-              // Queue the delete operation for later sync
-              try {
-                await backgroundSync.queueDeleteOperation({ date }, currentUser.username);
-              } catch (queueError) {
-                
-              }
-            }
-          }
-          
-          // Always update local state immediately
-          const updatedEntries = entries.filter(e => e.date !== date);
-          updateEntries(updatedEntries);
-          
-          // Save to localStorage for persistence
-          if (currentUser) {
-            getUserData('timeEntries') && saveUserData('timeEntries', updatedEntries);
-          }
-          
-          setConfirmModal(prev => ({
-            ...prev,
-            isOpen: true,
-            title: 'Entry Deleted',
-            message: currentUser?.isLocalOnly 
-              ? 'Entry deleted successfully! (Local Mode)' 
-              : 'Entry deleted successfully!',
-            type: 'success',
-            confirmText: 'OK',
-            showCancel: false,
-            onConfirm: () => setConfirmModal(p => ({ ...p, isOpen: false }))
-          }));
-        } catch (error) {
-          
-          // Still delete from local state even if everything fails
-          const updatedEntries = entries.filter(e => e.date !== date);
-          updateEntries(updatedEntries);
-          
-          if (currentUser) {
-            getUserData('timeEntries') && saveUserData('timeEntries', updatedEntries);
-          }
-          
-          setConfirmModal(prev => ({
-            ...prev,
-            isOpen: true,
-            title: 'Entry Deleted (Local Only)',
-            message: 'Entry deleted locally but there was an error syncing to cloud. Your local data is safe.',
-            type: 'warning',
-            confirmText: 'OK',
-            showCancel: false,
-            onConfirm: () => setConfirmModal(p => ({ ...p, isOpen: false }))
-          }));
-        }
-      },
-      onCancel: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
-    });
-  }, [entries, formatDate, updateEntries, setConfirmModal, calculateHoursWorked, calculateHoursSpentOutside, currentUser, isAuthenticated, getUserData, saveUserData]);
+          };
+        });
+        
+        timeEntryContext.setEntries(migratedEntries);
+        
+        setTimeout(() => {
+          migrationRef.current = false;
+        }, 100);
+      };
 
-  const clearCurrentDay = useCallback(() => {
-    if (window.confirm('Are you sure you want to clear data for today? This cannot be undone!')) {
-      const today = formatDate(new Date());
-      updateEntries(entries.filter(e => e.date !== today));
-      showAlert('Today\'s data cleared!', 'success');
-    }
-  }, [entries, formatDate, updateEntries, showAlert]);
-  
-  const clearCurrentMonth = useCallback(() => {
-    const period = getCurrentPeriod();
-    if (!period) return;
-    
-    const periodStart = period.start_date || period.start;
-    const periodEnd = period.end_date || period.end;
-    
-    if (window.confirm(`Are you sure you want to clear all data for ${period.label}? This cannot be undone!`)) {
-      updateEntries(entries.filter(e => e.date < periodStart || e.date > periodEnd));
-      showAlert(`${period.label} data cleared!`, 'success');
-    }
-  }, [entries, getCurrentPeriod, updateEntries, showAlert]);
-  
-  const clearAllData = useCallback(() => {
-    if (window.confirm('WARNING: This will delete ALL your timesheet data! This cannot be undone.')) {
-      const confirmation = window.prompt('Type DELETE ALL to confirm');
-      if (confirmation === 'DELETE ALL') {
-        updateEntries([]);
-        showAlert('All data has been cleared!', 'success');
+      // Use requestIdleCallback or fallback to setTimeout for better startup performance
+      if (window.requestIdleCallback) {
+        window.requestIdleCallback(runMigration, { timeout: 2000 });
       } else {
-        showAlert('Deletion cancelled', 'info');
+        setTimeout(runMigration, 0);
       }
     }
-  }, [updateEntries, showAlert]);
-  
-  const updateEmployee = useCallback((data) => {
-    setEmployee(data);
+  }, [timeEntryContext.entries.length, currentUser, isContextReady, calculateHoursWorked, calculateHoursSpentOutside]);
+
+  // Initialize context when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      setIsContextReady(true);
+    } else {
+      setIsContextReady(false);
+    }
+  }, [isAuthenticated, currentUser]);
+
+  // Initialize background sync
+  useEffect(() => {
+    const initTimer = setTimeout(() => {
+      backgroundSync.init().catch(error => {
+        console.warn('Background sync init failed:', error);
+      });
+    }, 1000);
+    return () => clearTimeout(initTimer);
   }, []);
-  
-  const updateLeaveSettings = useCallback((data) => {
-    setLeaveSettings(data);
-  }, []);
-  
+
+  // Backup handlers
   const handleBackupNow = useCallback(() => {
     localStorage.setItem('lastBackupDate', new Date().toISOString());
     setShowBackupReminder(false);
-    localStorage.setItem('navigateToExport', 'true');
-    window.location.hash = '#settings';
-  }, []);
-  
-  const handleBackupLater = useCallback((days = 3) => {
-    const futureDate = new Date();
-    const daysAgo = 14 - days;
-    futureDate.setDate(futureDate.getDate() - daysAgo);
-    localStorage.setItem('lastBackupDate', futureDate.toISOString());
+    showAlert('Backup completed successfully!', 'success');
+  }, [showAlert]);
+
+  const handleBackupLater = useCallback((days) => {
+    // Set a reminder date for when to show the modal again
+    const reminderDate = new Date();
+    reminderDate.setDate(reminderDate.getDate() + days);
+    localStorage.setItem('backupReminderDate', reminderDate.toISOString());
     setShowBackupReminder(false);
   }, []);
-  
+
   const handleDismissBackup = useCallback(() => {
-    localStorage.setItem('dismissedBackupReminder', 'true');
     setShowBackupReminder(false);
+    localStorage.setItem('dismissedBackupReminder', 'true');
   }, []);
-  
+
   const handleCloseBackup = useCallback(() => {
     setShowBackupReminder(false);
   }, []);
-  
-  const setActivePayPeriod = useCallback(async (periodId) => {
-  try {
-    // Update all periods locally - deactivate all, activate selected
-    const updatedPeriods = periods.map(p => ({
-      ...p,
-      is_active: p.id === periodId
-    }));
 
-    // Save each updated period to Supabase
-    for (const period of updatedPeriods) {
-      await supabaseData.savePayPeriod(currentUser.id, period);
-    }
-
-    // Update local state
-    setPeriods(updatedPeriods);
-    setCurrentPeriodId(periodId);
-  } catch (error) {
-    
-    throw error;
-  }
-}, [periods, currentUser]);
-
-  const savePayPeriod = useCallback(async (period) => {
-    try {
-      // Save to Supabase
-      await supabaseData.savePayPeriod(currentUser.id, period);
+  const recalculateEntryFields = useCallback((entry) => {
+      if (!entry.intervals || entry.intervals.length === 0) {
+        return {
+          ...entry,
+          hoursWorked: 0,
+          extraHours: 0,
+          extraHoursWithFactor: 0,
+          hoursSpentOutside: 0
+        };
+      }
       
-      // Update local state
-      const existingIndex = periods.findIndex(p => p.id === period.id);
-      if (existingIndex >= 0) {
-        // Update existing period
-        const updatedPeriods = [...periods];
-        updatedPeriods[existingIndex] = period;
-        setPeriods(updatedPeriods);
+      const hoursWorked = calculateHoursWorked(entry.intervals, entry.date);
+      const dayOfWeek = new Date(entry.date).getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const isSpecialDay = entry.type === 'Holiday' || entry.type === 'Vacation';
+      const useDoubleFactor = isWeekend || isSpecialDay;
+      
+      const isHalfDaySpecial = (entry.duration === 0.5) &&
+        (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
+      
+      const isFullDaySpecial = (entry.duration === 1) &&
+        (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
+      
+      let extraHours = 0;
+      let extraHoursWithFactor = 0;
+      
+      if (isFullDaySpecial) {
+        extraHours = 0;
+        extraHoursWithFactor = 0;
+      } else if (isHalfDaySpecial) {
+        const halfDayBaseline = 4.5;
+        extraHours = hoursWorked - halfDayBaseline;
+        extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
+      } else if (entry.doubleHours) {
+        extraHours = hoursWorked;
+        extraHoursWithFactor = hoursWorked * 2;
+      } else if (useDoubleFactor && entry.type !== 'Regular') {
+        extraHours = hoursWorked;
+        extraHoursWithFactor = hoursWorked * 2;
       } else {
-        // Add new period
-        setPeriods([...periods, period]);
+        const standardHours = isWeekend ? 0 : 9;
+        extraHours = hoursWorked - standardHours;
+        const factor = useDoubleFactor ? 2 : 1.5;
+        extraHoursWithFactor = extraHours > 0 ? extraHours * factor : extraHours;
       }
       
+      const hoursSpentOutside = calculateHoursSpentOutside(entry.intervals);
       
-    } catch (error) {
-      
-      throw error;
-    }
-  }, [periods, currentUser]);
-
-  const deletePayPeriod = useCallback(async (periodId) => {
-    try {
-      // Delete from Supabase first
-      await supabaseData.deletePayPeriod(currentUser.id, periodId);
-      
-      // Update local state
-      const newPeriods = periods.filter(p => p.id !== periodId);
-      setPeriods(newPeriods);
-
-      // If deleting current period, switch to first available
-      if (currentPeriodId === periodId) {
-        setCurrentPeriodId(newPeriods[0]?.id || null);
-      }
-      
-      
-    } catch (error) {
-      
-      throw error;
-    }
-  }, [periods, currentUser, currentPeriodId]);
-
-  // Add refresh function that can be called from outside
-  const refreshEmployeeData = useCallback(async () => {
-    if (!currentUser) return;
-    
-    try {
-      const profileData = await supabaseData.getUserProfile(currentUser.id);
-      
-      if (profileData) {
-        const employeeName = profileData.full_name || employee.name;
-        setEmployee(prev => ({
-          ...prev,
-          name: employeeName,
-          employeeType: profileData.employee_type || 'full-time',
-          dailyHours: profileData.daily_hours || 9,
-          monthlyHours: profileData.monthly_hours || 187,
-          workDaysPerWeek: profileData.work_days_per_week || 5
-        }));
-        // Cache the name for future use
-        setSimpleEncryptedItem('employeeName', employeeName, currentUser.username);
-      }
-    } catch (error) {
-      console.error('TimeTrackerContext: Failed to refresh employee data:', error);
-    }
-  }, [currentUser, employee.name]);
-
-  const value = useMemo(() => ({
-    employee,
-    leaveSettings,
-    entries,
-    periods,
-    currentPeriodId,
-    hideSalary,
-    use12Hour,
-    detailedView,
-    theme,
-    updateEmployee,
-    updateLeaveSettings,
-    setHideSalary,
-    setUse12Hour,
-    setDetailedView,
-    setTheme,
-    checkIn,
-    checkOut,
-    deleteEntry,
-    clearCurrentDay,
-    clearCurrentMonth,
-    clearAllData,
-    getCurrentPeriod,
-    setCurrentPeriod,
-    formatDate,
-    formatTime,
-    setPeriods,
-    setCurrentPeriodId,
-    calculateHoursWorked,
-    calculateHoursSpentOutside,
-    calculateOvertime,
-    calculateOvertimeDetails,
-    timeToSeconds,
-    secondsToTime,
-    secondsToHours,
-    formatTimeDisplay,
-    recalculateEntryFields,
-    updateEntry,
-    confirmModal,
-    setConfirmModal,
-    showConfirm,
-    showBackupReminder,
-    handleBackupNow,
-    handleBackupLater,
-    handleDismissBackup,
-    handleCloseBackup,
-    setRefreshing,
-    lastSaved,
-    lastRefreshed,
-    setLastRefreshed,
-    setEntries: updateEntries,
-    savePayPeriod,      
-    deletePayPeriod,    
-    setActivePayPeriod,
-    showAlert,
-    validateEmployeeType,
-    calculateMonthlyHours,
-    calculateActualMonthlyHours,
-  }), [
-    employee,
-    leaveSettings,
-    entries,
-    periods,
-    currentPeriodId,
-    hideSalary,
-    use12Hour,
-    detailedView,
-    theme,
-    updateEmployee,
-    updateLeaveSettings,
-    checkIn,
-    checkOut,
-    deleteEntry,
-    clearCurrentDay,
-    clearCurrentMonth,
-    clearAllData,
-    getCurrentPeriod,
-    setCurrentPeriod,
-    formatDate,
-    formatTime,
-    calculateHoursWorked,
-    calculateHoursSpentOutside,
-    calculateOvertime,
-    calculateOvertimeDetails,
-    timeToSeconds,
-    secondsToTime,
-    secondsToHours,
-    formatTimeDisplay,
-    recalculateEntryFields,
-    updateEntry,
-    confirmModal,
-    showConfirm,
-    showBackupReminder,
-    handleBackupNow,
-    handleBackupLater,
-    handleDismissBackup,
-    handleCloseBackup,
-    lastSaved,
-    lastRefreshed,
-    updateEntries,
-    savePayPeriod,
-    deletePayPeriod,
-    setActivePayPeriod,
-    showAlert,
-    validateEmployeeType,
-    calculateMonthlyHours,
-    calculateActualMonthlyHours,
-    refreshEmployeeData
-  ]);
+      return {
+        ...entry,
+        hoursWorked,
+        extraHours,
+        extraHoursWithFactor,
+        hoursSpentOutside
+      };
+    }, [calculateHoursWorked, calculateHoursSpentOutside]);
   
-  return (
-    <TimeTrackerContext.Provider value={value}>
-      {children}
-      <ConfirmModal
-        isOpen={confirmModal.isOpen}
-        title={confirmModal.title}
-        message={confirmModal.message}
-        type={confirmModal.type}
-        confirmText={confirmModal.confirmText || 'Confirm'}
-        cancelText={confirmModal.cancelText || 'Cancel'}
-        showCancel={confirmModal.showCancel !== false}
-        onConfirm={confirmModal.onConfirm}
-        onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
-      />
-      <Suspense fallback={<div className="modal-loading-overlay">Loading...</div>}>
-        <BackupReminderModal
-          isOpen={showBackupReminder}
-          onExport={handleBackupNow}
-          onRemindLater={handleBackupLater}
-          onDismiss={handleDismissBackup}
-          onClose={handleCloseBackup}
+    const updateEntry = useCallback(async (date, updates) => {
+      let changedEntry = null;
+      const updatedEntries = timeEntryContext.entries.map(entry => {
+        if (entry.date === date) {
+          // Normalize intervals to ensure proper time format
+          const normalizedUpdates = { ...updates };
+          if (updates.intervals) {
+            normalizedUpdates.intervals = updates.intervals.map(interval => ({
+              ...interval,
+              in: interval.in ? ensureTimeSeconds(interval.in) : null,
+              out: interval.out ? ensureTimeSeconds(interval.out) : null
+            }));
+          }
+          
+          const updatedEntry = {
+            ...entry,
+            ...normalizedUpdates,
+            lastModified: new Date().toISOString()
+          };
+          changedEntry = recalculateEntryFields(updatedEntry);
+          return changedEntry;
+        }
+        return entry;
+      });
+      
+      // Update entries locally first
+      timeEntryContext.setEntries(updatedEntries);
+      
+      // Immediately save to storage with retry logic
+      if (changedEntry) {
+        const saveResult = await timeEntryContext.saveTimeEntriesData(changedEntry, showAlert);
+        
+        // Provide feedback for save failures
+        if (!saveResult.success && saveResult.savedTo === 'local') {
+          console.warn('Entry saved locally only due to connection issues');
+        }
+      }
+    }, [timeEntryContext, recalculateEntryFields, showAlert, ensureTimeSeconds]);
+  
+    // Combine all context values
+    const contextValue = useMemo(() => ({
+      // From TimeEntryContext
+      ...timeEntryContext,
+      
+      // From UserPreferencesContext
+      ...userPreferencesContext,
+      
+      // From PayPeriodContext
+      ...payPeriodContext,
+      
+      // TimeTracker specific functionality
+
+      checkIn,
+      checkOut,
+      updateEntry,
+      calculateOvertimeDetails,
+      calculateHoursWorked,
+      calculateHoursSpentOutside,
+      timeToSeconds,
+      secondsToTime,
+      secondsToHours,
+      formatTimeDisplay,
+      ensureTimeSeconds,
+      
+      // State management
+      isContextReady,
+      showAlert,
+      
+      // Modal state
+      confirmModal,
+      setConfirmModal,
+      alertModal,
+      setAlertModal,
+      showBackupReminder,
+      setShowBackupReminder,
+      
+      // Backup handlers
+      handleBackupNow,
+      handleBackupLater,
+      handleDismissBackup,
+      handleCloseBackup
+    }), [
+      timeEntryContext,
+      userPreferencesContext,
+      payPeriodContext,
+      checkIn,
+      checkOut,
+      updateEntry,
+      calculateOvertimeDetails,
+      calculateHoursWorked,
+      calculateHoursSpentOutside,
+      timeToSeconds,
+      secondsToTime,
+      secondsToHours,
+      formatTimeDisplay,
+      ensureTimeSeconds,
+      isContextReady,
+      showAlert,
+      confirmModal,
+      alertModal,
+      showBackupReminder,
+      handleBackupNow,
+      handleBackupLater,
+      handleDismissBackup,
+      handleCloseBackup
+    ]);
+  
+    return (
+      <TimeTrackerContext.Provider value={contextValue}>
+        {children}
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          type={confirmModal.type}
+          confirmText={confirmModal.confirmText || 'Confirm'}
+          cancelText={confirmModal.cancelText || 'Cancel'}
+          showCancel={confirmModal.showCancel !== false}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
         />
-      </Suspense>
-      <AlertModal
-        isOpen={alertModal.isOpen}
-        message={alertModal.message}
-        type={alertModal.type}
-        onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
-      />
-    </TimeTrackerContext.Provider>
-  );
-};
+        <Suspense fallback={<div className="modal-loading-overlay">Loading...</div>}>
+          <BackupReminderModal
+            isOpen={showBackupReminder}
+            onExport={handleBackupNow}
+            onRemindLater={handleBackupLater}
+            onDismiss={handleDismissBackup}
+            onClose={handleCloseBackup}
+          />
+        </Suspense>
+        <AlertModal
+          isOpen={alertModal.isOpen}
+          message={alertModal.message}
+          type={alertModal.type}
+          onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
+        />
+      </TimeTrackerContext.Provider>
+    );
+  };

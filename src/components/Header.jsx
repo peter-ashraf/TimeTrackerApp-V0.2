@@ -1,6 +1,6 @@
 import React, { useState, Suspense } from "react";
 
-import { useTimeTracker } from "../context/TimeTrackerContext-optimized";
+import { useTimeTracker } from '../context/TimeTrackerContext';
 
 import { useSupabaseAuth } from "../context/SupabaseAuthContext";
 

@@ -87,7 +87,7 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: {
               cacheName: 'api-cache',
-              networkTimeoutSeconds: 10,
+
               cacheableResponse: {
                 statuses: [0, 200]
               },
