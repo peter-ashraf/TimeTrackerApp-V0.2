@@ -27,6 +27,8 @@ export const TimeEntryProvider = ({ children }) => {
   // Refs to track state
   const isRefreshingRef = useRef(false);
   const isLoadingRef = useRef(false);
+  const isInitialSyncRef = useRef(true);
+  const initialSyncTimeoutRef = useRef(null);
 
   // Helper functions
   const formatDate = useCallback((date) => {
@@ -163,7 +165,7 @@ export const TimeEntryProvider = ({ children }) => {
       const localEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
       setEntries(localEntries);
       
-      // Immediate Supabase sync instead of delayed
+      // Immediate Supabase sync if online
       if (navigator.onLine && currentUser && !currentUser.isLocalOnly) {
         try {
           const entriesData = await supabaseData.getTimeEntries(currentUser.id);
@@ -198,6 +200,16 @@ export const TimeEntryProvider = ({ children }) => {
     if (!currentUser || !entries) return;
     if (isRefreshingRef.current) return;
     
+    // Skip save status updates during initial sync
+    const isInitialSync = isInitialSyncRef.current;
+    if (isInitialSync) {
+      // Just save to localStorage without triggering save status
+      const entriesKey = `timeEntries_${currentUser.id}`;
+      setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
+      multiTabSync.notifyDataChange('timeEntries', entries, currentUser.username);
+      return;
+    }
+    
     // Always store to local encrypted storage instantly for offline access
     const entriesKey = `timeEntries_${currentUser.id}`;
     setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
@@ -208,10 +220,30 @@ export const TimeEntryProvider = ({ children }) => {
   useEffect(() => {
     if (currentUser && isAuthenticated) {
       loadTimeEntriesData();
+      // Clear initial sync flag after 3 seconds to prevent save status
+      if (initialSyncTimeoutRef.current) {
+        clearTimeout(initialSyncTimeoutRef.current);
+      }
+      initialSyncTimeoutRef.current = setTimeout(() => {
+        isInitialSyncRef.current = false;
+      }, 3000);
     } else {
       setEntries([]);
+      isInitialSyncRef.current = true; // Reset flag for next login
+      if (initialSyncTimeoutRef.current) {
+        clearTimeout(initialSyncTimeoutRef.current);
+      }
     }
   }, [currentUser, isAuthenticated, loadTimeEntriesData]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (initialSyncTimeoutRef.current) {
+        clearTimeout(initialSyncTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const contextValue = {
     // State

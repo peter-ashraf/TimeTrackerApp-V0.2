@@ -45,11 +45,9 @@ export const useInstantData = () => {
       // Update cache status
       setCacheStatus(cacheManager.getCacheStatus());
 
-      // If online, refresh data in background with delay to avoid conflicts
+      // If online, refresh data in background immediately
       if (navigator.onLine) {
-        setTimeout(() => {
-          refreshDataInBackground();
-        }, 500);
+        refreshDataInBackground();
       }
     } catch (error) {
       console.error('Failed to load instant data:', error);
