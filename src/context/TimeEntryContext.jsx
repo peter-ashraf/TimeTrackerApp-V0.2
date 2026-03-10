@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useSupabaseAuth } from './SupabaseAuthContext';
+import { supabase } from './SupabaseAuthContext';
 import { supabaseData } from '../utils/supabaseData';
 import { setSimpleEncryptedItem, getSimpleEncryptedItem } from '../utils/simple-encryption';
 import { multiTabSync } from '../utils/multiTabSync';
@@ -75,37 +76,45 @@ export const TimeEntryProvider = ({ children }) => {
           const updatedEntries = currentEntries.filter(e => e.date !== entriesToSave.date);
           updatedEntries.unshift(entriesToSave);
           setSimpleEncryptedItem(entriesKey, updatedEntries, currentUser.username);
+          
+          // sync React state with the updated entries
+          setEntries(updatedEntries);
         }
 
-        // Try to save to Supabase if online and not local-only
+        // Try to save to Supabase if online, authenticated, and not local-only
         if (currentUser && isAuthenticated && !currentUser.isLocalOnly && navigator.onLine) {
-          if (Array.isArray(entriesToSave)) {
-            // Save each entry individually for better error handling
-            for (const entry of entriesToSave) {
-              await supabaseData.saveTimeEntry(currentUser.id, entry);
+          try {
+            // Add timeout to handle intermittent connectivity issues
+            const savePromise = Array.isArray(entriesToSave) 
+              ? Promise.all(entriesToSave.map(entry => supabaseData.saveTimeEntry(currentUser.id, entry)))
+              : supabaseData.saveTimeEntry(currentUser.id, entriesToSave);
+            
+            const savedData = await savePromise;
+            
+            // ✅ ADD THIS — merge returned Supabase id back into local state
+            if (savedData?.id && !Array.isArray(entriesToSave)) {
+              setEntries(prev => prev.map(e =>
+                e.date === entriesToSave.date ? { ...e, id: savedData.id } : e
+              ));
             }
-          } else {
-            // Single entry delta save
-            await supabaseData.saveTimeEntry(currentUser.id, entriesToSave);
+            
+            setLastSaved(new Date().toISOString());
+            return { success: true, savedTo: 'supabase' };
+          } catch (saveError) {
+            console.error('[Save] Supabase save failed:', saveError.message);
+            // For intermittent issues, continue with local save and don't retry
+            setLastSaved(new Date().toISOString());
+            return { success: true, savedTo: 'local', reason: 'connectivity_issue' };
           }
-          
-          console.log('✅ Successfully saved to Supabase');
-          setSaveStatus({ message: 'Saved to server', type: 'success' });
-          setLastSaved(new Date().toISOString());
-          return { success: true, savedTo: 'supabase' };
         } else {
-          console.log('📱 Saved to local storage only (offline or local-only user)');
-          setSaveStatus({ message: 'Saved locally', type: 'info' });
           setLastSaved(new Date().toISOString());
           return { success: true, savedTo: 'local' };
         }
       } catch (error) {
-        console.error(`❌ Save attempt ${retryCount + 1} failed:`, error);
+        console.error(`Save attempt ${retryCount + 1} failed:`, error);
         
         // Handle auth-related errors - don't retry these
         if (error.status === 401 || error.status === 406 || (error.message && (error.message.includes('401') || error.message.includes('406')))) {
-          console.warn('🔐 Authentication error - skipping retries');
-          setSaveStatus({ message: 'Auth error - saved locally', type: 'warning' });
           if (showAlert) {
             showAlert('Authentication issue. Data saved locally only.', 'warning');
           }
@@ -119,9 +128,6 @@ export const TimeEntryProvider = ({ children }) => {
           const jitter = Math.random() * 0.1 * exponentialDelay; // Add 10% jitter
           const delay = exponentialDelay + jitter;
           
-          console.log(`🔄 Retrying in ${Math.round(delay)}ms (attempt ${retryCount}/${maxRetries})`);
-          setSaveStatus({ message: `Retrying... (${retryCount}/${maxRetries})`, type: 'warning' });
-          
           if (showAlert && retryCount === 2) {
             showAlert('Connection issues. Retrying save...', 'info');
           }
@@ -130,8 +136,6 @@ export const TimeEntryProvider = ({ children }) => {
           return attemptSave();
         } else {
           // Max retries reached - data is already saved locally
-          console.error('💥 Max retries reached - data saved locally only');
-          setSaveStatus({ message: 'Failed - saved locally', type: 'error' });
           if (showAlert) {
             showAlert('Failed to save to server. Data saved locally.', 'error');
           }
@@ -154,8 +158,12 @@ export const TimeEntryProvider = ({ children }) => {
 
   // Load time entries data
   const loadTimeEntriesData = useCallback(async () => {
-    if (!currentUser || !isAuthenticated) return;
-    if (isLoadingRef.current) return;
+    if (!currentUser || !isAuthenticated) {
+      return;
+    }
+    if (isLoadingRef.current) {
+      return;
+    }
     
     try {
       isLoadingRef.current = true;

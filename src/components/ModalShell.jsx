@@ -7,7 +7,22 @@ function ModalShell({ onClose, children, contentClassName = '', closeOnOverlay =
   const overlayClass = ['modal-overlay', overlayClassName].filter(Boolean).join(' ');
 
   const modalContent = (
-    <div className={overlayClass} onClick={handleOverlayClick}>
+    <div 
+      className={overlayClass} 
+      onClick={handleOverlayClick}
+      style={{ 
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 999999,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}
+    >
       <div className={contentClass} onClick={(e) => e.stopPropagation()}>
         {children}
       </div>

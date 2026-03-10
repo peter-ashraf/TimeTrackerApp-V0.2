@@ -76,17 +76,51 @@ export const PayPeriodProvider = ({ children }) => {
     const savePayPeriodsData = async () => {
       isSavingPeriodsRef.current = true;
       try {
-        const updatedPeriods = [];
+        // Deduplicate periods by normalizing dates to avoid conflicts
+        const uniquePeriods = [];
+        const seenPeriods = new Map();
+        
         for (const period of periods) {
-          const saved = await supabaseData.savePayPeriod(currentUser.id, period);
-          updatedPeriods.push({ ...period, id: saved.id });
+          // Normalize dates to ISO format for consistent comparison
+          const startDate = new Date(period.startDate || period.start_date).toISOString().split('T')[0];
+          const endDate = new Date(period.endDate || period.end_date).toISOString().split('T')[0];
+          const key = `${startDate}_${endDate}`;
+          
+          if (!seenPeriods.has(key)) {
+            seenPeriods.set(key, period);
+            uniquePeriods.push(period);
+          } else {
+            // If we find a duplicate, keep the one with an ID (database version) over client-generated one
+            const existing = seenPeriods.get(key);
+            if (period.id && !existing.id?.startsWith('period-')) {
+              // Replace client-generated with database version
+              const index = uniquePeriods.indexOf(existing);
+              uniquePeriods[index] = period;
+              seenPeriods.set(key, period);
+            }
+          }
         }
 
-        // Only update state if ids actually changed
-        const idsChanged = updatedPeriods.some(
-          (p, i) => p.id !== periods[i]?.id
-        );
-        if (idsChanged) {
+        const updatedPeriods = [];
+        for (const period of uniquePeriods) {
+          // Skip saving client-generated periods that might cause conflicts
+          if (period.id?.startsWith('period-')) {
+            updatedPeriods.push(period);
+            continue;
+          }
+          
+          const saved = await supabaseData.savePayPeriod(currentUser.id, period);
+          if (saved) {
+            updatedPeriods.push({ ...period, id: saved.id });
+          } else {
+            // If save failed, keep original period with existing id
+            updatedPeriods.push(period);
+          }
+        }
+
+        // Only update state if periods actually changed
+        if (updatedPeriods.length !== periods.length || 
+            updatedPeriods.some((p, i) => p.id !== periods[i]?.id)) {
           setPeriods(updatedPeriods);
         }
         

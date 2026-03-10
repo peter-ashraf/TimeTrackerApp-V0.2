@@ -1,265 +1,251 @@
 import { supabase } from '../context/SupabaseAuthContext';
 
-// Create supabase client with cache busting
-const CACHE_BUST = Date.now(); // Force browser to reload updated code
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-
-
-// Time Entries operations
 export const supabaseData = {
-  // Time Entries
-  async getTimeEntries(userId, payPeriodId = null, usePagination = false, page = 1, pageSize = 50) {
+  async getTimeEntries(userId) {
     try {
-      // Use optimized pagination for large datasets
-      if (usePagination) {
-        // For now, disable pagination and return all entries
-        // TODO: Implement pagination logic directly here
-        let query = supabase
-          .from('time_entries')
-          .select('*')
-          .eq('user_id', userId);
-
-        // Filter by pay period if specified
-        if (payPeriodId) {
-          query = query.eq('pay_period_id', payPeriodId);
-        }
-
-        const { data, error } = await query.order('date', { ascending: false });
-
-        if (error) throw error;
-
-        // Convert snake_case from database to camelCase for frontend
-        return {
-          entries: (data || []).map(entry => ({
-            id: entry.id,
-            date: entry.date,
-            intervals: entry.intervals,
-            type: entry.type,
-            duration: entry.duration,
-            doubleHours: entry.double_hours,
-            notes: entry.notes,
-            hoursWorked: entry.hours_worked,
-            extraHours: entry.extra_hours,
-            extraHoursWithFactor: entry.extra_hours_with_factor,
-            hoursSpentOutside: entry.hours_spent_outside,
-            user_id: entry.user_id,
-            created_at: entry.created_at,
-            updated_at: entry.updated_at
-          })),
-          totalCount: data?.length || 0,
-          currentPage: 1,
-          totalPages: 1
-        };
-      }
-
-      // Original method for backward compatibility
-      let query = supabase
+      const { data, error } = await supabase
         .from('time_entries')
         .select('*')
-        .eq('user_id', userId);
-
-      // Filter by pay period if specified
-      if (payPeriodId) {
-        query = query.eq('pay_period_id', payPeriodId);
-      }
-
-      const { data, error } = await query.order('date', { ascending: false });
+        .eq('user_id', userId)
+        .order('date', { ascending: false });
 
       if (error) throw error;
-
-      // Convert snake_case from database to camelCase for frontend
-      return (data || []).map(entry => ({
-        id: entry.id,
-        date: entry.date,
-        intervals: entry.intervals,
-        type: entry.type,
-        duration: entry.duration,
-        doubleHours: entry.double_hours,
-        notes: entry.notes,
-        hoursWorked: entry.hours_worked,
-        extraHours: entry.extra_hours,
-        extraHoursWithFactor: entry.extra_hours_with_factor,
-        hoursSpentOutside: entry.hours_spent_outside,
-        user_id: entry.user_id,
-        created_at: entry.created_at,
-        updated_at: entry.updated_at
-      }));
+      return data || [];
     } catch (error) {
-      return usePagination ? { entries: [], totalCount: 0, currentPage: 1, totalPages: 0 } : [];
+      console.error('Error fetching time entries:', error);
+      if (error.code === 'PGRST205') {
+        return [];
+      }
+      throw error;
     }
   },
 
   async saveTimeEntry(userId, entry) {
+    let token = null;
+
     try {
-      // Calculate missing fields if not provided
-      const calculateHoursWorked = (intervals, date) => {
-        if (!intervals || intervals.length === 0) return 0;
-
-        let totalSeconds = 0;
-        intervals.forEach(interval => {
-          if (interval.in && interval.out) {
-            const inSeconds = timeToSeconds(interval.in);
-            const outSeconds = timeToSeconds(interval.out);
-            totalSeconds += Math.max(0, outSeconds - inSeconds);
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.includes('auth-token')) {
+          const raw = localStorage.getItem(key);
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (parsed?.access_token) {
+            token = parsed.access_token;
+            break;
           }
-        });
-
-        // Subtract break time (excluding first interval which is work)
-        if (intervals.length > 1) {
-          const breakIntervals = intervals.slice(1);
-          breakIntervals.forEach(breakInterval => {
-            if (breakInterval.in && breakInterval.out) {
-              const breakInSeconds = timeToSeconds(breakInterval.in);
-              const breakOutSeconds = timeToSeconds(breakInterval.out);
-              totalSeconds -= Math.max(0, breakOutSeconds - breakInSeconds);
-            }
-          });
         }
-
-        return secondsToHours(totalSeconds);
-      };
-
-      const calculateHoursSpentOutside = (intervals) => {
-        if (!intervals || intervals.length <= 1) return 0;
-
-        const breakIntervals = intervals.slice(1);
-        const ALLOWED_START = 13 * 3600; // 13:00
-        const ALLOWED_END = 13 * 3600 + 30 * 60; // 13:30
-
-        let hoursSpentOutside = 0;
-        breakIntervals.forEach(interval => {
-          if (interval.in && interval.out) {
-            const breakStartSeconds = timeToSeconds(interval.in);
-            const breakEndSeconds = timeToSeconds(interval.out);
-            const breakDuration = breakEndSeconds - breakStartSeconds;
-
-            const isAllowedBreak = breakStartSeconds >= ALLOWED_START &&
-              breakEndSeconds <= ALLOWED_END;
-
-            if (!isAllowedBreak) {
-              hoursSpentOutside += secondsToHours(breakDuration);
-            }
-          }
-        });
-
-        return hoursSpentOutside;
-      };
-
-      const timeToSeconds = (timeStr) => {
-        if (!timeStr || timeStr.trim() === '') return 0;
-        const parts = timeStr.split(':').map(Number);
-        if (parts.length === 3) {
-          return parts[0] * 3600 + parts[1] * 60 + parts[2];
-        } else if (parts.length === 2) {
-          return parts[0] * 3600 + parts[1] * 60;
-        }
-        return 0;
-      };
-
-      const secondsToHours = (seconds) => seconds / 3600;
-
-      // Calculate fields if not already calculated
-      const hoursWorked = entry.hoursWorked || calculateHoursWorked(entry.intervals, entry.date);
-      const hoursSpentOutside = entry.hoursSpentOutside || calculateHoursSpentOutside(entry.intervals);
-
-      // Calculate extra hours
-      const dayOfWeek = new Date(entry.date).getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      const isSpecialDay = entry.type === 'Holiday' || entry.type === 'Vacation';
-      const useDoubleFactor = isWeekend || isSpecialDay;
-
-      const isHalfDaySpecial = (entry.duration === 0.5) &&
-        (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
-
-      const isFullDaySpecial = (entry.duration === 1) &&
-        (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
-
-      let extraHours = 0;
-      let extraHoursWithFactor = 0;
-
-      if (isFullDaySpecial) {
-        extraHours = 0;
-        extraHoursWithFactor = 0;
-      } else if (isHalfDaySpecial) {
-        const halfDayBaseline = 4.5;
-        extraHours = hoursWorked - halfDayBaseline;
-        extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
-      } else if (entry.doubleHours) {
-        extraHours = hoursWorked;
-        extraHoursWithFactor = hoursWorked * 2;
-      } else if (useDoubleFactor && entry.type !== 'Regular') {
-        extraHours = hoursWorked;
-        extraHoursWithFactor = hoursWorked * 2;
-      } else {
-        const standardHours = isWeekend ? 0 : 9;
-        extraHours = hoursWorked - standardHours;
-        const factor = useDoubleFactor ? 2 : 1.5;
-        extraHoursWithFactor = extraHours > 0 ? extraHours * factor : extraHours;
       }
+    } catch (e) {
+      console.error('[Save] Failed to read auth token from localStorage:', e);
+    }
 
-      // Convert camelCase to snake_case for database
-      const dbData = {
+    if (!token) {
+      console.error('[Save] No auth token available');
+      return null;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    try {
+      const body = {
         user_id: userId,
         date: entry.date,
         intervals: entry.intervals,
-        type: entry.type,
+        type: entry.type || 'Regular',
         duration: entry.duration,
         double_hours: entry.doubleHours,
         notes: entry.notes,
-        hours_worked: hoursWorked,
-        extra_hours: extraHours,
-        extra_hours_with_factor: extraHoursWithFactor,
-        hours_spent_outside: hoursSpentOutside,
+        hours_worked: entry.hoursWorked,
+        extra_hours: entry.extraHours,
+        extra_hours_with_factor: entry.extraHoursWithFactor,
+        hours_spent_outside: entry.hoursSpentOutside,
         updated_at: new Date().toISOString()
       };
 
-      const { data, error } = await supabase
-        .from('time_entries')
-        .upsert(dbData, {
-          onConflict: 'user_id, date'
-        });
-
-      if (error) {
-        // Retry once if it's a Navigator Lock Manager timeout
-        if (error.message && error.message.includes('Navigator Lock Manager')) {
-
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-
-          const retryData = await supabase
-            .from('time_entries')
-            .upsert(dbData, {
-              onConflict: 'user_id, date'
-            });
-
-          if (retryData.error) throw retryData.error;
-          return retryData.data;
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/time_entries`,
+        {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates,return=representation'
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal
         }
+      );
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Save] Request failed:', response.status, errorText);
+        if (response.status === 401 || response.status === 403) {
+          return null;
+        }
+        throw new Error(`Save failed: ${response.status} ${errorText}`);
+      }
+
+      const data = await response.json();
+      return Array.isArray(data) ? data : data;
+
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error('[Save] Error:', error);
+
+      if (
+        error.name === 'AbortError' ||
+        error.message?.includes('timed out') ||
+        error.message?.includes('Save failed: 5')
+      ) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async deleteTimeEntry({ id, userId, date }) {
+    let token = null;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.includes('auth-token')) {
+          const raw = localStorage.getItem(key);
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (parsed?.access_token) {
+            token = parsed.access_token;
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[Delete] Failed to read auth token from localStorage:', e);
+    }
+
+    if (!token) {
+      console.error('[Delete] No auth token available');
+      return { success: false, deletedFrom: 'none', reason: 'no_auth_token' };
+    }
+
+    if (!id) {
+      console.warn('[Delete] Entry id missing locally, resolving from server for date:', date);
+      return { success: false, deletedFrom: 'none', reason: 'missing_id' };
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    try {
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/time_entries?id=eq.${id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          signal: controller.signal
+        }
+      );
+
+      clearTimeout(timeoutId);
+
+      if (response.ok || response.status === 204) {
+        return { success: true, deletedFrom: 'supabase' };
+      }
+
+      if (response.status === 404) {
+        return { success: true, deletedFrom: 'supabase' };
+      }
+
+      const errorText = await response.text();
+      console.error('[Delete] Request failed:', response.status, errorText);
+      return { success: false, deletedFrom: 'none', reason: 'http_error' };
+
+    } catch (error) {
+      console.error('[Delete] Error:', error);
+
+      if (error.name === 'AbortError') {
+        return { success: false, deletedFrom: 'none', reason: 'timeout_or_permission' };
+      }
+
+      return { success: false, deletedFrom: 'none', reason: 'fetch_error' };
+    }
+  },
+
+  async getUserProfile(userId) {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
         throw error;
       }
       return data;
     } catch (error) {
-
+      console.error('Error fetching user profile:', error);
+      if (error.code === 'PGRST205') {
+        return null;
+      }
       throw error;
     }
   },
 
-  async deleteTimeEntry(userId, date) {
+  async saveUserProfile(userId, profileData) {
     try {
-      const { error } = await supabase
-        .from('time_entries')
-        .delete()
-        .eq('user_id', userId)
-        .eq('date', date);
+      let username = profileData.username;
+      let email = profileData.email;
+
+      if (!username || !email) {
+        try {
+          const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('username, email')
+            .eq('id', userId)
+            .single();
+
+          username = username || existingProfile?.username || userId;
+          email = email || existingProfile?.email || `${userId}@example.com`;
+        } catch (e) {
+          username = username || userId;
+          email = email || `${userId}@example.com`;
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: userId,
+          username,
+          email,
+          ...profileData,
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
 
       if (error) throw error;
-      return true;
+      return data;
     } catch (error) {
-
+      console.error('Error saving user profile:', error);
+      if (error.code === 'PGRST205' || error.code === '23502' || error.code === '23514') {
+        return null;
+      }
       throw error;
     }
   },
 
-  // Leave Settings
   async getLeaveSettings(userId) {
     try {
       const { data, error } = await supabase
@@ -268,136 +254,44 @@ export const supabaseData = {
         .eq('user_id', userId)
         .single();
 
-      if (error) {
-        // If no settings exist, return defaults
-        if (error.code === 'PGRST116') {
-          return {
-            annualVacation: 10,
-            sickDays: 7,
-            personalDays: 2,
-            usedVacationDays: 0,
-            usedSickDays: 0,
-            usedPersonalDays: 0
-          };
-        }
+      if (error && error.code !== 'PGRST116') {
         throw error;
       }
-
-      // Convert snake_case from database to camelCase for frontend
-      return {
-        annualVacation: data.annual_vacation || data.annualVacation || 10,
-        sickDays: data.sick_days || data.sickDays || 7,
-        personalDays: data.personal_days || data.personalDays || 2,
-        usedVacationDays: data.used_vacation_days || data.usedVacationDays || 0,
-        usedSickDays: data.used_sick_days || data.usedSickDays || 0,
-        usedPersonalDays: data.used_personal_days || data.usedPersonalDays || 0
-      };
+      return data;
     } catch (error) {
-
-      return {
-        annualVacation: 10,
-        sickDays: 7,
-        personalDays: 2,
-        usedVacationDays: 0,
-        usedSickDays: 0,
-        usedPersonalDays: 0
-      };
+      console.error('Error fetching leave settings:', error);
+      if (error.code === 'PGRST205') {
+        return null;
+      }
+      throw error;
     }
   },
 
-  async saveLeaveSettings(userId, settings) {
+  async saveLeaveSettings(userId, leaveSettings) {
     try {
-      // Convert camelCase to snake_case for database
-      const dbData = {
-        annual_vacation: settings.annualVacation,
-        sick_days: settings.sickDays,
-        personal_days: settings.personalDays,
-        used_vacation_days: settings.usedVacationDays,
-        used_sick_days: settings.usedSickDays,
-        used_personal_days: settings.usedPersonalDays,
-        user_id: userId,
-        updated_at: new Date().toISOString()
-      };
-
       const { data, error } = await supabase
         .from('leave_settings')
-        .upsert(dbData, {
+        .upsert({
+          user_id: userId,
+          ...leaveSettings,
+          updated_at: new Date().toISOString()
+        }, {
           onConflict: 'user_id'
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
       return data;
     } catch (error) {
-
+      console.error('Error saving leave settings:', error);
+      if (error.code === 'PGRST205' || error.code === '23505') {
+        return null;
+      }
       throw error;
     }
   },
 
-  // User Profile (for salary and other profile data)
-  async getUserProfile(userId) {
-    try {
-      // Remove individual timeout - let the main timeout handle it
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('full_name, username, employee_type, daily_hours, monthly_hours, work_days_per_week')
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        return {
-          full_name: '',
-          username: '',
-          employee_type: 'full-time',
-          daily_hours: 9,
-          monthly_hours: 187,
-          work_days_per_week: 5
-        };
-      }
-      return data;
-    } catch (error) {
-      return {
-        full_name: '',
-        username: '',
-        employee_type: 'full-time',
-        daily_hours: 9,
-        monthly_hours: 187,
-        work_days_per_week: 5
-      };
-    }
-  },
-
-  async saveUserProfile(userId, profile) {
-    
-    try {
-      // Remove salary and username from profile data
-      const { salary, username, ...safeProfile } = profile;
-      
-      const startTime = Date.now();
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          ...safeProfile,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userId);
-
-      const endTime = Date.now();
-      
-
-      if (error) {
-        
-        throw error;
-      }
-      
-      
-      return { success: true };
-    } catch (error) {
-      
-      throw error;
-    }
-  },
-
-  // Pay Periods (now user-specific)
   async getPayPeriods(userId) {
     try {
       const { data, error } = await supabase
@@ -409,8 +303,88 @@ export const supabaseData = {
       if (error) throw error;
       return data || [];
     } catch (error) {
+      console.error('Error fetching pay periods:', error);
+      if (error.code === 'PGRST205') {
+        return [];
+      }
+      throw error;
+    }
+  },
 
-      return [];
+  async savePayPeriod(userId, period) {
+    try {
+      if (period.id && !period.id.startsWith('period-')) {
+        const { data: updateData, error: updateError } = await supabase
+          .from('pay_periods')
+          .update({
+            label: period.label || period.name,
+            is_active: period.is_active ?? false,
+            is_current: period.is_current ?? false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', period.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          throw updateError;
+        }
+        return updateData;
+      }
+
+      const { data: insertData, error: insertError } = await supabase
+        .from('pay_periods')
+        .insert({
+          user_id: userId,
+          start_date: period.startDate || period.start_date,
+          end_date: period.endDate || period.end_date,
+          label: period.label || period.name,
+          is_active: period.is_active ?? false,
+          is_current: period.is_current ?? false,
+          created_at: period.created_at || new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (!insertError) {
+        return insertData;
+      }
+
+      if (insertError.code === '23505' || insertError.code === 'PGRST116') {
+        const { data: existingData } = await supabase
+          .from('pay_periods')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('start_date', period.startDate || period.start_date)
+          .eq('end_date', period.endDate || period.end_date)
+          .single();
+
+        if (existingData) {
+          const { data: updateData, error: updateError } = await supabase
+            .from('pay_periods')
+            .update({
+              label: period.label || period.name,
+              is_active: period.is_active ?? false,
+              is_current: period.is_current ?? false,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingData.id)
+            .select()
+            .single();
+
+          if (updateError) throw updateError;
+          return updateData;
+        }
+      }
+
+      throw insertError;
+    } catch (error) {
+      console.error('Error saving pay period:', error);
+      if (error.code === 'PGRST205' || error.code === '23502' || error.code === 'PGRST204' || error.code === '21000' || error.code === '23505') {
+        return null;
+      }
+      throw error;
     }
   },
 
@@ -423,39 +397,27 @@ export const supabaseData = {
         .eq('is_current', true)
         .single();
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // No current period found, return null
-          return null;
-        }
+      if (error && error.code !== 'PGRST116') {
         throw error;
       }
-      return data;
+      return data?.id;
     } catch (error) {
-
-      return null;
+      console.error('Error fetching current pay period:', error);
+      if (error.code === 'PGRST205') {
+        return null;
+      }
+      throw error;
     }
   },
 
   async setCurrentPayPeriod(userId, periodId) {
     try {
-
-
-      // First, unset all current periods for this user
-      const { error: unsetError } = await supabase
+      await supabase
         .from('pay_periods')
         .update({ is_current: false })
         .eq('user_id', userId)
         .eq('is_current', true);
 
-      if (unsetError) {
-
-        throw unsetError;
-      }
-
-
-
-      // Then set the new current period
       const { data, error } = await supabase
         .from('pay_periods')
         .update({ is_current: true })
@@ -464,118 +426,14 @@ export const supabaseData = {
         .select()
         .single();
 
-      if (error) {
-
-        throw error;
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error setting current pay period:', error);
+      if (error.code === 'PGRST205') {
+        return null;
       }
-
-
-      return data;
-    } catch (error) {
-
       throw error;
-    }
-  },
-
-  async autoSetCurrentPayPeriod(userId) {
-    try {
-      // Call the database function to auto-set current period if none exists
-      const { data, error } = await supabase
-        .rpc('auto_set_current_pay_period', { p_user_id: userId });
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-
-      throw error;
-    }
-  },
-
-  async savePayPeriod(userId, period) {
-    try {
-      const dbData = {
-        user_id: userId,
-        label: period.label,
-        start_date: period.start_date || period.startDate,
-        end_date: period.end_date || period.endDate,
-        is_active: period.is_active ?? false,
-        // ← Only include is_current if explicitly set, don't default to false
-        ...(period.is_current !== undefined && { is_current: period.is_current }),
-        created_at: period.created_at || new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      const isValidUUID = (str) =>
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-
-      if (period.id && isValidUUID(period.id)) {
-        dbData.id = period.id;
-      }
-
-      const { data, error } = await supabase
-        .from('pay_periods')
-        .upsert(dbData, {
-          onConflict: 'user_id, start_date, end_date'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-
-      throw error;
-    }
-  },
-
-  async deletePayPeriod(userId, periodId) {
-    try {
-      const { error } = await supabase
-        .from('pay_periods')
-        .delete()
-        .eq('user_id', userId)
-        .eq('id', periodId);
-
-      if (error) throw error;
-      return true;
-    } catch (error) {
-
-      throw error;
-    }
-  },
-
-  // Optimized dashboard stats
-  async getDashboardStats(userId) {
-    try {
-      // Basic dashboard stats implementation
-      const { data: entries, error } = await supabase
-        .from('time_entries')
-        .select('*')
-        .eq('user_id', userId)
-        .order('date', { ascending: false })
-        .limit(100);
-
-      if (error) throw error;
-
-      // Calculate basic stats
-      const totalEntries = entries?.length || 0;
-      const totalHours = entries?.reduce((sum, entry) => sum + (entry.hours_worked || 0), 0) || 0;
-
-      return {
-        overall: {
-          totalEntries,
-          totalHours,
-          averageHours: totalEntries > 0 ? totalHours / totalEntries : 0
-        },
-        currentMonth: {
-          totalEntries,
-          totalHours,
-          averageHours: totalEntries > 0 ? totalHours / totalEntries : 0
-        }
-      };
-    } catch (error) {
-
-      return { overall: {}, currentMonth: {} };
     }
   }
 };

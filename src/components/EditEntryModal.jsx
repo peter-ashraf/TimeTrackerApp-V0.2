@@ -62,7 +62,7 @@ function EditEntryModal({ entry, onClose }) {
       type,
       confirmText: 'OK',
       showCancel: false,
-      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
     });
   };
 
@@ -75,7 +75,7 @@ function EditEntryModal({ entry, onClose }) {
       type: 'success',
       confirmText: 'OK',
       showCancel: false,
-      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
     });
   };
 
@@ -161,18 +161,23 @@ function EditEntryModal({ entry, onClose }) {
     }
 
     // Update entry with all modified fields
-    await updateEntry(entry.date, {
-      type: editedEntry.type,
-      intervals: validIntervals,
-      duration: editedEntry.duration,
-      notes: editedEntry.notes,
-      doubleHours: editedEntry.doubleHours
-    });
-    
-    showSuccessModal();
-    setTimeout(() => {
-      onClose();
-    }, 1000); // Close after success modal
+    try {
+      await updateEntry(entry.date, {
+        type: editedEntry.type,
+        intervals: validIntervals,
+        duration: editedEntry.duration,
+        notes: editedEntry.notes,
+        doubleHours: editedEntry.doubleHours
+      });
+      
+      showSuccessModal();
+      setTimeout(() => {
+        onClose();
+      }, 1000); // Close after success modal
+    } catch (error) {
+      console.error('[Update] Failed to update entry:', error);
+      showValidationError('Save Failed', 'Failed to save changes. Please try again.', 'error');
+    }
   };
 
   return (

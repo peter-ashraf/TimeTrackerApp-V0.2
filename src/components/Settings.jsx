@@ -343,7 +343,7 @@ function Settings() {
 
           
           if (error) {
-            console.error('❌ [Settings] Failed to save display name to database:', error.message);
+            console.error('[Settings] Failed to save display name to database:', error.message);
           } else {
             
             setEmployee(prev => ({ ...prev, name: name.trim() }));
@@ -359,10 +359,10 @@ function Settings() {
           }
           
         } catch (error) {
-          console.error('❌ [Settings] Failed to save display name to database:', error.message);
+          console.error('[Settings] Failed to save display name to database:', error.message);
         }
       } else {
-        console.warn('⚠️ [Settings] No currentUser, skipping DB save');
+        console.warn('[Settings] No currentUser, skipping DB save');
       }
     } else {
       // Only save employee type fields if name didn't change but other fields did
@@ -376,7 +376,7 @@ function Settings() {
               work_days_per_week: parsedWorkDaysPerWeek
             });
           } catch (error) {
-            console.error('❌ [Settings] Failed to save employee settings to database:', error);
+            console.error('[Settings] Failed to save employee settings to database:', error);
           }
         }
       }

@@ -169,7 +169,7 @@ class FailsafeAuth {
 
       // Create user session
       const session = {
-        id: `local_${Date.now()}`,
+        id: crypto.randomUUID(),
         username: user.username,
         fullName: user.fullName,
         email: user.email,

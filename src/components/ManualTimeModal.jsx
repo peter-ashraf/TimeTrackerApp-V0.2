@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
+import { useTimeEntry } from '../context/TimeEntryContext';
 import ModalShell from './ModalShell';
 import ConfirmModal from './ConfirmModal';
 
 function ManualTimeModal({ mode, onClose }) {
-  const { setEntries, entries, formatDate, getCurrentPeriod, updateEntry, setConfirmModal, confirmModal, timeEntryContext, showAlert } = useTimeTracker();
+  const { setEntries, entries, formatDate, getCurrentPeriod, updateEntry, setConfirmModal, confirmModal, showAlert } = useTimeTracker();
+  const { saveTimeEntriesData } = useTimeEntry();
   const [applyMode, setApplyMode] = useState('today');
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [timeValue, setTimeValue] = useState('');
@@ -80,7 +82,7 @@ function ManualTimeModal({ mode, onClose }) {
         setEntries(updatedEntries);
         
         // Save to Supabase with retry logic
-        await timeEntryContext.saveTimeEntriesData(newEntry, showAlert);
+        await saveTimeEntriesData(newEntry, showAlert);
       }
       setConfirmModal({
         isOpen: true,

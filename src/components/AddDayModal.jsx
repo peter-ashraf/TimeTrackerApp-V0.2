@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
+import { useTimeEntry } from '../context/TimeEntryContext';
 import ModalShell from './ModalShell';
 import AlertModal from './AlertModal';
 
 function AddDayModal({ onClose }) {
-  const { setEntries, entries, formatDate, saveTimeEntriesData, showAlert } = useTimeTracker();
+  const { setEntries, entries, formatDate, showAlert } = useTimeTracker();
+  const timeEntryContext = useTimeEntry();
   const [dayType, setDayType] = useState('Vacation Full Day');
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [dayNotes, setDayNotes] = useState('');
@@ -51,12 +53,16 @@ function AddDayModal({ onClose }) {
       hoursSpentOutside: 0
     };
 
-    // Update entries locally first
-    const updatedEntries = [newEntry, ...entries.filter(e => e.date !== selectedDate)];
-    setEntries(updatedEntries);
-    
-    // Save to Supabase with retry logic
-    await saveTimeEntriesData(newEntry, showAlert);
+    // Save using unified save mechanism
+    try {
+      console.log('[Save] Saving entry...');
+      // Create a simple update operation that will trigger the unified save
+      await timeEntryContext.saveTimeEntriesData(newEntry, showAlert);
+      console.log('[Save] Entry saved successfully');
+    } catch (saveError) {
+      console.error('[Save] Failed to save special day:', saveError);
+      showAlert('Special day added locally only. Will sync when online.', 'warning');
+    }
 
     showAlert(`${dayType} added for ${selectedDate}`, 'success');
     setTimeout(() => {
