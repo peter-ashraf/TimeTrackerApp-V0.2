@@ -13,6 +13,7 @@
     "deploy:dev": "gh-pages -d dist -b gh-pages-dev"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^7.2.0",
     "@react-pdf/renderer": "^4.3.2",
     "@supabase/supabase-js": "^2.97.0",
     "crypto-js": "^4.2.0",
