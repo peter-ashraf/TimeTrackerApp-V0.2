@@ -2,9 +2,9 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import hapticFeedback from '../utils/hapticFeedback';
 import { debounce } from '../utils/performanceUtils';
-const ManualTimeModal = React.lazy(() => import('./ManualTimeModal'));
-const AddBreakModal = React.lazy(() => import('./AddBreakModal'));
-const EditEntryModal = React.lazy(() => import('./EditEntryModal'));
+import ManualTimeModal from './ManualTimeModal';
+import AddBreakModal from './AddBreakModal';
+import EditEntryModal from './EditEntryModal';
 import NoPeriodPrompt from './NoPeriodPrompt';
 import VirtualizedTimesheetTable from './VirtualizedTimesheetTable';
 import '../styles/performance-optimizations.css';
@@ -496,12 +496,10 @@ function Timesheet() {
       </div>
 
       {/* Modals */}
-      <React.Suspense fallback={<div className="modal-loading-overlay">Loading...</div>}>
-        {showManualIn && <ManualTimeModal mode="checkIn" onClose={() => setShowManualIn(false)} />}
-        {showManualOut && <ManualTimeModal mode="checkOut" onClose={() => setShowManualOut(false)} />}
-        {showAddBreak && <AddBreakModal onClose={() => setShowAddBreak(false)} />}
-        {editingEntry && <EditEntryModal entry={editingEntry} onClose={() => setEditingEntry(null)} />}
-      </React.Suspense>
+      {showManualIn && <ManualTimeModal mode="checkIn" onClose={() => setShowManualIn(false)} />}
+      {showManualOut && <ManualTimeModal mode="checkOut" onClose={() => setShowManualOut(false)} />}
+      {showAddBreak && <AddBreakModal onClose={() => setShowAddBreak(false)} />}
+      {editingEntry && <EditEntryModal entry={editingEntry} onClose={() => setEditingEntry(null)} />}
       {showNoPeriodPrompt && <NoPeriodPrompt onOpenSettings={() => {/* TODO: Open settings */}} onClose={() => setShowNoPeriodPrompt(false)} />}
         </>
       )}

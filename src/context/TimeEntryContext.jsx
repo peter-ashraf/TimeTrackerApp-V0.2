@@ -201,21 +201,23 @@ export const TimeEntryProvider = ({ children }) => {
                 const localEntry = localMap.get(date);
                 if (!localEntry) continue; // Only in remote → auto-pull, no conflict
 
+                const localCheckIn = localEntry.intervals?.[0]?.in;
+                const localCheckOut = localEntry.intervals?.[0]?.out;
+                const localHours = localEntry.hoursWorked ?? localEntry.hours_worked ?? 0;
+
+                const remoteCheckIn = remoteEntry.intervals?.[0]?.in;
+                const remoteCheckOut = remoteEntry.intervals?.[0]?.out;
+                const remoteHours = remoteEntry.hoursWorked ?? remoteEntry.hours_worked ?? 0;
+
                 const meaningfullyDifferent =
-                  (localEntry.checkIn || localEntry.check_in) !== (remoteEntry.checkIn || remoteEntry.check_in) ||
-                  (localEntry.checkOut || localEntry.check_out) !== (remoteEntry.checkOut || remoteEntry.check_out) ||
-                  (localEntry.hours || localEntry.hours_worked) !== (remoteEntry.hours || remoteEntry.hours_worked);
+                  localCheckIn !== remoteCheckIn ||
+                  localCheckOut !== remoteCheckOut ||
+                  Math.abs((localHours || 0) - (remoteHours || 0)) > 0.05;
 
                 if (!meaningfullyDifferent) continue; // Identical → no conflict
 
-                // Both sides modified: check timestamps
-                const localTime = new Date(localEntry.lastModified || localEntry.updated_at || 0);
-                const remoteTime = new Date(remoteEntry.updated_at || remoteEntry.lastModified || 0);
-
-                // Flag as conflict if local is newer or timestamps are ambiguous
-                if (localTime > remoteTime || Math.abs(localTime - remoteTime) < 5000) {
-                  conflicts.push({ date, local: localEntry, remote: remoteEntry });
-                }
+                // If meaningfully different → always show conflict to user
+                conflicts.push({ date, local: localEntry, remote: remoteEntry });
               }
 
               return conflicts;
@@ -323,20 +325,36 @@ export const TimeEntryProvider = ({ children }) => {
     };
   }, []);
 
+  // Trigger conflict detection when device comes online
+  useEffect(() => {
+    const handleOnline = () => {
+      if (currentUser && isAuthenticated) {
+        // Small delay to let connection stabilize
+        setTimeout(() => {
+          loadTimeEntriesData();
+        }, 2000);
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [currentUser, isAuthenticated, loadTimeEntriesData]);
+
   const resolveConflict = useCallback((date, chosenEntry) => {
-    setPendingConflicts(prev => {
-      const remaining = prev.filter(c => c.date !== date);
-
-      setEntries(current => {
-        const updated = current.filter(e => e.date !== date);
-        updated.push(chosenEntry);
-        return updated.sort((a, b) => b.date.localeCompare(a.date));
-      });
-
-      saveTimeEntriesData(chosenEntry);
-
-      return remaining;
+    // 1. Update entries state
+    setEntries(current => {
+      const updated = current.filter(e => e.date !== date);
+      updated.push(chosenEntry);
+      return updated.sort((a, b) => b.date.localeCompare(a.date));
     });
+
+    // 2. Remove from pending conflicts
+    setPendingConflicts(prev => prev.filter(c => c.date !== date));
+
+    // 3. Save to Supabase — wrap in setTimeout to run after state settles
+    setTimeout(() => {
+      saveTimeEntriesData(chosenEntry);
+    }, 0);
   }, [saveTimeEntriesData]);
 
   const contextValue = {

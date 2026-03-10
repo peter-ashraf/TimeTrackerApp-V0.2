@@ -83,7 +83,7 @@ export const supabaseData = {
       };
 
       const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/time_entries`,
+        `${SUPABASE_URL}/rest/v1/time_entries?on_conflict=user_id,date`,
         {
           method: 'POST',
           headers: {

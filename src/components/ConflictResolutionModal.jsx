@@ -1,11 +1,28 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import '../styles/conflict-resolution.css';
 
 const ConflictResolutionModal = ({ conflicts, onResolve, onResolveAll }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+  setCurrentIndex(prev => Math.min(prev, Math.max(0, conflicts.length - 1)));
+}, [conflicts.length]);
+
   if (!conflicts || conflicts.length === 0) return null;
 
-  const currentConflict = conflicts[0];
-  const { date, local: localEntry, remote: remoteEntry } = currentConflict;
+  const conflict = conflicts[currentIndex] || conflicts;
+  if (!conflict) return null;
+  const { date, local: localEntry, remote: remoteEntry } = conflict;
+
+  const normalizeEntry = (entry) => ({
+    ...entry,
+    checkIn: entry.intervals?.[0]?.in || '--:--:--',
+    checkOut: entry.intervals?.[0]?.out || '--:--:--',
+    hours: entry.hoursWorked ?? entry.hours_worked ?? 0,
+  });
+
+  const localNorm = normalizeEntry(localEntry);
+  const remoteNorm = normalizeEntry(remoteEntry);
 
   const formatTime = (timeString) => {
     if (!timeString) return '--:--:--';
@@ -51,10 +68,27 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onResolveAll }) => {
       <div className="conflict-modal">
         <div className="conflict-header">
           <h2>Resolve Data Conflict</h2>
-          <div className="conflict-counter">
-            {conflicts.length > 1 && `Conflict 1 of ${conflicts.length}`}
-          </div>
         </div>
+
+        {conflicts.length > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <button
+              onClick={() => setCurrentIndex(i => Math.max(0, i - 1))}
+              disabled={currentIndex === 0}
+              style={{ opacity: currentIndex === 0 ? 0.3 : 1 }}
+            >
+              ← Prev
+            </button>
+            <span>Conflict {currentIndex + 1} of {conflicts.length}</span>
+            <button
+              onClick={() => setCurrentIndex(i => Math.min(conflicts.length - 1, i + 1))}
+              disabled={currentIndex === conflicts.length - 1}
+              style={{ opacity: currentIndex === conflicts.length - 1 ? 0.3 : 1 }}
+            >
+              Next →
+            </button>
+          </div>
+        )}
 
         <div className="conflict-date">
           <strong>{formatDate(date)}</strong>
@@ -66,26 +100,26 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onResolveAll }) => {
             <div className="card-content">
               <FieldValue 
                 label="Check In" 
-                value={formatTime(localEntry.checkIn || localEntry.check_in)}
+                value={formatTime(localNorm.checkIn)}
                 isDifferent={isFieldDifferent(
-                  localEntry.checkIn || localEntry.check_in, 
-                  remoteEntry.checkIn || remoteEntry.check_in
+                  localNorm.checkIn, 
+                  remoteNorm.checkIn
                 )}
               />
               <FieldValue 
                 label="Check Out" 
-                value={formatTime(localEntry.checkOut || localEntry.check_out)}
+                value={formatTime(localNorm.checkOut)}
                 isDifferent={isFieldDifferent(
-                  localEntry.checkOut || localEntry.check_out, 
-                  remoteEntry.checkOut || remoteEntry.check_out
+                  localNorm.checkOut, 
+                  remoteNorm.checkOut
                 )}
               />
               <FieldValue 
                 label="Hours" 
-                value={formatHours(localEntry.hours || localEntry.hours_worked)}
+                value={formatHours(localNorm.hours)}
                 isDifferent={isFieldDifferent(
-                  localEntry.hours || localEntry.hours_worked, 
-                  remoteEntry.hours || remoteEntry.hours_worked
+                  localNorm.hours, 
+                  remoteNorm.hours
                 )}
               />
             </div>
@@ -96,26 +130,26 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onResolveAll }) => {
             <div className="card-content">
               <FieldValue 
                 label="Check In" 
-                value={formatTime(remoteEntry.checkIn || remoteEntry.check_in)}
+                value={formatTime(remoteNorm.checkIn)}
                 isDifferent={isFieldDifferent(
-                  localEntry.checkIn || localEntry.check_in, 
-                  remoteEntry.checkIn || remoteEntry.check_in
+                  localNorm.checkIn, 
+                  remoteNorm.checkIn
                 )}
               />
               <FieldValue 
                 label="Check Out" 
-                value={formatTime(remoteEntry.checkOut || remoteEntry.check_out)}
+                value={formatTime(remoteNorm.checkOut)}
                 isDifferent={isFieldDifferent(
-                  localEntry.checkOut || localEntry.check_out, 
-                  remoteEntry.checkOut || remoteEntry.check_out
+                  localNorm.checkOut, 
+                  remoteNorm.checkOut
                 )}
               />
               <FieldValue 
                 label="Hours" 
-                value={formatHours(remoteEntry.hours || remoteEntry.hours_worked)}
+                value={formatHours(remoteNorm.hours)}
                 isDifferent={isFieldDifferent(
-                  localEntry.hours || localEntry.hours_worked, 
-                  remoteEntry.hours || remoteEntry.hours_worked
+                  localNorm.hours, 
+                  remoteNorm.hours
                 )}
               />
             </div>
@@ -126,13 +160,25 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onResolveAll }) => {
           <div className="individual-actions">
             <button 
               className="btn btn-secondary"
-              onClick={() => onResolve(date, localEntry)}
+              onClick={() => {
+                onResolve(conflict.date, conflict.local);
+                // Adjust index if needed after resolving
+                if (currentIndex >= conflicts.length - 1) {
+                  setCurrentIndex(Math.max(0, currentIndex - 1));
+                }
+              }}
             >
               Keep Local
             </button>
             <button 
               className="btn btn-primary"
-              onClick={() => onResolve(date, remoteEntry)}
+              onClick={() => {
+                onResolve(conflict.date, conflict.remote);
+                // Adjust index if needed after resolving
+                if (currentIndex >= conflicts.length - 1) {
+                  setCurrentIndex(Math.max(0, currentIndex - 1));
+                }
+              }}
             >
               Use Remote
             </button>
@@ -141,13 +187,15 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onResolveAll }) => {
           {conflicts.length > 1 && (
             <div className="bulk-actions">
               <button 
-                className="btn btn-outline"
+                className="btn"
+                style={{ backgroundColor: '#f59e0b', color: 'white', border: 'none' }}
                 onClick={() => onResolveAll('local')}
               >
                 Keep All Local
               </button>
               <button 
-                className="btn btn-outline"
+                className="btn"
+                style={{ backgroundColor: '#14b8a6', color: 'white', border: 'none' }}
                 onClick={() => onResolveAll('remote')}
               >
                 Use All Remote
