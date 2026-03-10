@@ -5,21 +5,37 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export const supabaseData = {
   async getTimeEntries(userId) {
+    let token = null;
     try {
-      const { data, error } = await supabase
-        .from('time_entries')
-        .select('*')
-        .eq('user_id', userId)
-        .order('date', { ascending: false });
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching time entries:', error);
-      if (error.code === 'PGRST205') {
-        return [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.includes('auth-token')) {
+          const raw = localStorage.getItem(key);
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (parsed?.access_token) { token = parsed.access_token; break; }
+        }
       }
-      throw error;
+    } catch (e) {}
+    if (!token) throw new Error('No auth token available');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/time_entries?user_id=eq.${userId}&order=date.desc`,
+        {
+          signal: controller.signal,
+          headers: {
+            'apikey': SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.json() || [];
+    } finally {
+      clearTimeout(timeoutId);
     }
   },
 
@@ -182,23 +198,39 @@ export const supabaseData = {
   },
 
   async getUserProfile(userId) {
+    let token = null;
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.includes('auth-token')) {
+          const raw = localStorage.getItem(key);
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (parsed?.access_token) { token = parsed.access_token; break; }
+        }
+      }
+    } catch (e) {}
+    if (!token) throw new Error('No auth token available');
 
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
-      return data;
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-      if (error.code === 'PGRST205') {
-        return null;
-      }
-      throw error;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&limit=1`,
+        {
+          signal: controller.signal,
+          headers: {
+            'apikey': SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/vnd.pgrst.object+json'
+          }
+        }
+      );
+      if (response.status === 406 || response.status === 404) return null;
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.json();
+    } finally {
+      clearTimeout(timeoutId);
     }
   },
 
@@ -247,23 +279,39 @@ export const supabaseData = {
   },
 
   async getLeaveSettings(userId) {
+    let token = null;
     try {
-      const { data, error } = await supabase
-        .from('leave_settings')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.includes('auth-token')) {
+          const raw = localStorage.getItem(key);
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (parsed?.access_token) { token = parsed.access_token; break; }
+        }
+      }
+    } catch (e) {}
+    if (!token) throw new Error('No auth token available');
 
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
-      return data;
-    } catch (error) {
-      console.error('Error fetching leave settings:', error);
-      if (error.code === 'PGRST205') {
-        return null;
-      }
-      throw error;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/leave_settings?user_id=eq.${userId}&limit=1`,
+        {
+          signal: controller.signal,
+          headers: {
+            'apikey': SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/vnd.pgrst.object+json'
+          }
+        }
+      );
+      if (response.status === 406 || response.status === 404) return null;
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.json();
+    } finally {
+      clearTimeout(timeoutId);
     }
   },
 
@@ -293,21 +341,37 @@ export const supabaseData = {
   },
 
   async getPayPeriods(userId) {
+    let token = null;
     try {
-      const { data, error } = await supabase
-        .from('pay_periods')
-        .select('*')
-        .eq('user_id', userId)
-        .order('start_date', { ascending: false });
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching pay periods:', error);
-      if (error.code === 'PGRST205') {
-        return [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.includes('auth-token')) {
+          const raw = localStorage.getItem(key);
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (parsed?.access_token) { token = parsed.access_token; break; }
+        }
       }
-      throw error;
+    } catch (e) {}
+    if (!token) throw new Error('No auth token available');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/pay_periods?user_id=eq.${userId}&order=start_date.desc`,
+        {
+          signal: controller.signal,
+          headers: {
+            'apikey': SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.json() || [];
+    } finally {
+      clearTimeout(timeoutId);
     }
   },
 
@@ -389,24 +453,40 @@ export const supabaseData = {
   },
 
   async getCurrentPayPeriod(userId) {
+    let token = null;
     try {
-      const { data, error } = await supabase
-        .from('pay_periods')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('is_current', true)
-        .single();
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.includes('auth-token')) {
+          const raw = localStorage.getItem(key);
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (parsed?.access_token) { token = parsed.access_token; break; }
+        }
+      }
+    } catch (e) {}
+    if (!token) throw new Error('No auth token available');
 
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
-      return data?.id;
-    } catch (error) {
-      console.error('Error fetching current pay period:', error);
-      if (error.code === 'PGRST205') {
-        return null;
-      }
-      throw error;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/pay_periods?user_id=eq.${userId}&is_current=eq.true&limit=1`,
+        {
+          signal: controller.signal,
+          headers: {
+            'apikey': SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/vnd.pgrst.object+json'
+          }
+        }
+      );
+      if (response.status === 406 || response.status === 404) return null;
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      return data?.id || null;
+    } finally {
+      clearTimeout(timeoutId);
     }
   },
 

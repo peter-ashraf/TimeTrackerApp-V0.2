@@ -6,6 +6,8 @@ import { useTimeTracker } from './context/TimeTrackerContext';
 
 import { useSupabaseAuth } from './context/SupabaseAuthContext';
 
+import { useTimeEntry } from './context/TimeEntryContext';
+
 import { useInstantData } from './hooks/useInstantData';
 
 import { backgroundSync } from './utils/backgroundSync-enhanced';
@@ -23,6 +25,8 @@ import RefreshIndicator from './components/RefreshIndicator';
 import ConfirmModal from './components/ConfirmModal';
 
 import NetworkStatus from './components/NetworkStatus';
+
+import ConflictResolutionModal from './components/ConflictResolutionModal';
 
 import './styles/app-transitions.css';
 
@@ -71,6 +75,8 @@ function App() {
   const { lastSaved, lastRefreshed, entries, theme, setEntries, setLastRefreshed, setRefreshing, refreshEmployeeData, isSaving, saveStatus } = useTimeTracker();
 
   const { currentUser, isAuthenticated, getUserData, saveUserData, isAppLoading, isLoading: authLoading } = useSupabaseAuth();
+
+  const { loadTimeEntriesData, pendingConflicts, resolveConflict } = useTimeEntry();
 
   const { data: instantData, cacheStatus, forceRefresh, isOnline } = useInstantData();
 
@@ -235,6 +241,25 @@ function App() {
     }, 50);
 
   }, [currentView, isTransitioning]);
+
+
+
+  const handleRefresh = useCallback(async () => {
+    if (!currentUser || !isAuthenticated) return;
+    try {
+      const refreshWithTimeout = Promise.race([
+        loadTimeEntriesData(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Refresh timed out')), 10000)
+        )
+      ]);
+      await refreshWithTimeout;
+    } catch (err) {
+      console.warn('[Refresh] Timed out or failed:', err.message);
+    } finally {
+      setLastRefreshed(new Date().toISOString());
+    }
+  }, [currentUser, isAuthenticated, loadTimeEntriesData, setLastRefreshed]);
 
 
 
@@ -1076,7 +1101,7 @@ function App() {
 
                 isHeaderCollapsed={isHeaderCollapsed}
 
-                onRefresh={forceRefresh}
+                onRefresh={handleRefresh}
 
                 style={{
 
@@ -1151,6 +1176,16 @@ function App() {
               </div>
 
 
+
+              <ConflictResolutionModal
+                conflicts={pendingConflicts}
+                onResolve={resolveConflict}
+                onResolveAll={(choice) => {
+                  [...pendingConflicts].forEach(c => {
+                    resolveConflict(c.date, choice === 'local' ? c.local : c.remote);
+                  });
+                }}
+              />
 
               <RefreshIndicator lastRefreshed={lastRefreshed} />
               <NetworkStatus onRefresh={forceRefresh} />

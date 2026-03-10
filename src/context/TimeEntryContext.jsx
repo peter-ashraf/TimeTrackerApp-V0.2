@@ -24,6 +24,7 @@ export const TimeEntryProvider = ({ children }) => {
   const [lastRefreshed, setLastRefreshed] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
+  const [pendingConflicts, setPendingConflicts] = useState([]);
   
   // Refs to track state
   const isRefreshingRef = useRef(false);
@@ -176,19 +177,88 @@ export const TimeEntryProvider = ({ children }) => {
       // Immediate Supabase sync if online
       if (navigator.onLine && currentUser) {
         try {
-          const entriesData = await supabaseData.getTimeEntries(currentUser.id);
+          const fetchWithTimeout = Promise.race([
+            supabaseData.getTimeEntries(currentUser.id),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Supabase fetch timed out')), 8000)
+            )
+          ]);
+          const entriesData = await fetchWithTimeout;
+          
+          // If online and Supabase returned empty, trust Supabase (all entries deleted)
+          if (navigator.onLine && entriesData && entriesData.length === 0) {
+            setEntries([]);
+            return;
+          }
+          
           if (entriesData && entriesData.length > 0) {
-            // Smart merge entries
-            setEntries(prev => {
-              const prevMap = new Map(prev.map(e => [e.date, e]));
-              entriesData.forEach(entry => {
-                const existing = prevMap.get(entry.date);
-                if (!existing || new Date(entry.updated_at || 0) > new Date(existing.lastModified || 0)) {
-                  prevMap.set(entry.date, entry);
+            const detectConflicts = (localEntries, remoteEntries) => {
+              const conflicts = [];
+              const localMap = new Map(localEntries.map(e => [e.date, e]));
+              const remoteMap = new Map(remoteEntries.map(e => [e.date, e]));
+
+              for (const [date, remoteEntry] of remoteMap) {
+                const localEntry = localMap.get(date);
+                if (!localEntry) continue; // Only in remote → auto-pull, no conflict
+
+                const meaningfullyDifferent =
+                  (localEntry.checkIn || localEntry.check_in) !== (remoteEntry.checkIn || remoteEntry.check_in) ||
+                  (localEntry.checkOut || localEntry.check_out) !== (remoteEntry.checkOut || remoteEntry.check_out) ||
+                  (localEntry.hours || localEntry.hours_worked) !== (remoteEntry.hours || remoteEntry.hours_worked);
+
+                if (!meaningfullyDifferent) continue; // Identical → no conflict
+
+                // Both sides modified: check timestamps
+                const localTime = new Date(localEntry.lastModified || localEntry.updated_at || 0);
+                const remoteTime = new Date(remoteEntry.updated_at || remoteEntry.lastModified || 0);
+
+                // Flag as conflict if local is newer or timestamps are ambiguous
+                if (localTime > remoteTime || Math.abs(localTime - remoteTime) < 5000) {
+                  conflicts.push({ date, local: localEntry, remote: remoteEntry });
+                }
+              }
+
+              return conflicts;
+            };
+
+            const conflicts = detectConflicts(localEntries, entriesData);
+
+            if (conflicts.length > 0) {
+              setPendingConflicts(conflicts);
+
+              // Use remote data as base for non-conflicting entries
+              const conflictDates = new Set(conflicts.map(c => c.date));
+              const autoMerged = [...entriesData];
+
+              // Add local-only entries (offline created, not yet in Supabase)
+              localEntries.forEach(local => {
+                if (!entriesData.find(r => r.date === local.date) && !local.id) {
+                  autoMerged.push(local);
                 }
               });
-              return Array.from(prevMap.values()).sort((a, b) => b.date.localeCompare(a.date));
-            });
+
+              // Exclude conflicting dates — user will resolve them
+              const safeEntries = autoMerged.filter(e => !conflictDates.has(e.date));
+              setEntries(safeEntries.sort((a, b) => b.date.localeCompare(a.date)));
+
+            } else {
+              // No conflicts — use Supabase as source of truth (handles deletions)
+              setPendingConflicts([]);
+
+              const remoteDates = new Set(entriesData.map(e => e.date));
+              const remoteMap = new Map(entriesData.map(e => [e.date, e]));
+
+              // Keep local-only offline entries (no id = never synced)
+              localEntries.forEach(local => {
+                if (!remoteDates.has(local.date) && !local.id) {
+                  remoteMap.set(local.date, local);
+                }
+              });
+
+              setEntries(
+                Array.from(remoteMap.values()).sort((a, b) => b.date.localeCompare(a.date))
+              );
+            }
           }
         } catch (onlineError) {
           console.error('Failed to fetch from Supabase, staying with local data', onlineError);
@@ -253,6 +323,22 @@ export const TimeEntryProvider = ({ children }) => {
     };
   }, []);
 
+  const resolveConflict = useCallback((date, chosenEntry) => {
+    setPendingConflicts(prev => {
+      const remaining = prev.filter(c => c.date !== date);
+
+      setEntries(current => {
+        const updated = current.filter(e => e.date !== date);
+        updated.push(chosenEntry);
+        return updated.sort((a, b) => b.date.localeCompare(a.date));
+      });
+
+      saveTimeEntriesData(chosenEntry);
+
+      return remaining;
+    });
+  }, [saveTimeEntriesData]);
+
   const contextValue = {
     // State
     entries,
@@ -263,6 +349,7 @@ export const TimeEntryProvider = ({ children }) => {
     setLastRefreshed,
     isSaving,
     saveStatus,
+    pendingConflicts,
     
     // Helper functions
     formatDate,
@@ -271,6 +358,7 @@ export const TimeEntryProvider = ({ children }) => {
     // Data operations
     loadTimeEntriesData,
     saveTimeEntriesData,
+    resolveConflict,
     
     // Ref management
     setRefreshing: (isRefreshing) => {
