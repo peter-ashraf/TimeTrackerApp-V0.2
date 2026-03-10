@@ -1841,16 +1841,18 @@ h1 {
 
 .actions-cell {
   display: grid !important;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+  grid-template-columns: auto auto;
+  gap: 8px;
 }
 
 .actions-cell .btn {
-  display: flex;
+  display: flex !important;
   align-items: center;
   gap: 4px;
   padding: 8px 12px;
   min-height: 0 !important;
+  width: auto !important;
+  flex: none !important;
 }
 
 .actions-cell .btn .icon {
@@ -1859,6 +1861,10 @@ h1 {
 
 .actions-cell .btn .btn-text {
   display: inline;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
 }
 
 @media (max-width: 1160px) {
@@ -1872,7 +1878,7 @@ h1 {
   .actions-cell {
     font-size: var(--font-size-xs);
     display: grid !important;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: auto auto;
     gap: 4px;
   }
 
@@ -1884,6 +1890,9 @@ h1 {
     padding: 8px;
     gap: 0;
     font-size: var(--font-size-xs);
+    width: 30px !important;
+    min-width: 30px !important;
+    max-width: 30px !important;
   }
 }
 
@@ -1891,13 +1900,16 @@ h1 {
   .actions-cell {
     font-size: var(--font-size-xs);
     display: grid !important;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: auto auto;
     gap: 8px !important;
   }
   
   .actions-cell .btn {
     padding: 6px;
     font-size: var(--font-size-xs);
+    width: 30px !important;
+    min-width: 30px !important;
+    max-width: 30px !important;
   }
 }
 
@@ -2248,11 +2260,17 @@ body.salary-blur .overtime-money-amount {
 }
 
 .btn-action {
-  padding: var(--space-10) var(--space-12);
+  padding: var(--space-10);
   font-size: var(--font-size-sm);
   background: var(--color-background);
   color: var(--color-text);
   border: 1px solid var(--color-border);
+  min-width: auto;
+  width: auto;
+  max-width: 44px !important;
+  min-width: 44px !important;
+  justify-content: center;
+  align-items: center;
 }
 
 .btn-action:hover {
