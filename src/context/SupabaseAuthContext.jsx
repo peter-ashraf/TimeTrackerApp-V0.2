@@ -209,7 +209,7 @@ export const SupabaseAuthProvider = ({ children }) => {
           }
           return prev;
         });
-      }, 1000); // Reduced to 1 second for instant loading
+      }, 10000); // Increased to 10 seconds for instant loading
 
       try {
         // Check for remember me state first
@@ -237,7 +237,7 @@ export const SupabaseAuthProvider = ({ children }) => {
         // Try Supabase with timeout
         try {
           const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Supabase timeout')), 500); // Reduced to 0.5 seconds
+            setTimeout(() => reject(new Error('Supabase timeout')), 8000); // Increased to 8 seconds
           });
 
           const sessionPromise = supabase.auth.getSession();
@@ -259,8 +259,15 @@ export const SupabaseAuthProvider = ({ children }) => {
                 ? JSON.parse(cachedProfile)
                 : null;
 
+              const resolvedUsername =
+                decodedUser.username ||
+                decodedUser.user_metadata?.username ||
+                decodedUser.email?.split("@") ||
+                "user";
+
               setCurrentUser({
                 ...decodedUser,
+                username: resolvedUsername,
                 ...(decodedProfile || {}),
                 isLocalOnly: true
               });
@@ -294,12 +301,25 @@ export const SupabaseAuthProvider = ({ children }) => {
           if (cachedUser) {
             try {
               const decodedUser = JSON.parse(cachedUser);
+
+              const resolvedUsername =
+                decodedUser.username ||
+                decodedUser.user_metadata?.username ||
+                decodedUser.email?.split("@") ||
+                "user";
+
               setCurrentUser({
                 id: decodedUser.id,
-                username: decodedUser.username,
+                username: resolvedUsername,
                 email: decodedUser.email,
-                fullName: decodedUser.fullName,
-                displayName: decodedUser.displayName,
+                fullName:
+                  decodedUser.fullName ||
+                  decodedUser.user_metadata?.full_name ||
+                  resolvedUsername,
+                displayName:
+                  decodedUser.displayName ||
+                  decodedUser.user_metadata?.full_name ||
+                  resolvedUsername,
                 isLocalOnly: true
               });
               setIsAuthenticated(true);
@@ -324,6 +344,10 @@ export const SupabaseAuthProvider = ({ children }) => {
               id: session.user.id,
               email: session.user.email,
               user_metadata: session.user.user_metadata,
+              username:
+                session.user.user_metadata?.username ||
+                session.user.email?.split("@") ||
+                "user",
             }),
           );
 
@@ -445,6 +469,10 @@ export const SupabaseAuthProvider = ({ children }) => {
             id: session.user.id,
             email: session.user.email,
             user_metadata: session.user.user_metadata,
+            username:
+              session.user.user_metadata?.username ||
+              session.user.email?.split("@") ||
+              "user",
           }),
         );
 
@@ -1109,12 +1137,29 @@ export const SupabaseAuthProvider = ({ children }) => {
       // Clear local failsafe session
       failsafeAuth.clearLocalSession();
     } else {
-      // Sign out from Supabase
+      // ✅ Step 1: Wipe the auth token from localStorage directly
+      // This invalidates the session locally even if the network call fails
       try {
-        await supabase.auth.signOut();
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && key.includes('auth-token')) {
+            localStorage.removeItem(key);
+          }
+        }
+      } catch (e) {
+        console.warn('[Auth] Failed to clear auth token from localStorage:', e);
+      }
+
+      // ✅ Step 2: Attempt Supabase signOut with a 3-second timeout (best effort)
+      try {
+        const signOutPromise = supabase.auth.signOut();
+        const signOutTimeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('signOut timed out')), 3000)
+        );
+        await Promise.race([signOutPromise, signOutTimeout]);
       } catch (error) {
-        console.warn("Supabase logout error:", error);
-        // Continue with local cleanup even if Supabase fails
+        console.warn('[Auth] Supabase signOut skipped:', error.message);
+        // Continue — local session is already cleared above
       }
     }
 
@@ -1140,9 +1185,6 @@ export const SupabaseAuthProvider = ({ children }) => {
     setCurrentUser(null);
     setIsAuthenticated(false);
     setIsFailsafeMode(false);
-
-    // Force page reload to ensure clean state
-    window.location.reload();
   }, [currentUser, clearAllTimers]);
 
   // Get user-specific data key

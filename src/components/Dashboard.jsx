@@ -66,6 +66,7 @@ function Dashboard() {
     return todayEntry.intervals.some(interval => interval.in && !interval.out);
   }, [entries]);
 
+
   // ✅ Memoize leave statistics
   const leaveStats = useMemo(() => {
     const vacationTaken = periodEntries
@@ -244,10 +245,15 @@ function Dashboard() {
           }}
           disabled={isCheckedIn}
         >Check In</button>
-        <button className="btn btn-primary" onClick={() => {
-          hapticFeedback.checkOut();
-          checkOut();
-        }}>Check Out</button>
+        <button 
+          className={`btn btn-primary ${!isCheckedIn ? 'btn-disabled' : ''}`}
+          onClick={() => {
+            hapticFeedback.checkOut();
+            checkOut();
+          }}
+          disabled={!isCheckedIn}
+          title={!isCheckedIn ? 'You must check in first' : 'Check out'}
+        >Check Out</button>
         <button className="btn btn-secondary" onClick={() => {
           hapticFeedback.buttonClick();
           setShowAddDay(true);

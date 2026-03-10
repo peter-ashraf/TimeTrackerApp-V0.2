@@ -32,6 +32,7 @@ npm-debug.log*
 *.md
 !README.md
 !INSTALL_GUIDE.md
+Features & Fixes.md
 
 # Internal development files (keep private)
 database/

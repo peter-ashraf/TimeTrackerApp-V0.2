@@ -2064,6 +2064,7 @@ body.salary-blur .overtime-money-amount {
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  width: 100%;
 }
 
 .vacation-stat:last-child {

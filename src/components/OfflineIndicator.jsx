@@ -4,7 +4,7 @@ import { useOfflineQueue } from '../hooks/useOfflineQueue';
 import { backgroundSync } from '../utils/backgroundSync';
 import '../styles/offline-indicator.css';
 
-const OfflineIndicator = () => {
+const OfflineIndicator = ({ onRefresh, isRefreshing }) => {
   const { isOnline, connectionType, isSlowConnection } = useNetworkStatus();
   const { queuedRequests, isSyncing, triggerSync, lastSyncTime } = useOfflineQueue();
   
@@ -31,7 +31,14 @@ const OfflineIndicator = () => {
     setWasOnline(isOnline);
   }, [isOnline, wasOnline]);
 
-  // Handle force sync
+  // Handle refresh click
+  const handleRefreshClick = () => {
+    if (onRefresh && !isRefreshing) {
+      onRefresh();
+    }
+  };
+
+  // Handle force sync (existing functionality)
   const handleForceSync = async () => {
     try {
       await backgroundSync.forceSync();
@@ -41,6 +48,7 @@ const OfflineIndicator = () => {
   };
 
   const getConnectionIcon = () => {
+    if (isRefreshing) return '🔄'; // Spinning icon when refreshing
     if (!isOnline) return '📴';
     if (isSlowConnection) return '🐢';
     if (connectionType === '4g') return '🚀';
@@ -63,15 +71,15 @@ const OfflineIndicator = () => {
 
   return (
     <>
-      {/* Header indicator - Now clickable */}
+      {/* Header indicator - Always clickable */}
       <div 
-        className={`offline-indicator ${getConnectionClass()}`}
-        onClick={handleForceSync}
-        title="Click to force sync"
+        className={`offline-indicator ${getConnectionClass()} ${isRefreshing ? 'refreshing' : ''}`}
+        onClick={handleRefreshClick}
+        title="Tap to refresh data"
         style={{ cursor: 'pointer' }}
       >
-        <span className="connection-icon">{getConnectionIcon()}</span>
-        <span className="connection-text">{getConnectionText()}</span>
+        <span className={`connection-icon ${isRefreshing ? 'spinning' : ''}`}>{getConnectionIcon()}</span>
+        <span className="connection-text">{isRefreshing ? 'Refreshing...' : getConnectionText()}</span>
         {queuedRequests > 0 && (
           <span className="queued-count">{queuedRequests}</span>
         )}

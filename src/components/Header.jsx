@@ -159,7 +159,7 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed, onRefresh }) {
 
           <div id="headerButtons">
             
-            <OfflineIndicator />
+            <OfflineIndicator onRefresh={handleRefresh} isRefreshing={isRefreshing} />
 
             <button
 

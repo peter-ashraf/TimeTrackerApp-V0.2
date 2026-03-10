@@ -174,7 +174,7 @@ export const TimeEntryProvider = ({ children }) => {
       setEntries(localEntries);
       
       // Immediate Supabase sync if online
-      if (navigator.onLine && currentUser && !currentUser.isLocalOnly) {
+      if (navigator.onLine && currentUser) {
         try {
           const entriesData = await supabaseData.getTimeEntries(currentUser.id);
           if (entriesData && entriesData.length > 0) {

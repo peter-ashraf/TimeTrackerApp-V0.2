@@ -39,9 +39,19 @@
   animation: pulse 1.5s infinite;
 }
 
+.offline-indicator.refreshing {
+  background-color: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+}
+
 .connection-icon {
   font-size: 14px;
   line-height: 1;
+}
+
+.connection-icon.spinning {
+  animation: rotate 1s linear infinite;
 }
 
 .connection-text {
