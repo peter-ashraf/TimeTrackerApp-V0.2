@@ -6,7 +6,7 @@ import React, {
   useCallback,
   useRef,
 } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseClient } from "../utils/supabaseClient";
 import {
   setSimpleEncryptedItem,
   getSimpleEncryptedItem,
@@ -15,17 +15,8 @@ import { failsafeAuth } from "../utils/failsafeAuth.js";
 
 const SupabaseAuthContext = createContext();
 
-// Supabase client initialization
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    "Missing Supabase configuration. Please check your .env file.",
-  );
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Use the shared supabase client
+export const supabase = supabaseClient;
 
 export const useSupabaseAuth = () => {
   const context = useContext(SupabaseAuthContext);

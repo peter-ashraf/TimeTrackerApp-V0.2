@@ -1,4 +1,5 @@
-import { supabase } from '../context/SupabaseAuthContext';
+// Import the shared supabase client to avoid multiple instances
+import { supabaseClient } from './supabaseClient';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -241,7 +242,7 @@ export const supabaseData = {
 
       if (!username || !email) {
         try {
-          const { data: existingProfile } = await supabase
+          const { data: existingProfile } = await supabaseClient
             .from('profiles')
             .select('username, email')
             .eq('id', userId)
@@ -255,7 +256,7 @@ export const supabaseData = {
         }
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from('profiles')
         .upsert({
           id: userId,
@@ -317,7 +318,7 @@ export const supabaseData = {
 
   async saveLeaveSettings(userId, leaveSettings) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from('leave_settings')
         .upsert({
           user_id: userId,
@@ -378,7 +379,7 @@ export const supabaseData = {
   async savePayPeriod(userId, period) {
     try {
       if (period.id && !period.id.startsWith('period-')) {
-        const { data: updateData, error: updateError } = await supabase
+        const { data: updateData, error: updateError } = await supabaseClient
           .from('pay_periods')
           .update({
             label: period.label || period.name,
@@ -396,7 +397,7 @@ export const supabaseData = {
         return updateData;
       }
 
-      const { data: insertData, error: insertError } = await supabase
+      const { data: insertData, error: insertError } = await supabaseClient
         .from('pay_periods')
         .insert({
           user_id: userId,
@@ -416,7 +417,7 @@ export const supabaseData = {
       }
 
       if (insertError.code === '23505' || insertError.code === 'PGRST116') {
-        const { data: existingData } = await supabase
+        const { data: existingData } = await supabaseClient
           .from('pay_periods')
           .select('id')
           .eq('user_id', userId)
@@ -425,7 +426,7 @@ export const supabaseData = {
           .single();
 
         if (existingData) {
-          const { data: updateData, error: updateError } = await supabase
+          const { data: updateData, error: updateError } = await supabaseClient
             .from('pay_periods')
             .update({
               label: period.label || period.name,
@@ -492,13 +493,13 @@ export const supabaseData = {
 
   async setCurrentPayPeriod(userId, periodId) {
     try {
-      await supabase
+      await supabaseClient
         .from('pay_periods')
         .update({ is_current: false })
         .eq('user_id', userId)
         .eq('is_current', true);
 
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from('pay_periods')
         .update({ is_current: true })
         .eq('user_id', userId)
