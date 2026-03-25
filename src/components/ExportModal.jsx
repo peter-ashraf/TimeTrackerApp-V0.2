@@ -163,9 +163,13 @@ function ExportModal({ onClose }) {
 
   const generatePeriodData = (period) => {
 
+    const periodStart = period.start_date || period.start;
+
+    const periodEnd = period.end_date || period.end;
+
     const periodEntries = entries
 
-      .filter(e => e.date >= period.start && e.date <= period.end)
+      .filter(e => e.date >= periodStart && e.date <= periodEnd)
 
       .sort((a, b) => a.date.localeCompare(b.date));
 
@@ -173,7 +177,7 @@ function ExportModal({ onClose }) {
 
     const overtimeDetails = calculateOvertimeDetails 
 
-      ? calculateOvertimeDetails(entries, period.start, period.end)
+      ? calculateOvertimeDetails(entries, periodStart, periodEnd)
 
       : { totalHoursWorked: 0, totalExtraHours: 0, totalExtraHoursWithFactor: 0 };
 
@@ -411,9 +415,9 @@ function ExportModal({ onClose }) {
 
       // Generate all dates in selected period
 
-      const startDate = new Date(selectedPeriod.start);
+      const startDate = new Date(selectedPeriod.start_date || selectedPeriod.start);
 
-      const endDate = new Date(selectedPeriod.end);
+      const endDate = new Date(selectedPeriod.end_date || selectedPeriod.end);
 
 
 
@@ -884,7 +888,9 @@ function ExportModal({ onClose }) {
         // Combine data from all selected periods
         const allEntries = [];
         periodsToExport.forEach(period => {
-          const periodEntries = entries.filter(e => e.date >= period.start && e.date <= period.end);
+          const periodStart = period.start_date || period.start;
+          const periodEnd = period.end_date || period.end;
+          const periodEntries = entries.filter(e => e.date >= periodStart && e.date <= periodEnd);
           allEntries.push(...periodEntries);
         });
         
@@ -893,7 +899,7 @@ function ExportModal({ onClose }) {
 
       // Export based on format
       if (exportFormat === 'excel') {
-        filename = exportToExcel(data.data, {
+        filename = await exportToExcel(data.data, {
           filename: data.filename.replace('.xlsx', ''),
           sheetName: selectedPeriod?.label?.replace(/[:\\/?*\[\]]/g, '-').substring(0, 31) || 'Export',
           includeFormatting: true
@@ -932,7 +938,7 @@ function ExportModal({ onClose }) {
         }
 
         // Generate Excel file first
-        const excelFilename = exportToExcel(data.data, {
+        const excelFilename = await exportToExcel(data.data, {
           filename: data.filename.replace('.xlsx', ''),
           sheetName: selectedPeriod?.label?.replace(/[:\\/?*\[\]]/g, '-').substring(0, 31) || 'Export',
           includeFormatting: true

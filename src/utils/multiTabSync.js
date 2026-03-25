@@ -3,6 +3,8 @@
  * Keeps data consistent across multiple browser tabs
  */
 
+import { backgroundSync } from './backgroundSync.js';
+
 class MultiTabSync {
   constructor() {
     this.channel = null;
@@ -190,6 +192,13 @@ class MultiTabSync {
   /**
    * Handle data change from other tabs
    */
+  handleDataChange(data, senderTabId) {
+    this.handleDataChangeFromOtherTab(data, senderTabId);
+  }
+
+  /**
+   * Handle data change from other tabs
+   */
   handleDataChangeFromOtherTab(data, senderTabId) {
     // Trigger a refresh to sync data
     try {
@@ -206,6 +215,13 @@ class MultiTabSync {
     this.broadcast('refresh_request', {
       requesterTabId: this.tabId
     });
+  }
+
+  /**
+   * Handle refresh request from other tabs
+   */
+  handleRefreshRequest(senderTabId) {
+    this.handleRefreshRequestFromOtherTab(senderTabId);
   }
 
   /**
@@ -246,6 +262,13 @@ class MultiTabSync {
   /**
    * Handle user logout from other tabs
    */
+  handleUserLogout(data, senderTabId) {
+    this.handleUserLogoutFromOtherTab(data, senderTabId);
+  }
+
+  /**
+   * Handle user logout from other tabs
+   */
   handleUserLogoutFromOtherTab(data, senderTabId) {
     this.notifyListeners('user_logout', data);
   }
@@ -264,7 +287,6 @@ class MultiTabSync {
    * Handle sync completion from other tabs
    */
   handleSyncComplete(data, senderTabId) {
-    
     this.notifyListeners('sync_complete', data);
   }
 

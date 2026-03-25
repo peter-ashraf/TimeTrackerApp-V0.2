@@ -383,6 +383,8 @@ export const supabaseData = {
           .from('pay_periods')
           .update({
             label: period.label || period.name,
+            start_date: period.startDate || period.start_date,
+            end_date: period.endDate || period.end_date,
             is_active: period.is_active ?? false,
             is_current: period.is_current ?? false,
             updated_at: new Date().toISOString()
@@ -430,6 +432,8 @@ export const supabaseData = {
             .from('pay_periods')
             .update({
               label: period.label || period.name,
+              start_date: period.startDate || period.start_date,
+              end_date: period.endDate || period.end_date,
               is_active: period.is_active ?? false,
               is_current: period.is_current ?? false,
               updated_at: new Date().toISOString()

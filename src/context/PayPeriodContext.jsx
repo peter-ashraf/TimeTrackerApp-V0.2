@@ -103,11 +103,6 @@ export const PayPeriodProvider = ({ children }) => {
 
         const updatedPeriods = [];
         for (const period of uniquePeriods) {
-          // Skip saving client-generated periods that might cause conflicts
-          if (period.id?.startsWith('period-')) {
-            updatedPeriods.push(period);
-            continue;
-          }
           
           const saved = await supabaseData.savePayPeriod(currentUser.id, period);
           if (saved) {

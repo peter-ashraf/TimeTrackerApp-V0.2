@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import { useSupabaseAuth, supabase } from '../context/SupabaseAuthContext';
+import { usePayPeriod } from '../context/PayPeriodContext';
 import { supabaseData } from '../utils/supabaseData';
 import hapticFeedback from '../utils/hapticFeedback';
 const ExportModal = React.lazy(() => import('./ExportModal'));
@@ -150,6 +151,8 @@ function Settings() {
     validateEmployeeType,
     calculateMonthlyHours
   } = useTimeTracker();
+
+  const { setPeriods } = usePayPeriod();
 
   // ✅ ADDED: Get auth functions
   const { currentUser, deleteUser } = useSupabaseAuth();
@@ -422,8 +425,6 @@ function Settings() {
   };
 
   const categorizePeriods = () => {
-    const today = new Date().toISOString().split('T')[0];
-    
     // First try to find current period using is_current flag
     let current = periods.find(p => p.is_current === true);
     
@@ -434,11 +435,16 @@ function Settings() {
     
     const otherPeriods = periods.filter(p => p.id !== current?.id);
 
-    const upcoming = otherPeriods.filter(p => (p.start_date || p.start) > today);
-    const previous = otherPeriods.filter(p => (p.end_date || p.end) < today);
-    const other = otherPeriods.filter(p => (p.start_date || p.start) <= today && (p.end_date || p.end) >= today);
+    if (!current) {
+      return { current, upcoming: [], previous: otherPeriods };
+    }
 
-    return { current, upcoming, previous: [...previous, ...other] };
+    const currentStart = current.start_date || current.start || '';
+
+    const upcoming = otherPeriods.filter(p => (p.start_date || p.start || '') > currentStart);
+    const previous = otherPeriods.filter(p => (p.start_date || p.start || '') <= currentStart);
+
+    return { current, upcoming, previous };
   };
 
   const { current, upcoming, previous } = categorizePeriods();
@@ -688,7 +694,9 @@ function Settings() {
       showCancel: true,
       onConfirm: () => {
         // Clear the data directly
-        const newEntries = entries.filter(e => e.date < currentPeriod.start || e.date > currentPeriod.end);
+        const pStart = currentPeriod.start_date || currentPeriod.start;
+        const pEnd = currentPeriod.end_date || currentPeriod.end;
+        const newEntries = entries.filter(e => e.date < pStart || e.date > pEnd);
         setEntries(newEntries);
         setConfirmModal({
           isOpen: true,
@@ -1085,8 +1093,9 @@ function Settings() {
                         <button
                           className="btn btn-sm btn-outline"
                           onClick={() => setCurrentPeriod(period.id)}
+                          disabled={period.id.startsWith('period-')}
                         >
-                          Set as Current
+                          {period.id.startsWith('period-') ? 'Saving...' : 'Set as Current'}
                         </button>
                         <button
                           className="btn btn-sm btn-outline"
@@ -1174,8 +1183,9 @@ function Settings() {
                         <button
                           className="btn btn-sm btn-outline"
                           onClick={() => setCurrentPeriod(period.id)}
+                          disabled={period.id.startsWith('period-')}
                         >
-                          Set as Current
+                          {period.id.startsWith('period-') ? 'Saving...' : 'Set as Current'}
                         </button>
                         <button
                           className="btn btn-sm btn-outline"
