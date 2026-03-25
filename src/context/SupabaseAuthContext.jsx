@@ -253,7 +253,7 @@ export const SupabaseAuthProvider = ({ children }) => {
               const resolvedUsername =
                 decodedUser.username ||
                 decodedUser.user_metadata?.username ||
-                decodedUser.email?.split("@") ||
+                (decodedUser.email ? decodedUser.email.split("@")[0] : null) ||
                 "user";
 
               setCurrentUser({
@@ -266,6 +266,8 @@ export const SupabaseAuthProvider = ({ children }) => {
               setRememberMe(true);
               setSessionTimeout(30 * 24 * 60);
               setIsFailsafeMode(true);
+              clearTimeout(failSafeTimeout);
+              setIsLoading(false);
               return;
             } catch (e) {
               
@@ -285,6 +287,8 @@ export const SupabaseAuthProvider = ({ children }) => {
             });
             setIsAuthenticated(true);
             setIsFailsafeMode(true);
+            clearTimeout(failSafeTimeout);
+            setIsLoading(false);
             return;
           }
 
@@ -296,7 +300,7 @@ export const SupabaseAuthProvider = ({ children }) => {
               const resolvedUsername =
                 decodedUser.username ||
                 decodedUser.user_metadata?.username ||
-                decodedUser.email?.split("@") ||
+                (decodedUser.email ? decodedUser.email.split("@")[0] : null) ||
                 "user";
 
               setCurrentUser({
@@ -315,6 +319,8 @@ export const SupabaseAuthProvider = ({ children }) => {
               });
               setIsAuthenticated(true);
               setIsFailsafeMode(true);
+              clearTimeout(failSafeTimeout);
+              setIsLoading(false);
               return;
             } catch (e) {
               
@@ -322,6 +328,8 @@ export const SupabaseAuthProvider = ({ children }) => {
           }
 
           // If all strategies fail, we'll remain unauthenticated but the app should load
+          clearTimeout(failSafeTimeout);
+          setIsLoading(false);
           return;
         }
 
@@ -337,7 +345,7 @@ export const SupabaseAuthProvider = ({ children }) => {
               user_metadata: session.user.user_metadata,
               username:
                 session.user.user_metadata?.username ||
-                session.user.email?.split("@") ||
+                (session.user.email ? session.user.email.split("@")[0] : null) ||
                 "user",
             }),
           );
@@ -462,7 +470,7 @@ export const SupabaseAuthProvider = ({ children }) => {
             user_metadata: session.user.user_metadata,
             username:
               session.user.user_metadata?.username ||
-              session.user.email?.split("@") ||
+              (session.user.email ? session.user.email.split("@")[0] : null) ||
               "user",
           }),
         );
