@@ -76,6 +76,10 @@ export const PayPeriodProvider = ({ children }) => {
     const savePayPeriodsData = async () => {
       isSavingPeriodsRef.current = true;
       try {
+        // Always save to localStorage first for offline access
+        const periodsKey = `payPeriods_${currentUser.id}`;
+        setSimpleEncryptedItem(periodsKey, periods, currentUser.username);
+
         // Deduplicate periods by normalizing dates to avoid conflicts
         const uniquePeriods = [];
         const seenPeriods = new Map();

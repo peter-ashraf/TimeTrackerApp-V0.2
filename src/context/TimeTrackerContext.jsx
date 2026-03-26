@@ -160,6 +160,63 @@ export const TimeTrackerProvider = ({ children }) => {
     return hoursSpentOutside;
   }, [timeToSeconds, secondsToHours]);
 
+  const recalculateEntryFields = useCallback((entry) => {
+    if (!entry.intervals || entry.intervals.length === 0) {
+      return {
+        ...entry,
+        hoursWorked: 0,
+        extraHours: 0,
+        extraHoursWithFactor: 0,
+        hoursSpentOutside: 0
+      };
+    }
+
+    const hoursWorked = calculateHoursWorked(entry.intervals, entry.date);
+    const dayOfWeek = new Date(entry.date).getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const isSpecialDay = entry.type === 'Holiday' || entry.type === 'Vacation';
+    const useDoubleFactor = isWeekend || isSpecialDay;
+
+    const isHalfDaySpecial = (entry.duration === 0.5) &&
+      (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
+
+    const isFullDaySpecial = (entry.duration === 1) &&
+      (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
+
+    let extraHours = 0;
+    let extraHoursWithFactor = 0;
+
+    if (isFullDaySpecial) {
+      extraHours = 0;
+      extraHoursWithFactor = 0;
+    } else if (isHalfDaySpecial) {
+      const halfDayBaseline = 4.5;
+      extraHours = hoursWorked - halfDayBaseline;
+      extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
+    } else if (entry.doubleHours) {
+      extraHours = hoursWorked;
+      extraHoursWithFactor = hoursWorked * 2;
+    } else if (useDoubleFactor && entry.type !== 'Regular') {
+      extraHours = hoursWorked;
+      extraHoursWithFactor = hoursWorked * 2;
+    } else {
+      const standardHours = isWeekend ? 0 : 9;
+      extraHours = hoursWorked - standardHours;
+      const factor = useDoubleFactor ? 2 : 1.5;
+      extraHoursWithFactor = extraHours > 0 ? extraHours * factor : extraHours;
+    }
+
+    const hoursSpentOutside = calculateHoursSpentOutside(entry.intervals);
+
+    return {
+      ...entry,
+      hoursWorked,
+      extraHours,
+      extraHoursWithFactor,
+      hoursSpentOutside
+    };
+  }, [calculateHoursWorked, calculateHoursSpentOutside]);
+
   const checkIn = useCallback(async () => {
     if (!currentUser || !isAuthenticated) return;
 
@@ -228,14 +285,24 @@ export const TimeTrackerProvider = ({ children }) => {
         return;
       }
 
-      const updatedEntry = { ...todayEntry };
-      const lastInterval = updatedEntry.intervals[updatedEntry.intervals.length - 1];
-      if (lastInterval && !lastInterval.out) {
-        lastInterval.out = timeString;
-        updatedEntry.lastModified = now.toISOString();
-      }
+      // Immutable update of intervals
+      const updatedIntervals = todayEntry.intervals.map((interval, index) => {
+        if (index === todayEntry.intervals.length - 1 && !interval.out) {
+          return { ...interval, out: timeString };
+        }
+        return interval;
+      });
 
-      const saveResult = await timeEntryContext.saveTimeEntriesData(updatedEntry, showAlert);
+      const updatedEntry = { 
+        ...todayEntry, 
+        intervals: updatedIntervals,
+        lastModified: now.toISOString() 
+      };
+
+      // Recalculate computed fields now that checkout time is set
+      const recalculated = recalculateEntryFields(updatedEntry);
+
+      const saveResult = await timeEntryContext.saveTimeEntriesData(recalculated, showAlert);
 
       if (saveResult.success) {
         showAlert('Successfully checked out!', 'success');
@@ -246,7 +313,7 @@ export const TimeTrackerProvider = ({ children }) => {
       console.error('Check-out failed:', error);
       showAlert('Failed to check out. Please try again.', 'error');
     }
-  }, [currentUser, isAuthenticated, timeEntryContext, showAlert, ensureTimeSeconds]);
+  }, [currentUser, isAuthenticated, timeEntryContext, showAlert, ensureTimeSeconds, recalculateEntryFields]);
 
   const calculateOvertimeDetails = useCallback((entries, periodStart, periodEnd) => {
     const periodEntries = entries.filter(e =>
@@ -270,50 +337,38 @@ export const TimeTrackerProvider = ({ children }) => {
 
       let actualHours, extraHours, extraHoursWithFactor;
 
-      if (
-        entry.hoursWorked !== undefined &&
-        entry.hoursWorked !== null &&
-        entry.extraHours !== undefined &&
-        entry.extraHours !== null &&
-        entry.extraHoursWithFactor !== undefined &&
-        entry.extraHoursWithFactor !== null
-      ) {
-        actualHours = entry.hoursWorked;
-        extraHours = entry.extraHours;
-        extraHoursWithFactor = entry.extraHoursWithFactor;
+      // Always recalculate from intervals to avoid stale pre-computed values
+      actualHours = calculateHoursWorked(entry.intervals, entry.date);
+
+      const dayOfWeek = new Date(entry.date).getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const isSpecialDay = entry.type === 'Holiday' || entry.type === 'Vacation';
+      const useDoubleFactor = isWeekend || isSpecialDay;
+
+      const isHalfDaySpecial = (entry.duration === 0.5) &&
+        (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
+
+      const isFullDaySpecial = (entry.duration === 1) &&
+        (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
+
+      if (isFullDaySpecial) {
+        extraHours = 0;
+        extraHoursWithFactor = 0;
+      } else if (isHalfDaySpecial) {
+        const halfDayBaseline = 4.5;
+        extraHours = actualHours - halfDayBaseline;
+        extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
+      } else if (entry.doubleHours) {
+        extraHours = actualHours;
+        extraHoursWithFactor = actualHours * 2;
+      } else if (useDoubleFactor && entry.type !== 'Regular') {
+        extraHours = actualHours;
+        extraHoursWithFactor = actualHours * 2;
       } else {
-        actualHours = calculateHoursWorked(entry.intervals, entry.date);
-
-        const dayOfWeek = new Date(entry.date).getDay();
-        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-        const isSpecialDay = entry.type === 'Holiday' || entry.type === 'Vacation';
-        const useDoubleFactor = isWeekend || isSpecialDay;
-
-        const isHalfDaySpecial = (entry.duration === 0.5) &&
-          (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
-
-        const isFullDaySpecial = (entry.duration === 1) &&
-          (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
-
-        if (isFullDaySpecial) {
-          extraHours = 0;
-          extraHoursWithFactor = 0;
-        } else if (isHalfDaySpecial) {
-          const halfDayBaseline = 4.5;
-          extraHours = actualHours - halfDayBaseline;
-          extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
-        } else if (entry.doubleHours) {
-          extraHours = actualHours;
-          extraHoursWithFactor = actualHours * 2;
-        } else if (useDoubleFactor && entry.type !== 'Regular') {
-          extraHours = actualHours;
-          extraHoursWithFactor = actualHours * 2;
-        } else {
-          const standardHours = isWeekend ? 0 : 9;
-          extraHours = actualHours - standardHours;
-          const factor = useDoubleFactor ? 2 : 1.5;
-          extraHoursWithFactor = extraHours > 0 ? extraHours * factor : extraHours;
-        }
+        const standardHours = isWeekend ? 0 : 9;
+        extraHours = actualHours - standardHours;
+        const factor = useDoubleFactor ? 2 : 1.5;
+        extraHoursWithFactor = extraHours > 0 ? extraHours * factor : extraHours;
       }
 
       totalHoursWorked += actualHours;
@@ -493,63 +548,6 @@ export const TimeTrackerProvider = ({ children }) => {
   const handleCloseBackup = useCallback(() => {
     setShowBackupReminder(false);
   }, []);
-
-  const recalculateEntryFields = useCallback((entry) => {
-    if (!entry.intervals || entry.intervals.length === 0) {
-      return {
-        ...entry,
-        hoursWorked: 0,
-        extraHours: 0,
-        extraHoursWithFactor: 0,
-        hoursSpentOutside: 0
-      };
-    }
-
-    const hoursWorked = calculateHoursWorked(entry.intervals, entry.date);
-    const dayOfWeek = new Date(entry.date).getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    const isSpecialDay = entry.type === 'Holiday' || entry.type === 'Vacation';
-    const useDoubleFactor = isWeekend || isSpecialDay;
-
-    const isHalfDaySpecial = (entry.duration === 0.5) &&
-      (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
-
-    const isFullDaySpecial = (entry.duration === 1) &&
-      (entry.type === 'Vacation' || entry.type === 'Sick Leave' || entry.type === 'To Be Added');
-
-    let extraHours = 0;
-    let extraHoursWithFactor = 0;
-
-    if (isFullDaySpecial) {
-      extraHours = 0;
-      extraHoursWithFactor = 0;
-    } else if (isHalfDaySpecial) {
-      const halfDayBaseline = 4.5;
-      extraHours = hoursWorked - halfDayBaseline;
-      extraHoursWithFactor = extraHours > 0 ? extraHours * 1.5 : extraHours;
-    } else if (entry.doubleHours) {
-      extraHours = hoursWorked;
-      extraHoursWithFactor = hoursWorked * 2;
-    } else if (useDoubleFactor && entry.type !== 'Regular') {
-      extraHours = hoursWorked;
-      extraHoursWithFactor = hoursWorked * 2;
-    } else {
-      const standardHours = isWeekend ? 0 : 9;
-      extraHours = hoursWorked - standardHours;
-      const factor = useDoubleFactor ? 2 : 1.5;
-      extraHoursWithFactor = extraHours > 0 ? extraHours * factor : extraHours;
-    }
-
-    const hoursSpentOutside = calculateHoursSpentOutside(entry.intervals);
-
-    return {
-      ...entry,
-      hoursWorked,
-      extraHours,
-      extraHoursWithFactor,
-      hoursSpentOutside
-    };
-  }, [calculateHoursWorked, calculateHoursSpentOutside]);
 
   const updateEntry = useCallback(async (date, updates) => {
     if (!date || !updates) return;

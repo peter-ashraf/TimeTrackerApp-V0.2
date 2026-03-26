@@ -242,15 +242,17 @@ export const SupabaseAuthProvider = ({ children }) => {
       if (sessionError || !sessionData?.session) {
           // Try multiple fallback strategies
           
-          // Strategy 1: If offline and we have cached user/profile, use them
-          if (isOffline && cachedUser && rememberMeState) {
+          // Strategy 1: If we have cached user/profile, use them for offline access
+          if (cachedUser) {
             try {
               const decodedUser = JSON.parse(cachedUser);
               const decodedProfile = cachedProfile
                 ? JSON.parse(cachedProfile)
                 : null;
 
+              // Prioritize profile.username (matches encryption key used when online)
               const resolvedUsername =
+                decodedProfile?.username ||
                 decodedUser.username ||
                 decodedUser.user_metadata?.username ||
                 (decodedUser.email ? decodedUser.email.split("@")[0] : null) ||
@@ -263,8 +265,10 @@ export const SupabaseAuthProvider = ({ children }) => {
                 isLocalOnly: true
               });
               setIsAuthenticated(true);
-              setRememberMe(true);
-              setSessionTimeout(30 * 24 * 60);
+              if (rememberMeState) {
+                setRememberMe(true);
+                setSessionTimeout(30 * 24 * 60);
+              }
               setIsFailsafeMode(true);
               clearTimeout(failSafeTimeout);
               setIsLoading(false);
@@ -292,40 +296,8 @@ export const SupabaseAuthProvider = ({ children }) => {
             return;
           }
 
-          // Strategy 3: If we have cached user but no session, try to use it
-          if (cachedUser) {
-            try {
-              const decodedUser = JSON.parse(cachedUser);
-
-              const resolvedUsername =
-                decodedUser.username ||
-                decodedUser.user_metadata?.username ||
-                (decodedUser.email ? decodedUser.email.split("@")[0] : null) ||
-                "user";
-
-              setCurrentUser({
-                id: decodedUser.id,
-                username: resolvedUsername,
-                email: decodedUser.email,
-                fullName:
-                  decodedUser.fullName ||
-                  decodedUser.user_metadata?.full_name ||
-                  resolvedUsername,
-                displayName:
-                  decodedUser.displayName ||
-                  decodedUser.user_metadata?.full_name ||
-                  resolvedUsername,
-                isLocalOnly: true
-              });
-              setIsAuthenticated(true);
-              setIsFailsafeMode(true);
-              clearTimeout(failSafeTimeout);
-              setIsLoading(false);
-              return;
-            } catch (e) {
-              
-            }
-          }
+          // Strategy 3 is no longer needed — Strategy 1 now handles all cached user scenarios
+          // (Strategy 1 no longer requires rememberMeState)
 
           // If all strategies fail, we'll remain unauthenticated but the app should load
           clearTimeout(failSafeTimeout);
@@ -336,19 +308,6 @@ export const SupabaseAuthProvider = ({ children }) => {
         const session = sessionData.session;
 
         if (session?.user) {
-          // Cache the user object for offline access
-          localStorage.setItem(
-            "cached_currentUser",
-            JSON.stringify({
-              id: session.user.id,
-              email: session.user.email,
-              user_metadata: session.user.user_metadata,
-              username:
-                session.user.user_metadata?.username ||
-                (session.user.email ? session.user.email.split("@")[0] : null) ||
-                "user",
-            }),
-          );
 
           // Validate session expiry if remember me was used
           if (rememberMeState && sessionExpiry) {
@@ -389,16 +348,27 @@ export const SupabaseAuthProvider = ({ children }) => {
                   session.user.user_metadata?.username ||
                   "User",
               };
+              // Cache user with fallback username for offline access
+              localStorage.setItem(
+                "cached_currentUser",
+                JSON.stringify({
+                  id: session.user.id,
+                  email: session.user.email,
+                  user_metadata: session.user.user_metadata,
+                  username: basicUser.username,
+                }),
+              );
               setCurrentUser(basicUser);
               setIsAuthenticated(true);
             } else if (profile) {
+              const resolvedUsername =
+                profile.username ||
+                session.user.user_metadata?.username ||
+                session.user.email?.split("@")[0] ||
+                "User";
               const fullUser = {
                 id: session.user.id,
-                username:
-                  profile.username ||
-                  session.user.user_metadata?.username ||
-                  session.user.email?.split("@")[0] ||
-                  "User",
+                username: resolvedUsername,
                 email: session.user.email,
                 fullName: profile.full_name || profile.username || "User",
                 displayName:
@@ -414,6 +384,16 @@ export const SupabaseAuthProvider = ({ children }) => {
               localStorage.setItem(
                 "cached_userProfile",
                 JSON.stringify(profile),
+              );
+              // Cache user with profile.username for consistent offline decryption
+              localStorage.setItem(
+                "cached_currentUser",
+                JSON.stringify({
+                  id: session.user.id,
+                  email: session.user.email,
+                  user_metadata: session.user.user_metadata,
+                  username: resolvedUsername,
+                }),
               );
             }
           } catch (error) {
@@ -461,19 +441,6 @@ export const SupabaseAuthProvider = ({ children }) => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session?.user) {
-        // Cache the user object for offline access
-        localStorage.setItem(
-          "cached_currentUser",
-          JSON.stringify({
-            id: session.user.id,
-            email: session.user.email,
-            user_metadata: session.user.user_metadata,
-            username:
-              session.user.user_metadata?.username ||
-              (session.user.email ? session.user.email.split("@")[0] : null) ||
-              "user",
-          }),
-        );
 
         // Get user profile from profiles table
         try {
@@ -501,15 +468,29 @@ export const SupabaseAuthProvider = ({ children }) => {
                 session.user.user_metadata?.username ||
                 "User",
             });
+            // Cache user with fallback username
+            localStorage.setItem(
+              "cached_currentUser",
+              JSON.stringify({
+                id: session.user.id,
+                email: session.user.email,
+                user_metadata: session.user.user_metadata,
+                username:
+                  session.user.user_metadata?.username ||
+                  session.user.email?.split("@")[0] ||
+                  "User",
+              }),
+            );
             setIsAuthenticated(true);
           } else if (profile) {
+            const resolvedUsername =
+              profile.username ||
+              session.user.user_metadata?.username ||
+              session.user.user_metadata?.email?.split("@")[0] ||
+              "User";
             setCurrentUser({
               id: session.user.id,
-              username:
-                profile.username ||
-                session.user.user_metadata?.username ||
-                session.user.user_metadata?.email?.split("@")[0] ||
-                "User",
+              username: resolvedUsername,
               email: session.user.email,
               fullName: profile.full_name || profile.username || "User",
               displayName:
@@ -522,6 +503,16 @@ export const SupabaseAuthProvider = ({ children }) => {
 
             // Cache profile for offline use
             localStorage.setItem("cached_userProfile", JSON.stringify(profile));
+            // Cache user with profile.username for consistent offline decryption
+            localStorage.setItem(
+              "cached_currentUser",
+              JSON.stringify({
+                id: session.user.id,
+                email: session.user.email,
+                user_metadata: session.user.user_metadata,
+                username: resolvedUsername,
+              }),
+            );
           }
         } catch (error) {
           // Set basic user info from auth session

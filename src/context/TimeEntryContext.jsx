@@ -71,15 +71,17 @@ export const TimeEntryProvider = ({ children }) => {
         const entriesKey = `timeEntries_${currentUser.id}`;
         if (Array.isArray(entriesToSave)) {
           setSimpleEncryptedItem(entriesKey, entriesToSave, currentUser.username);
+          setEntries(entriesToSave);
         } else {
-          // For single entry, get current entries and update
-          const currentEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
-          const updatedEntries = currentEntries.filter(e => e.date !== entriesToSave.date);
-          updatedEntries.unshift(entriesToSave);
-          setSimpleEncryptedItem(entriesKey, updatedEntries, currentUser.username);
-          
-          // sync React state with the updated entries
-          setEntries(updatedEntries);
+          // Use functional update to avoid stale closure issues and minimize dependency changes
+          setEntries(prev => {
+            const updatedEntries = prev.filter(e => e.date !== entriesToSave.date);
+            updatedEntries.unshift(entriesToSave);
+            
+            // Sync to local storage within the update or right after
+            setSimpleEncryptedItem(entriesKey, updatedEntries, currentUser.username);
+            return updatedEntries;
+          });
         }
 
         // Try to save to Supabase if online, authenticated, and not local-only
