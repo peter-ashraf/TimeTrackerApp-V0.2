@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { useSupabaseAuth } from '../context/SupabaseAuthContext';
 import { useTimeTracker } from '../context/TimeTrackerContext';
+import { useUserPreferences } from '../context/UserPreferencesContext';
 import ModalShell from './ModalShell';
+import CustomSelect from './CustomSelect';
 import '../styles/user-settings-modal.css';
 
 
 function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
   const { currentUser, updateProfile, updatePassword, sessionTimeout, setSessionTimeout, saveSessionSettings } = useSupabaseAuth();
   const { setConfirmModal } = useTimeTracker();
-  
+  const { theme, setTheme, activeTheme } = useUserPreferences();
+
   const [formData, setFormData] = useState({
     newUsername: '',
     currentPassword: '',
@@ -16,7 +19,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
     confirmPassword: '',
     sessionTimeout: sessionTimeout
   });
-  
+
   const [errors, setErrors] = useState({});
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,7 +45,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
       ...prev,
       [name]: value
     }));
-    
+
     // Clear errors for this field and any submit errors when user starts typing
     setErrors(prev => {
       const newErrors = { ...prev };
@@ -88,7 +91,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
 
   const validateUsernameForm = () => {
     const newErrors = {};
-    
+
     if (!formData.newUsername.trim()) {
       newErrors.newUsername = 'New username is required';
     } else if (formData.newUsername.length < 3) {
@@ -98,28 +101,28 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
     } else if (formData.newUsername === currentUser.username) {
       newErrors.newUsername = 'New username must be different from current username';
     }
-    
+
     if (!formData.currentPassword) {
       newErrors.currentPassword = 'Current password is required';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const validatePasswordForm = () => {
     const newErrors = {};
-    
+
     if (!formData.currentPassword) {
       newErrors.currentPassword = 'Current password is required';
     }
-    
+
     if (!formData.newPassword) {
       newErrors.newPassword = 'New password is required';
     } else if (formData.newPassword.length < 6) {
       newErrors.newPassword = 'Password must be at least 6 characters';
     }
-    
+
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your new password';
     } else if (formData.newPassword !== formData.confirmPassword) {
@@ -127,39 +130,38 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
     } else if (formData.newPassword === formData.currentPassword) {
       newErrors.newPassword = 'New password must be different from current password';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const validateSessionForm = () => {
     const newErrors = {};
-    
+
     const timeout = parseInt(formData.sessionTimeout);
     if (isNaN(timeout) || timeout < 0) {
       newErrors.sessionTimeout = 'Session timeout must be a positive number or 0';
     } else if (timeout > 480) { // Max 8 hours
       newErrors.sessionTimeout = 'Session timeout cannot exceed 480 minutes (8 hours)';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSessionSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateSessionForm()) return;
-    
+
     const timeout = parseInt(formData.sessionTimeout);
     const timeoutText = timeout === 0 ? 'never expire' : `expire after ${timeout} minute${timeout !== 1 ? 's' : ''}`;
-    
+
     showConfirmationModal(
       '⏱️ Confirm Session Settings',
-      `Are you sure you want to set your session to ${timeoutText}?\n\n${
-        timeout === 0 
-          ? 'You will stay logged in until you manually log out.' 
-          : 'You will be automatically logged out after the specified period of inactivity.'
+      `Are you sure you want to set your session to ${timeoutText}?\n\n${timeout === 0
+        ? 'You will stay logged in until you manually log out.'
+        : 'You will be automatically logged out after the specified period of inactivity.'
       }`,
       async () => {
         setIsSubmitting(true);
@@ -167,10 +169,9 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
           await saveSessionSettings(timeout);
           showSuccessModal(
             '✅ Session Settings Updated!',
-            `Your session will now ${timeoutText}.\n\n${
-              timeout === 0 
-                ? 'You will stay logged in until you manually log out.' 
-                : 'Make sure to save your work before leaving your desk.'
+            `Your session will now ${timeoutText}.\n\n${timeout === 0
+              ? 'You will stay logged in until you manually log out.'
+              : 'Make sure to save your work before leaving your desk.'
             }`
           );
         } catch (error) {
@@ -184,9 +185,9 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
 
   const handleUsernameSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateUsernameForm()) return;
-    
+
     showConfirmationModal(
       '🔄 Confirm Username Change',
       `Are you sure you want to change your username from "${currentUser.username}" to "${formData.newUsername}"?\n\nThis will update your profile information.`,
@@ -209,9 +210,9 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
 
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validatePasswordForm()) return;
-    
+
     showConfirmationModal(
       '🔒 Confirm Password Change',
       'Are you sure you want to change your password?\n\nYou will need to use your new password for future logins.',
@@ -236,7 +237,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
     <ModalShell onClose={onClose} contentClassName="user-settings-modal" closeOnOverlay={false}>
       <div className="user-settings-header">
         <div className="user-settings-icon">⚙️ User Settings</div>
-                <p className="user-settings-subtitle">Manage your account credentials and session</p>
+        <p className="user-settings-subtitle">Manage your account credentials and session</p>
       </div>
 
       <div className="user-settings-tabs">
@@ -260,6 +261,13 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
         >
           <span className="tab-icon">⏱️</span>
           <span className="tab-label">Session</span>
+        </button>
+        <button
+          className={`tab-btn ${activeTab === 'appearance' ? 'active' : ''}`}
+          onClick={() => handleTabSwitch('appearance')}
+        >
+          <span className="tab-icon">✨</span>
+          <span className="tab-label">Appearance</span>
         </button>
       </div>
 
@@ -325,16 +333,16 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
             </div>
 
             <div className="form-actions">
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
+              <button
+                type="button"
+                className="btn btn-secondary"
                 onClick={onClose}
                 disabled={isSubmitting}
               >
                 Cancel
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="btn btn-primary"
                 disabled={isSubmitting}
               >
@@ -368,23 +376,24 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
                 <span className="label-icon">⏱️</span>
                 Session Timeout (minutes)
               </label>
-              <select
+              <CustomSelect
+                id="session-timeout-select"
                 name="sessionTimeout"
-                className={`form-control ${errors.sessionTimeout ? 'error' : ''}`}
                 value={formData.sessionTimeout}
                 onChange={handleInputChange}
                 disabled={isSubmitting}
-              >
-                <option value="0">Never expire (stay logged in)</option>
-                <option value="5">5 minutes</option>
-                <option value="10">10 minutes</option>
-                <option value="15">15 minutes</option>
-                <option value="30">30 minutes (default)</option>
-                <option value="60">1 hour</option>
-                <option value="120">2 hours</option>
-                <option value="240">4 hours</option>
-                <option value="480">8 hours</option>
-              </select>
+                options={[
+                  { label: 'Never expire (stay logged in)', value: "0" },
+                  { label: '5 minutes', value: "5" },
+                  { label: '10 minutes', value: "10" },
+                  { label: '15 minutes', value: "15" },
+                  { label: '30 minutes (default)', value: "30" },
+                  { label: '1 hour', value: "60" },
+                  { label: '2 hours', value: "120" },
+                  { label: '4 hours', value: "240" },
+                  { label: '8 hours', value: "480" }
+                ]}
+              />
               {errors.sessionTimeout && (
                 <div className="error-feedback">
                   <span className="error-icon">⚠️</span>
@@ -413,16 +422,16 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
             </div>
 
             <div className="form-actions">
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
+              <button
+                type="button"
+                className="btn btn-secondary"
                 onClick={onClose}
                 disabled={isSubmitting}
               >
                 Cancel
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="btn btn-primary"
                 disabled={isSubmitting}
               >
@@ -514,16 +523,16 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
             </div>
 
             <div className="form-actions">
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
+              <button
+                type="button"
+                className="btn btn-secondary"
                 onClick={onClose}
                 disabled={isSubmitting}
               >
                 Cancel
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="btn btn-primary"
                 disabled={isSubmitting}
               >
@@ -541,6 +550,74 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
               </button>
             </div>
           </form>
+        )}
+        {activeTab === 'appearance' && (
+          <div className="user-settings-form">
+            <div className="current-info-card">
+              <div className="info-label">Active Theme</div>
+              <div className="info-value" style={{ textTransform: 'capitalize' }}>
+                {theme} {theme === 'system' ? `(${activeTheme})` : ''}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                <span className="label-icon">🎨</span>
+                Application Theme
+              </label>
+              <div className="theme-options">
+                <button
+                  type="button"
+                  className={`theme-option-btn ${theme === 'light' ? 'selected' : ''}`}
+                  onClick={() => setTheme('light')}
+                >
+                  <span className="option-icon">☀️</span>
+                  <span className="option-label">Light</span>
+                </button>
+                <button
+                  type="button"
+                  className={`theme-option-btn ${theme === 'dark' ? 'selected' : ''}`}
+                  onClick={() => setTheme('dark')}
+                >
+                  <span className="option-icon">🌙</span>
+                  <span className="option-label">Dark</span>
+                </button>
+                <button
+                  type="button"
+                  className={`theme-option-btn ${theme === 'system' ? 'selected' : ''}`}
+                  onClick={() => setTheme('system')}
+                >
+                  <span className="option-icon">🖥️</span>
+                  <span className="option-label">System</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="info-card">
+              <div className="info-title">
+                <span className="info-icon">ℹ️</span>
+                Theme Selection
+              </div>
+              <div className="info-content">
+                <p>Choose the color scheme that works best for you:</p>
+                <ul>
+                  <li><strong>Light:</strong> A bright, clean interface with high legibility.</li>
+                  <li><strong>Dark:</strong> Reduces eye strain in low-light environments.</li>
+                  <li><strong>System:</strong> Automatically follows your device's theme settings.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="form-actions">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={onClose}
+              >
+                Done
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </ModalShell>

@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
+import CustomSelect from './CustomSelect';
 
 function EditEntryModal({ entry, onClose }) {
   const { updateEntry, confirmModal, setConfirmModal } = useTimeTracker();
-  
+
   // Track if user made any modifications
   const [hasModifications, setHasModifications] = useState(false);
-  
+
   // ✅ Convert HH:MM:SS to display format (keep seconds)
   const formatTimeForDisplay = (time) => {
     if (!time) return '';
@@ -34,7 +35,7 @@ function EditEntryModal({ entry, onClose }) {
         out: formatTimeForDisplay(interval.out)
       }))
     };
-    
+
     const hasChanges = JSON.stringify(editedEntry) !== JSON.stringify(originalEntry);
     setHasModifications(hasChanges);
   }, [entry, editedEntry]);
@@ -42,7 +43,7 @@ function EditEntryModal({ entry, onClose }) {
   // ✅ Validate time format HH:MM:SS
   const isValidTime = (timeStr) => {
     if (!timeStr) return true; // Empty is valid (optional)
-    
+
     const timeRegex = /^([0-1][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])$/;
     return timeRegex.test(timeStr);
   };
@@ -112,7 +113,7 @@ function EditEntryModal({ entry, onClose }) {
     // ✅ Validate all time formats
     for (let i = 0; i < editedEntry.intervals.length; i++) {
       const interval = editedEntry.intervals[i];
-      
+
       if (interval.in && !isValidTime(interval.in)) {
         showValidationError(
           '⚠️ Invalid Time Format',
@@ -121,7 +122,7 @@ function EditEntryModal({ entry, onClose }) {
         );
         return;
       }
-      
+
       if (interval.out && !isValidTime(interval.out)) {
         showValidationError(
           '⚠️ Invalid Time Format',
@@ -130,7 +131,7 @@ function EditEntryModal({ entry, onClose }) {
         );
         return;
       }
-      
+
       // ✅ Validate check-out after check-in
       if (interval.in && interval.out && interval.in >= interval.out) {
         showValidationError(
@@ -169,7 +170,7 @@ function EditEntryModal({ entry, onClose }) {
         notes: editedEntry.notes,
         doubleHours: editedEntry.doubleHours
       });
-      
+
       showSuccessModal();
       setTimeout(() => {
         onClose();
@@ -184,39 +185,41 @@ function EditEntryModal({ entry, onClose }) {
     <ModalShell onClose={onClose} contentClassName="edit-entry-modal" closeOnOverlay={false}>
       <h2>✏️ Edit Entry - {entry.date}</h2>
       <div className="modal-body">
-          <div className="form-group">
-            <label className="form-label">Type</label>
-            <select 
-              className="form-control"
-              value={editedEntry.type}
-              onChange={(e) => setEditedEntry({ ...editedEntry, type: e.target.value })}
-            >
-              <option value="Regular">Regular</option>
-              <option value="Vacation">Vacation</option>
-              <option value="Sick Leave">Sick Leave</option>
-              <option value="Holiday">Holiday</option>
-              <option value="Leave">Leave</option>
-              <option value="To Be Added">To Be Added</option>
-            </select>
-          </div>
+        <div className="form-group">
+          <label className="form-label">Type</label>
+          <CustomSelect
+            id="entry-type-select"
+            name="type"
+            value={editedEntry.type}
+            onChange={(e) => setEditedEntry({ ...editedEntry, type: e.target.value })}
+            options={[
+              { label: 'Regular', value: 'Regular' },
+              { label: 'Vacation', value: 'Vacation' },
+              { label: 'Sick Leave', value: 'Sick Leave' },
+              { label: 'Holiday', value: 'Holiday' },
+              { label: 'Leave', value: 'Leave' },
+              { label: 'To Be Added', value: 'To Be Added' }
+            ]}
+          />
+        </div>
 
-          {editedEntry.type === 'Regular' && (
-            <>
-              <h4>⏰ Time Intervals</h4>
-              <p className="help-text">
-                Use 24-hour format with seconds: <strong>HH:MM:SS</strong> (e.g., 08:30:00, 17:45:30)
-                <br/>
-                <small>💡 Tip: Click the clock icon to pick time with seconds</small>
-              </p>
-              
-              {editedEntry.intervals.map((interval, index) => {
-                const isMainWork = index === 0;
-                // SWAPPED LABELS: Main is In/Out, Breaks are Out/In
-                const firstLabel = isMainWork ? 'CHECK IN' : 'CHECK OUT';
-                const secondLabel = isMainWork ? 'CHECK OUT' : 'CHECK IN';
+        {editedEntry.type === 'Regular' && (
+          <>
+            <h4>⏰ Time Intervals</h4>
+            <p className="help-text">
+              Use 24-hour format with seconds: <strong>HH:MM:SS</strong> (e.g., 08:30:00, 17:45:30)
+              <br />
+              <small>💡 Tip: Click the clock icon to pick time with seconds</small>
+            </p>
 
-                return (
-                  <div key={index} className="form-group interval-group">
+            {editedEntry.intervals.map((interval, index) => {
+              const isMainWork = index === 0;
+              // SWAPPED LABELS: Main is In/Out, Breaks are Out/In
+              const firstLabel = isMainWork ? 'CHECK IN' : 'CHECK OUT';
+              const secondLabel = isMainWork ? 'CHECK OUT' : 'CHECK IN';
+
+              return (
+                <div key={index} className="form-group interval-group">
                   <label className="interval-label">
                     {index === 0 ? '🕐 Main Work Hours' : `☕ Break ${index}`}
                   </label>
@@ -249,9 +252,9 @@ function EditEntryModal({ entry, onClose }) {
                           step="1"
                           className="time-picker-input"
                           value={
-                            isValidTime(interval.in) || 
-                            /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(interval.in) 
-                              ? interval.in 
+                            isValidTime(interval.in) ||
+                              /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(interval.in)
+                              ? interval.in
                               : ''
                           }
                           onChange={(e) => handleTimePickerChange(index, 'in', e.target.value)}
@@ -290,9 +293,9 @@ function EditEntryModal({ entry, onClose }) {
                           step="1"
                           className="time-picker-input"
                           value={
-                            isValidTime(interval.out) || 
-                            /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(interval.out) 
-                              ? interval.out 
+                            isValidTime(interval.out) ||
+                              /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(interval.out)
+                              ? interval.out
                               : ''
                           }
                           onChange={(e) => handleTimePickerChange(index, 'out', e.target.value)}
@@ -308,48 +311,51 @@ function EditEntryModal({ entry, onClose }) {
                     <small className="error-text">Invalid format. Use HH:MM:SS</small>
                   )}
                   {editedEntry.intervals.length > 1 && (
-                      <button 
-                        className="btn btn-sm btn-danger remove-interval-btn"
-                        onClick={() => removeInterval(index)}
-                        title="Remove interval"
-                      >
-                        ✕
-                      </button>
-                    )}
+                    <button
+                      className="btn btn-sm btn-danger remove-interval-btn"
+                      onClick={() => removeInterval(index)}
+                      title="Remove interval"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
-              )})}
-              
-              <button className="btn btn-secondary add-interval-btn" onClick={addInterval}>
-                + Add Break Interval
-              </button>
-            </>
-          )}
+              )
+            })}
 
-          {editedEntry.type !== 'Regular' && (
-            <div className="form-group">
-              <label className="form-label">Duration</label>
-              <select 
-                className="form-control"
-                value={editedEntry.duration || 1}
-                onChange={(e) => setEditedEntry({ ...editedEntry, duration: parseFloat(e.target.value) })}
-              >
-                <option value="0.5">Half Day</option>
-                <option value="1">Full Day</option>
-              </select>
-            </div>
-          )}
+            <button className="btn btn-secondary add-interval-btn" onClick={addInterval}>
+              + Add Break Interval
+            </button>
+          </>
+        )}
 
+        {editedEntry.type !== 'Regular' && (
           <div className="form-group">
-            <label className="form-label">Notes</label>
-            <textarea
-              className="form-control"
-              placeholder="Add notes (optional)"
-              rows="3"
-              value={editedEntry.notes || ''}
-              onChange={(e) => setEditedEntry({ ...editedEntry, notes: e.target.value })}
+            <label className="form-label">Duration</label>
+            <CustomSelect
+              id="entry-duration-select"
+              name="duration"
+              value={editedEntry.duration || 1}
+              onChange={(e) => setEditedEntry({ ...editedEntry, duration: parseFloat(e.target.value) })}
+              options={[
+                { label: 'Half Day', value: 0.5 },
+                { label: 'Full Day', value: 1 }
+              ]}
             />
           </div>
+        )}
+
+        <div className="form-group">
+          <label className="form-label">Notes</label>
+          <textarea
+            className="form-control"
+            placeholder="Add notes (optional)"
+            rows="3"
+            value={editedEntry.notes || ''}
+            onChange={(e) => setEditedEntry({ ...editedEntry, notes: e.target.value })}
+          />
         </div>
+      </div>
 
       <div className="modal-actions">
         <button className="btn btn-secondary" onClick={onClose}>Cancel</button>

@@ -67,17 +67,24 @@ function Dashboard() {
   }, [entries]);
 
 
-  // ✅ Memoize leave statistics
+  // ✅ Memoize leave statistics (YEAR-BASED)
   const leaveStats = useMemo(() => {
-    const vacationTaken = periodEntries
+    // Filter all entries for the current year
+    const currentYear = new Date().getFullYear();
+    const yearlyEntries = entries.filter(e => {
+      const entryDate = new Date(e.date);
+      return entryDate.getFullYear() === currentYear;
+    });
+
+    const vacationTaken = yearlyEntries
       .filter(e => e.type === 'Vacation')
       .reduce((sum, e) => sum + (e.duration || 1), 0);
 
-    const toBeAdded = periodEntries
+    const toBeAdded = yearlyEntries
       .filter(e => e.type === 'To Be Added')
       .reduce((sum, e) => sum + (e.duration || 1), 0);
 
-    const sickUsed = periodEntries
+    const sickUsed = yearlyEntries
       .filter(e => e.type === 'Sick Leave')
       .reduce((sum, e) => sum + (e.duration || 1), 0);
 
@@ -91,7 +98,7 @@ function Dashboard() {
       vacationBalance,
       sickBalance
     };
-  }, [periodEntries, leaveSettings]);
+  }, [entries, leaveSettings]);
 
   // Destructure for use in JSX
   const { vacationTaken, toBeAdded, sickUsed, vacationBalance, sickBalance } = leaveStats;

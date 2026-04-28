@@ -22,7 +22,7 @@ const UserSettingsModal = React.lazy(() => import("./UserSettingsModal"));
 
 function Header({ currentView, setCurrentView, isHeaderCollapsed, onRefresh }) {
 
-  const { theme, setTheme } = useTimeTracker();
+  const { theme, setTheme, activeTheme } = useTimeTracker();
 
   const { currentUser, logout, showSessionWarning, setShowSessionWarning } = useSupabaseAuth();
 
@@ -42,7 +42,7 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed, onRefresh }) {
 
   const handleRefresh = async () => {
     if (isRefreshing || !onRefresh) return;
-    
+
     setIsRefreshing(true);
     try {
       await onRefresh();
@@ -54,11 +54,12 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed, onRefresh }) {
   };
 
   const toggleTheme = () => {
+    let nextTheme;
+    if (theme === 'light') nextTheme = 'dark';
+    else if (theme === 'dark') nextTheme = 'system';
+    else nextTheme = 'light';
 
-    const newTheme = theme === "dark" ? "light" : "dark";
-
-    setTheme(newTheme);
-
+    setTheme(nextTheme);
   };
 
 
@@ -123,7 +124,7 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed, onRefresh }) {
 
   const handleToastClick = () => {
 
-    
+
 
     setShowSessionWarning(false);
 
@@ -158,32 +159,27 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed, onRefresh }) {
           </div>
 
           <div id="headerButtons">
-            
+
             <OfflineIndicator onRefresh={handleRefresh} isRefreshing={isRefreshing} />
 
             <button
-
               id="themeToggle"
-
               className="btn-theme"
-
               onClick={toggleTheme}
-
-              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-
+              title={`Theme: ${theme.charAt(0).toUpperCase() + theme.slice(1)} (Click to switch)`}
             >
-
-              <i className={`fa-solid ${theme === "dark" ? "fa-sun" : "fa-moon"}`}></i>
-
+              <i className={`fa-solid ${theme === 'system' ? 'fa-circle-half-stroke' :
+                  theme === 'dark' ? 'fa-moon' : 'fa-sun'
+                }`}></i>
             </button>
 
             {currentUser && (
 
               <div className="user-info">
 
-                <button 
+                <button
 
-                  className="username-display clickable" 
+                  className="username-display clickable"
 
                   onClick={handleUserSettings}
 
@@ -217,7 +213,7 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed, onRefresh }) {
 
         </div>
 
-        
+
 
         <LogoutModal
 

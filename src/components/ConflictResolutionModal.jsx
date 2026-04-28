@@ -5,8 +5,8 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onResolveAll }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-  setCurrentIndex(prev => Math.min(prev, Math.max(0, conflicts.length - 1)));
-}, [conflicts.length]);
+    setCurrentIndex(prev => Math.min(prev, Math.max(0, conflicts.length - 1)));
+  }, [conflicts.length]);
 
   if (!conflicts || conflicts.length === 0) return null;
 
@@ -14,12 +14,25 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onResolveAll }) => {
   if (!conflict) return null;
   const { date, local: localEntry, remote: remoteEntry } = conflict;
 
-  const normalizeEntry = (entry) => ({
-    ...entry,
-    checkIn: entry.intervals?.[0]?.in || '--:--:--',
-    checkOut: entry.intervals?.[0]?.out || '--:--:--',
-    hours: entry.hoursWorked ?? entry.hours_worked ?? 0,
-  });
+  console.log('CONFLICT_DEBUG:', JSON.stringify(conflict));
+
+  const normalizeEntry = (entry) => {
+    // If the entry format uses a generic start/end instead of intervals, try to support it
+    const intervals = entry.intervals || [];
+    const checkIn = intervals[0]?.in || '--:--:--';
+    // For checkOut, sometimes the first interval holds the checkOut, occasionally the last one does.
+    // In our app, intervals[0] is typically the full duration check in / out.
+    const checkOut = intervals[0]?.out || '--:--:--';
+    const breaks = intervals.slice(1);
+
+    return {
+      ...entry,
+      checkIn,
+      checkOut,
+      breaks,
+      hours: entry.hoursWorked ?? entry.hours_worked ?? 0,
+    };
+  };
 
   const localNorm = normalizeEntry(localEntry);
   const remoteNorm = normalizeEntry(remoteEntry);
@@ -35,11 +48,11 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onResolveAll }) => {
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
     });
   };
 
@@ -62,6 +75,16 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onResolveAll }) => {
       </span>
     </div>
   );
+
+  const formatBreaks = (breaks) => {
+    if (!breaks || breaks.length === 0) return 'No breaks';
+    return breaks.map((b, i) => `${formatTime(b.out)} - ${formatTime(b.in)}`).join(', ');
+  };
+
+  const isBreakDifferent = (localBreaks, remoteBreaks) => {
+    if ((!localBreaks || localBreaks.length === 0) && (!remoteBreaks || remoteBreaks.length === 0)) return false;
+    return JSON.stringify(localBreaks) !== JSON.stringify(remoteBreaks);
+  };
 
   return (
     <div className="conflict-modal-overlay">
@@ -98,27 +121,35 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onResolveAll }) => {
           <div className="conflict-card local-card">
             <h3>Local Version</h3>
             <div className="card-content">
-              <FieldValue 
-                label="Check In" 
+              <FieldValue
+                label="Check In"
                 value={formatTime(localNorm.checkIn)}
                 isDifferent={isFieldDifferent(
-                  localNorm.checkIn, 
+                  localNorm.checkIn,
                   remoteNorm.checkIn
                 )}
               />
-              <FieldValue 
-                label="Check Out" 
+              <FieldValue
+                label="Check Out"
                 value={formatTime(localNorm.checkOut)}
                 isDifferent={isFieldDifferent(
-                  localNorm.checkOut, 
+                  localNorm.checkOut,
                   remoteNorm.checkOut
                 )}
               />
-              <FieldValue 
-                label="Hours" 
+              <FieldValue
+                label="Breaks"
+                value={formatBreaks(localNorm.breaks)}
+                isDifferent={isBreakDifferent(
+                  localNorm.breaks,
+                  remoteNorm.breaks
+                )}
+              />
+              <FieldValue
+                label="Hours"
                 value={formatHours(localNorm.hours)}
                 isDifferent={isFieldDifferent(
-                  localNorm.hours, 
+                  localNorm.hours,
                   remoteNorm.hours
                 )}
               />
@@ -128,27 +159,35 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onResolveAll }) => {
           <div className="conflict-card remote-card">
             <h3>Remote Version</h3>
             <div className="card-content">
-              <FieldValue 
-                label="Check In" 
+              <FieldValue
+                label="Check In"
                 value={formatTime(remoteNorm.checkIn)}
                 isDifferent={isFieldDifferent(
-                  localNorm.checkIn, 
+                  localNorm.checkIn,
                   remoteNorm.checkIn
                 )}
               />
-              <FieldValue 
-                label="Check Out" 
+              <FieldValue
+                label="Check Out"
                 value={formatTime(remoteNorm.checkOut)}
                 isDifferent={isFieldDifferent(
-                  localNorm.checkOut, 
+                  localNorm.checkOut,
                   remoteNorm.checkOut
                 )}
               />
-              <FieldValue 
-                label="Hours" 
+              <FieldValue
+                label="Breaks"
+                value={formatBreaks(remoteNorm.breaks)}
+                isDifferent={isBreakDifferent(
+                  localNorm.breaks,
+                  remoteNorm.breaks
+                )}
+              />
+              <FieldValue
+                label="Hours"
                 value={formatHours(remoteNorm.hours)}
                 isDifferent={isFieldDifferent(
-                  localNorm.hours, 
+                  localNorm.hours,
                   remoteNorm.hours
                 )}
               />
@@ -158,7 +197,7 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onResolveAll }) => {
 
         <div className="conflict-actions">
           <div className="individual-actions">
-            <button 
+            <button
               className="btn btn-secondary"
               onClick={() => {
                 onResolve(conflict.date, conflict.local);
@@ -170,7 +209,7 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onResolveAll }) => {
             >
               Keep Local
             </button>
-            <button 
+            <button
               className="btn btn-primary"
               onClick={() => {
                 onResolve(conflict.date, conflict.remote);
@@ -186,14 +225,14 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onResolveAll }) => {
 
           {conflicts.length > 1 && (
             <div className="bulk-actions">
-              <button 
+              <button
                 className="btn"
                 style={{ backgroundColor: '#f59e0b', color: 'white', border: 'none' }}
                 onClick={() => onResolveAll('local')}
               >
                 Keep All Local
               </button>
-              <button 
+              <button
                 className="btn"
                 style={{ backgroundColor: '#14b8a6', color: 'white', border: 'none' }}
                 onClick={() => onResolveAll('remote')}

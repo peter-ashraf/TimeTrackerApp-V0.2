@@ -177,23 +177,23 @@ html[data-theme="light"] {
   /* Your exact light backgrounds */
   --color-background: var(--color-cream-50);
   --color-surface: var(--color-cream-100);
-  
+
   /* Your exact light text */
   --color-text: var(--color-slate-900);
   --color-text-secondary: var(--color-slate-500);
-  
+
   /* Your exact light primary */
   --color-primary: var(--color-teal-500);
   --color-primary-hover: var(--color-teal-600);
   --color-primary-active: var(--color-teal-700);
-  
+
   /* Your exact light secondary/border */
   --color-secondary: rgba(var(--color-brown-600-rgb), 0.12);
   --color-secondary-hover: rgba(var(--color-brown-600-rgb), 0.2);
   --color-border: rgba(var(--color-brown-600-rgb), 0.2);
   --color-btn-primary-text: var(--color-cream-50);
   --color-card-border: rgba(var(--color-brown-600-rgb), 0.12);
-  
+
   /* Your exact light status colors */
   --color-error: var(--color-red-500);
   --color-success: var(--color-teal-500);
@@ -219,16 +219,16 @@ html[data-theme="dark"] {
   /* Your exact dark backgrounds */
   --color-background: var(--color-charcoal-700);
   --color-surface: var(--color-charcoal-800);
-  
+
   /* Your exact dark text */
   --color-text: var(--color-gray-200);
   --color-text-secondary: rgba(var(--color-gray-300-rgb), 0.7);
-  
+
   /* Your exact dark primary */
   --color-primary: var(--color-teal-300);
   --color-primary-hover: var(--color-teal-400);
   --color-primary-active: var(--color-teal-800);
-  
+
   /* Your exact dark secondary/border */
   --color-secondary: rgba(var(--color-gray-400-rgb), 0.15);
   --color-secondary-hover: rgba(var(--color-gray-400-rgb), 0.25);
@@ -236,7 +236,7 @@ html[data-theme="dark"] {
   --color-btn-primary-text: var(--color-slate-900);
   --color-card-border: rgba(var(--color-gray-400-rgb), 0.15);
   --color-card-border-inner: rgba(var(--color-gray-400-rgb), 0.15);
-  
+
   /* Your exact dark status colors */
   --color-error: var(--color-red-400);
   --color-success: var(--color-teal-300);
@@ -301,6 +301,7 @@ body,
 .navTab {
   color: var(--color-text-secondary);
 }
+
 .navTab:hover,
 .navTab.active {
   color: var(--color-btn-primary-text);
@@ -326,22 +327,25 @@ body,
   max-height: 140px;
 }
 
-.header-title-content, 
-#appName, 
-#appIcon, 
-.app-subtitle, 
-.btn-theme, 
-.tab-navigation, 
-.tab-btn, 
-.tab-icon, 
+.header-title-content,
+#appName,
+#appIcon,
+.app-subtitle,
+.btn-theme,
+.tab-navigation,
+.tab-btn,
+.tab-icon,
 .tab-label {
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #header.collapsed {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Adds depth when small */
-  background-color: var(--color-surface); /* Solidify background */
-  transform: translateY(-5px); /* Slightly tucks the whole header up */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  /* Adds depth when small */
+  background-color: var(--color-surface);
+  /* Solidify background */
+  transform: translateY(-5px);
+  /* Slightly tucks the whole header up */
   gap: 12px !important;
 }
 
@@ -400,13 +404,13 @@ body,
   #header.collapsed .tab-label {
     display: none;
   }
-  
+
   #header.collapsed .tab-btn {
     padding: 8px;
   }
 
   .header-title-content {
-    padding: 0 !important; 
+    padding: 0 !important;
   }
 }
 
@@ -449,11 +453,10 @@ body,
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, 
-    transparent, 
-    rgba(255,255,255,0.3), 
-    transparent
-  );
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.3),
+      transparent);
   transition: left 0.6s;
 }
 
@@ -470,7 +473,7 @@ body,
   left: 50%;
   width: 0;
   height: 2px;
-  background: rgba(255,255,255,0.8);
+  background: rgba(255, 255, 255, 0.8);
 
   transition: all 0.4s ease;
   transform: translateX(-50%);
@@ -591,11 +594,26 @@ body[data-current-view="settings"] .timesheet-container {
 }
 
 
-/* Apply theme colors */
+/* Apply theme colors and prevent iOS side-shift */
+html {
+  overflow-x: hidden;
+}
+
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
+  overflow-x: hidden;
+}
+
+/* Prevent iOS auto-zoom on inputs */
+@media screen and (max-width: 768px) {
+
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 .main-content {
@@ -633,6 +651,7 @@ body {
   border-radius: var(--radius-base);
   border: none;
 }
+
 #navTabs .navTab.active,
 #navTabs .navTab:hover {
   color: var(--text-primary);
@@ -681,7 +700,7 @@ body {
   padding-bottom: 0;
 
   scroll-behavior: smooth;
-  scrollbar-width: none; 
+  scrollbar-width: none;
 }
 
 /* View containers */
@@ -696,9 +715,9 @@ body {
   transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   width: 100%;
   padding-bottom: 0 !important;
-  overflow-y: auto; 
-  overflow-x: hidden; 
-  -webkit-overflow-scrolling: touch; 
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .view-container:not(.active) {
@@ -756,7 +775,7 @@ body {
   padding: 12px 24px;
   background: rgba(var(--color-text-secondary-rgb), 0.08);
   backdrop-filter: blur(20px);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .tab-btn {
@@ -781,7 +800,7 @@ body {
   color: var(--color-primary);
   background: rgba(var(--color-primary-rgb), 0.15);
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
 .tab-btn.active {
@@ -799,7 +818,7 @@ body {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
   transition: left 0.8s;
 }
 
@@ -816,7 +835,7 @@ body {
   left: 50%;
   width: 0;
   height: 3px;
-  background: rgba(255,255,255,0.9);
+  background: rgba(255, 255, 255, 0.9);
   border-radius: 2px;
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   transform: translateX(-50%);
@@ -848,14 +867,17 @@ body {
   .app {
     touch-action: none !important;
   }
+
   .app.swiping {
     transform: none !important;
     user-select: auto !important;
   }
+
   .main-content {
     transform: none !important;
     margin-top: 20px !important;
   }
+
   .view-container .main-content {
     margin-top: 20px !important;
   }
@@ -868,31 +890,31 @@ body {
 }
 
 .app {
-    overscroll-behavior: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  
-  /* body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* body {
     overscroll-behavior: none;
     position: fixed;
     width: 100%;
     overflow: hidden;
   } */
 
-  body {
-    overflow-x: hidden;
-  }
+body {
+  overflow-x: hidden;
+}
 
-  .app.swiping {
-    touch-action: none;
-  }
+.app.swiping {
+  touch-action: none;
+}
 
 @media (max-width: 768px) {
   .app {
     overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
   }
-  
+
   /* body {
     overscroll-behavior: none;
     position: fixed;
@@ -904,7 +926,7 @@ body {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
 
-  }  
+  }
 
   .app.swiping {
     touch-action: none;
@@ -919,9 +941,9 @@ body {
 .employee-card,
 .vacation-card-redesigned,
 .data-table {
-  background: var(--bg-secondary) ;
-  color: var(--text-primary) ;
-  border: 1px solid var(--border-color) ;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 
@@ -1833,9 +1855,10 @@ h1 {
   display: grid;
   grid-template-rows: 1fr;
 }
+
 .overtime-section {
   display: grid;
-  grid-template-columns: 1fr ;
+  grid-template-columns: 1fr;
 
 }
 
@@ -1885,7 +1908,7 @@ h1 {
   .actions-cell .btn .btn-text {
     display: none;
   }
-  
+
   .actions-cell .btn {
     padding: 8px;
     gap: 0;
@@ -1903,7 +1926,7 @@ h1 {
     grid-template-columns: auto auto;
     gap: 8px !important;
   }
-  
+
   .actions-cell .btn {
     padding: 6px;
     font-size: var(--font-size-xs);
@@ -1955,8 +1978,9 @@ h1 {
   .manual-time-actions {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    
+
   }
+
   .manual-time-actions .btn {
     font-size: 12px;
   }
@@ -2155,7 +2179,7 @@ body.salary-blur .overtime-money-amount {
 
   .vacation-stat:last-child {
     border-right: none;
-    
+
   }
 
   .stat-value {
@@ -2429,7 +2453,8 @@ body.salary-blur .overtime-money-amount {
   font-size: var(--font-size-md);
   letter-spacing: 1px;
   text-align: center;
-  padding-right: 40px !important; /* Space for time picker button */
+  padding-right: 40px !important;
+  /* Space for time picker button */
 }
 
 .time-picker-input {
@@ -2524,11 +2549,11 @@ body.salary-blur .overtime-money-amount {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
-    
+
   .time-separator {
     display: none;
   }
-  
+
   .remove-interval-btn {
     width: 100%;
     height: 36px;
@@ -2798,7 +2823,7 @@ body.salary-blur .overtime-money-amount {
 }
 
 @media (max-width: 480px) {
-  
+
 
   .app-header {
     padding: var(--space-12);
@@ -2952,7 +2977,8 @@ body.salary-blur .overtime-money-amount {
   height: 30px;
   background: var(--color-border);
   border-radius: var(--radius-full);
-  transition: background-color 0.3s ease;  /* ✅ Direct value */
+  transition: background-color 0.3s ease;
+  /* ✅ Direct value */
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
@@ -2962,25 +2988,25 @@ body.salary-blur .overtime-money-amount {
   position: absolute;
   height: 22px;
   width: 22px;
-  left: 4px;  
-  top: 4px;  
-  background-color: white;  
+  left: 4px;
+  top: 4px;
+  background-color: white;
   border-radius: 50%;
-  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);  
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* Checked state */
-.toggle-switch input[type="checkbox"]:checked + .toggle-slider {
+.toggle-switch input[type="checkbox"]:checked+.toggle-slider {
   background: var(--color-primary);
 }
 
-.toggle-switch input[type="checkbox"]:checked + .toggle-slider::before {
-  left: 30px;  
+.toggle-switch input[type="checkbox"]:checked+.toggle-slider::before {
+  left: 30px;
 }
 
 /* Focus state */
-.toggle-switch input[type="checkbox"]:focus-visible + .toggle-slider {
+.toggle-switch input[type="checkbox"]:focus-visible+.toggle-slider {
   outline: var(--focus-outline);
   outline-offset: var(--space-2);
   box-shadow: var(--focus-ring);
@@ -2997,10 +3023,11 @@ body.salary-blur .overtime-money-amount {
   background: var(--color-bg-2);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
-  transition: all 0.3s ease;  /* ✅ Direct value */
+  transition: all 0.3s ease;
+  /* ✅ Direct value */
 }
 
-.toggle-switch input[type="checkbox"]:checked ~ .toggle-label {
+.toggle-switch input[type="checkbox"]:checked~.toggle-label {
   background: var(--color-bg-3);
   color: var(--color-primary);
   border-color: var(--color-primary);
@@ -3011,23 +3038,24 @@ body.salary-blur .overtime-money-amount {
   background: var(--color-text-secondary);
 }
 
-.toggle-switch input[type="checkbox"]:checked:hover + .toggle-slider {
+.toggle-switch input[type="checkbox"]:checked:hover+.toggle-slider {
   background: var(--color-primary-hover);
 }
 
 /* Disabled state */
-.toggle-switch input[type="checkbox"]:disabled + .toggle-slider {
+.toggle-switch input[type="checkbox"]:disabled+.toggle-slider {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.toggle-switch input[type="checkbox"]:disabled ~ .toggle-label {
+.toggle-switch input[type="checkbox"]:disabled~.toggle-label {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
 .time-format-toggle:first-child .toggle-label {
-  min-width: 80px; /* Set minimum width for "Detailed" only */
+  min-width: 80px;
+  /* Set minimum width for "Detailed" only */
 }
 
 .settings-section {
@@ -3044,7 +3072,7 @@ body.salary-blur .overtime-money-amount {
   max-height: 2000px;
   overflow: hidden;
   transition: max-height var(--duration-normal) var(--ease-standard),
-              opacity var(--duration-normal) var(--ease-standard);
+    opacity var(--duration-normal) var(--ease-standard);
   opacity: 1;
 }
 
@@ -3247,6 +3275,7 @@ body.salary-blur .overtime-money-amount {
     opacity: 0;
     max-height: 0;
   }
+
   to {
     opacity: 1;
     max-height: 1000px;
@@ -3448,7 +3477,7 @@ body.salary-blur .overtime-money-amount {
   cursor: not-allowed;
 }
 
-.period-checkbox-item input[type="checkbox"]:disabled + .period-checkbox-label {
+.period-checkbox-item input[type="checkbox"]:disabled+.period-checkbox-label {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -3491,7 +3520,7 @@ body.salary-blur .overtime-money-amount {
   flex-shrink: 0;
 }
 
-.import-mode-option input[type="radio"]:checked + .import-mode-content {
+.import-mode-option input[type="radio"]:checked+.import-mode-content {
   color: var(--color-primary);
 }
 
@@ -3561,7 +3590,9 @@ body.salary-blur .overtime-money-amount {
 
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .import-errors {
@@ -3769,7 +3800,7 @@ body.salary-blur .overtime-money-amount {
     flex-direction: column;
     gap: 8px;
   }
-  
+
   .template-type-option {
     flex: none;
     width: 100%;
@@ -3797,7 +3828,7 @@ body.salary-blur .overtime-money-amount {
   margin-top: 2px;
 }
 
-.template-type-option input[type="radio"]:checked + .template-type-content {
+.template-type-option input[type="radio"]:checked+.template-type-content {
   color: var(--color-primary);
 }
 
@@ -3823,7 +3854,7 @@ body.salary-blur .overtime-money-amount {
   .preview-stats {
     grid-template-columns: 1fr;
   }
-  
+
   .import-mode-option {
     padding: var(--space-12);
   }
@@ -3907,7 +3938,7 @@ body.salary-blur .overtime-money-amount {
     height: 100%;
   }
 
-  
+
 }
 
 @media (max-width: 480px) {
@@ -4118,16 +4149,16 @@ body.salary-blur .overtime-money-amount {
     max-width: 100%;
     max-height: 90vh;
   }
-  
+
   .day-entry-row {
     grid-template-columns: 1fr;
     gap: var(--space-4);
   }
-  
+
   .day-times {
     text-align: left;
   }
-  
+
   .days-details-container {
     max-height: 60vh;
   }
@@ -4213,7 +4244,7 @@ body.salary-blur .overtime-money-amount {
   max-height: 2000px;
   overflow: hidden;
   transition: max-height var(--duration-normal) var(--ease-standard),
-              opacity var(--duration-normal) var(--ease-standard);
+    opacity var(--duration-normal) var(--ease-standard);
   opacity: 1;
 }
 
@@ -4270,12 +4301,12 @@ body.salary-blur .overtime-money-amount {
     align-items: flex-start;
     gap: var(--space-16);
   }
-  
+
   .toggle-group {
     display: flex;
     justify-content: end;
     align-items: flex-end;
-    
+
     width: 100%;
     height: 100%;
   }
@@ -4311,7 +4342,7 @@ body.salary-blur .overtime-money-amount {
 }
 
 /* Style the "Detailed/Simple" button to look like a button */
-#detailedViewToggle + .toggle-slider + .toggle-label {
+#detailedViewToggle+.toggle-slider+.toggle-label {
   background: var(--color-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-base);
@@ -4326,44 +4357,44 @@ body.salary-blur .overtime-money-amount {
 }
 
 /* Checked state for detailed view label */
-#detailedViewToggle:checked + .toggle-slider + .toggle-label {
+#detailedViewToggle:checked+.toggle-slider+.toggle-label {
   background: var(--color-primary);
   color: var(--color-btn-primary-text);
   border-color: var(--color-primary);
 }
 
 /* Hide the toggle slider for detailed view (we just want button-like behavior) */
-#detailedViewToggle + .toggle-slider {
+#detailedViewToggle+.toggle-slider {
   display: none;
 }
 
 .user-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-left: auto;
-  }
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
 
-  .username-display {
-    background: var(--color-teal-500);
-    color: white;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    white-space: nowrap;
-  }
+.username-display {
+  background: var(--color-teal-500);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
 
-  .logout-btn {
-    background: var(--color-red-500);
-    color: white;
-    border: none;
-    padding: 6px 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
-  }
+.logout-btn {
+  background: var(--color-red-500);
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
 
 /* Mobile: Stack toggles */
 @media (max-width: 600px) {
@@ -4373,7 +4404,7 @@ body.salary-blur .overtime-money-amount {
     justify-content: space-between;
     gap: var(--space-12);
   }
-  
+
   .toggle-group {
     flex-direction: row;
     justify-content: flex-end;
@@ -4381,25 +4412,27 @@ body.salary-blur .overtime-money-amount {
     gap: var(--space-8);
     width: 100%;
   }
-  
-  
+
+
 }
 
 /* Ensure table displays correctly after column toggle */
 .data-table th,
 .data-table td {
-  display: table-cell; /* Default */
+  display: table-cell;
+  /* Default */
 }
 
 /* Hide mobile columns by default */
 @media (max-width: 768px) {
-  
-  
+
+
   /* When JavaScript adds inline styles, they will override this */
 }
 
 /* Desktop: always show */
 @media (min-width: 769px) {
+
   th.hide-mobile,
   td.hide-mobile {
     display: table-cell !important;
@@ -4610,17 +4643,27 @@ body.salary-blur .overtime-money-amount {
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .hamburger-line:nth-child(1) { transform: translateY(-6px); }
-  .hamburger-line:nth-child(2) { transform: translateY(0px); }
-  .hamburger-line:nth-child(3) { transform: translateY(6px); }
+  .hamburger-line:nth-child(1) {
+    transform: translateY(-6px);
+  }
+
+  .hamburger-line:nth-child(2) {
+    transform: translateY(0px);
+  }
+
+  .hamburger-line:nth-child(3) {
+    transform: translateY(6px);
+  }
 
   /* X animation when open */
   #mobileMenuToggle.open .hamburger-line:nth-child(1) {
     transform: translateY(0px) rotate(45deg);
   }
+
   #mobileMenuToggle.open .hamburger-line:nth-child(2) {
     opacity: 0;
   }
+
   #mobileMenuToggle.open .hamburger-line:nth-child(3) {
     transform: translateY(0px) rotate(-45deg);
   }
@@ -4695,11 +4738,12 @@ body.salary-blur .overtime-money-amount {
 
 /* Prevent stuck :active/:focus on mobile tabs */
 @media (max-width: 768px) {
+
   .tab-btn:active,
   .tab-btn:focus {
     outline: none !important;
   }
-  
+
   /* Reset ALL tabs to inactive state by default */
   .tab-btn {
     background: transparent !important;
@@ -4737,6 +4781,3 @@ body.salary-blur .overtime-money-amount {
 .tab-btn {
   -webkit-tap-highlight-color: transparent;
 }
-
-
-

@@ -8,6 +8,7 @@ const ExportModal = React.lazy(() => import('./ExportModal'));
 const ImportModal = React.lazy(() => import('./ImportModal'));
 import ModalShell from './ModalShell';
 import { setSimpleEncryptedItem } from '../utils/simple-encryption';
+import CustomSelect from './CustomSelect';
 import '../styles/settings.css';
 
 // Validation helper
@@ -265,7 +266,7 @@ function Settings() {
     // Check what changed (exclude salary if it's hidden) - use original employee state
     const originalName = employee.name;
     const nameChanged = name !== originalName;
-    
+
     const salaryChanged = !hideSalary && parsedSalary !== employee.salary;
     const vacationChanged = parsedVacation !== leaveSettings.annualVacation;
     const sickDaysChanged = parsedSickDays !== leaveSettings.sickDays;
@@ -274,12 +275,12 @@ function Settings() {
     const workDaysPerWeekChanged = parsedWorkDaysPerWeek !== employee.workDaysPerWeek;
     const monthlyHoursChanged = parsedMonthlyHours !== employee.monthlyHours;
 
-    const anyChanges = nameChanged || salaryChanged || vacationChanged || sickDaysChanged || 
-                      employeeTypeChanged || dailyHoursChanged || workDaysPerWeekChanged || monthlyHoursChanged;
+    const anyChanges = nameChanged || salaryChanged || vacationChanged || sickDaysChanged ||
+      employeeTypeChanged || dailyHoursChanged || workDaysPerWeekChanged || monthlyHoursChanged;
 
     // If nothing changed, alert user
     if (!anyChanges) {
-      
+
       setConfirmModal({
         isOpen: true,
         title: 'No Changes Detected',
@@ -304,7 +305,7 @@ function Settings() {
     if (sickDaysChanged) changedItems.push(`• Sick Days: ${leaveSettings.sickDays} → ${parsedSickDays}`);
 
     // Save all data (preserves unchanged values automatically, excludes salary if hidden)
-    const employeeData = { 
+    const employeeData = {
       name: name,
       employeeType: employeeType,
       dailyHours: parsedDailyHours,
@@ -314,22 +315,22 @@ function Settings() {
     if (!hideSalary) {
       employeeData.salary = parsedSalary;
     }
-    
+
     // IMPORTANT: Save to database FIRST before updating local state
     // This prevents conflicts with TimeTrackerContext's auto-save useEffect
     // Set flag to prevent auto-save during manual name changes
     localStorage.setItem('manualNameChange', 'true');
-    
+
     // NEW: Save display name to localStorage and DB when name changes
     if (nameChanged && name.trim()) {
       localStorage.setItem('userDisplayName', name.trim());
       localStorage.setItem('userDisplayNameTimestamp', Date.now().toString());
-      
 
-// Also save full_name to database when user explicitly changes it in Settings
+
+      // Also save full_name to database when user explicitly changes it in Settings
       if (currentUser) {
         try {
-          
+
           // Use direct Supabase client to bypass any potential wrapper issues
           const { error } = await supabase
             .from('profiles')
@@ -344,23 +345,23 @@ function Settings() {
             .eq('id', currentUser.id);
 
 
-          
+
           if (error) {
             console.error('[Settings] Failed to save display name to database:', error.message);
           } else {
-            
+
             setEmployee(prev => ({ ...prev, name: name.trim() }));
-            
+
             // Set flag to disable background sync permanently (until page refresh)
             localStorage.setItem('disableBackgroundSync', 'true');
             // Don't auto-remove - let user refresh page to reset
-            
+
             // Clear manual name change flag after save is complete
             setTimeout(() => {
               localStorage.removeItem('manualNameChange');
             }, 1000);
           }
-          
+
         } catch (error) {
           console.error('[Settings] Failed to save display name to database:', error.message);
         }
@@ -384,7 +385,7 @@ function Settings() {
         }
       }
     }
-    
+
     // NOW update local state after database save (or queue)
     setEmployee(employeeData);
     setLeaveSettings({ annualVacation: parsedVacation, sickDays: parsedSickDays });
@@ -406,7 +407,7 @@ function Settings() {
       // Multiple changes - formatted list
       summaryMessage = `${changedItems.length} settings updated:\n\n${changedItems.join('\n')}`;
     }
-    
+
     // Check if there are queued database saves to add warning
     const queue = JSON.parse(localStorage.getItem('dbSaveQueue') || '[]');
     if (queue.length > 0) {
@@ -427,12 +428,12 @@ function Settings() {
   const categorizePeriods = () => {
     // First try to find current period using is_current flag
     let current = periods.find(p => p.is_current === true);
-    
+
     // Fallback to currentPeriodId if no is_current flag found
     if (!current) {
       current = periods.find(p => p.id === currentPeriodId);
     }
-    
+
     const otherPeriods = periods.filter(p => p.id !== current?.id);
 
     if (!current) {
@@ -566,9 +567,9 @@ function Settings() {
           // Delete from Supabase first
           if (currentUser) {
             await supabaseData.deletePayPeriod(currentUser.id, periodId);
-            
+
           }
-          
+
           // Update local state
           const newPeriods = periods.filter(p => p.id !== periodId);
           setPeriods(newPeriods);
@@ -589,8 +590,8 @@ function Settings() {
             onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
           });
         } catch (error) {
-          
-          
+
+
           // Still delete from local state even if Supabase fails
           const newPeriods = periods.filter(p => p.id !== periodId);
           setPeriods(newPeriods);
@@ -863,7 +864,7 @@ function Settings() {
               />
             </div>
           )}
-          
+
           {hideSalary && (
             <div className="form-group">
               <label className="form-label">Monthly Salary (L.E.)</label>
@@ -872,7 +873,7 @@ function Settings() {
                 className="form-control"
                 value="******"
                 disabled
-                style={{ 
+                style={{
                   backgroundColor: 'transparent',
                   color: '#6c757d',
                   cursor: 'not-allowed',
@@ -890,14 +891,16 @@ function Settings() {
           {/* Employee Type */}
           <div className="form-group">
             <label className="form-label">Employee Type</label>
-            <select
-              className="form-control"
+            <CustomSelect
+              id="employee-type-select"
+              name="employeeType"
               value={employeeType}
               onChange={(e) => setEmployeeType(e.target.value)}
-            >
-              <option value="full-time">Full-Time</option>
-              <option value="part-time">Part-Time</option>
-            </select>
+              options={[
+                { label: 'Full-Time', value: 'full-time' },
+                { label: 'Part-Time', value: 'part-time' }
+              ]}
+            />
           </div>
 
           {/* Conditional fields for part-time employees */}
@@ -922,15 +925,17 @@ function Settings() {
 
               <div className="form-group">
                 <label className="form-label">Work Days per Week</label>
-                <select
-                  className="form-control"
+                <CustomSelect
+                  id="work-days-per-week-select"
+                  name="workDaysPerWeek"
                   value={workDaysPerWeek}
                   onChange={(e) => setWorkDaysPerWeek(e.target.value)}
-                >
-                  <option value="3">3 days</option>
-                  <option value="4">4 days</option>
-                  <option value="5">5 days</option>
-                </select>
+                  options={[
+                    { label: '3 days', value: '3' },
+                    { label: '4 days', value: '4' },
+                    { label: '5 days', value: '5' }
+                  ]}
+                />
                 <p className="help-text" style={{ color: '#6c757d', marginTop: '8px', fontSize: '0.875rem' }}>
                   💡 Part-time employees work between 3-5 days per week
                 </p>
@@ -944,12 +949,12 @@ function Settings() {
             <input
               type="text"
               className="form-control"
-              value={employeeType === 'part-time' 
+              value={employeeType === 'part-time'
                 ? 'Calculated based on actual hours worked'
                 : '187 (fixed)'
               }
               disabled
-              style={{ 
+              style={{
                 backgroundColor: 'transparent',
                 color: '#6c757d',
                 cursor: 'not-allowed',
@@ -958,7 +963,7 @@ function Settings() {
               readOnly
             />
             <p className="help-text" style={{ color: '#6c757d', marginTop: '8px', fontSize: '0.875rem' }}>
-              💡 {employeeType === 'part-time' 
+              💡 {employeeType === 'part-time'
                 ? `Monthly hours will be calculated based on actual hours worked during each pay period. This ensures accurate hourly rates for overtime calculations.`
                 : 'Fixed at 187 hours for full-time employees'
               }

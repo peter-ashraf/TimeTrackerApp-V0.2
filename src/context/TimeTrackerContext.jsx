@@ -44,6 +44,7 @@ export const TimeTrackerProvider = ({ children }) => {
   const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', type: 'info' });
 
   const migrationRef = useRef(false);
+  const backupCheckedUserRef = useRef(null);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -293,10 +294,10 @@ export const TimeTrackerProvider = ({ children }) => {
         return interval;
       });
 
-      const updatedEntry = { 
-        ...todayEntry, 
+      const updatedEntry = {
+        ...todayEntry,
         intervals: updatedIntervals,
-        lastModified: now.toISOString() 
+        lastModified: now.toISOString()
       };
 
       // Recalculate computed fields now that checkout time is set
@@ -384,7 +385,16 @@ export const TimeTrackerProvider = ({ children }) => {
   }, [calculateHoursWorked]);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      backupCheckedUserRef.current = null;
+      return;
+    }
+
+    if (backupCheckedUserRef.current === currentUser.id) return;
+    if (timeEntryContext.entries.length === 0) return; // Wait to have entries before evaluating
+
+    // Setting the ref so it only evaluates once per user session
+    backupCheckedUserRef.current = currentUser.id;
 
     const lastBackup = localStorage.getItem('lastBackupDate');
     const dismissedReminder = localStorage.getItem('dismissedBackupReminder');
@@ -555,7 +565,7 @@ export const TimeTrackerProvider = ({ children }) => {
     try {
       const existingEntry = timeEntryContext.entries.find(e => e.date === date);
       if (!existingEntry) {
-      console.log('[Update] Entry not found for date:', date);
+        console.log('[Update] Entry not found for date:', date);
         return;
       }
 
@@ -640,7 +650,7 @@ export const TimeTrackerProvider = ({ children }) => {
                           {
                             headers: {
                               'apikey': supabaseKey,
-                              'Authorization': `Bearer ${resolveToken}` 
+                              'Authorization': `Bearer ${resolveToken}`
                             }
                           }
                         );

@@ -3,11 +3,12 @@ import React, { useState } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 
 import ModalShell from './ModalShell';
+import CustomSelect from './CustomSelect';
 
 import * as XLSX from 'xlsx';
-import { 
-  exportToExcel, 
-  generatePDFReport, 
+import {
+  exportToExcel,
+  generatePDFReport,
   generatePDFWithCharts,
   sendEmailReport,
   exportCustomDateRange,
@@ -23,11 +24,11 @@ import '../styles/export-modal-enhanced.css';
 
 function ExportModal({ onClose }) {
 
-  const { 
+  const {
 
-    entries, 
+    entries,
 
-    periods, 
+    periods,
 
     employee,
 
@@ -89,7 +90,7 @@ function ExportModal({ onClose }) {
 
   const handlePeriodToggle = (periodId) => {
     hapticFeedback.subtle(); // Light feedback for checkbox interaction
-    
+
     if (selectedPeriods.includes(periodId)) {
       setSelectedPeriods(selectedPeriods.filter(id => id !== periodId));
     } else {
@@ -103,7 +104,7 @@ function ExportModal({ onClose }) {
 
   const handleAllPeriodsToggle = () => {
     hapticFeedback.toggleSwitch(); // Medium feedback for toggle action
-    
+
     if (exportAllPeriods) {
       setExportAllPeriods(false);
       setSelectedPeriods([]);
@@ -121,13 +122,13 @@ function ExportModal({ onClose }) {
 
     const date = new Date(dateStr);
 
-    return date.toLocaleDateString('en-US', { 
+    return date.toLocaleDateString('en-US', {
 
-      year: 'numeric', 
+      year: 'numeric',
 
-      month: 'short', 
+      month: 'short',
 
-      day: 'numeric' 
+      day: 'numeric'
 
     });
 
@@ -175,7 +176,7 @@ function ExportModal({ onClose }) {
 
 
 
-    const overtimeDetails = calculateOvertimeDetails 
+    const overtimeDetails = calculateOvertimeDetails
 
       ? calculateOvertimeDetails(entries, periodStart, periodEnd)
 
@@ -183,45 +184,45 @@ function ExportModal({ onClose }) {
 
 
 
-    const headers = detailedView 
+    const headers = detailedView
 
       ? [
 
-          'Date',
+        'Date',
 
-          'Check In',
+        'Check In',
 
-          'Check Out',
+        'Check Out',
 
-          'Hours Worked',
+        'Hours Worked',
 
-          'Extra Hours',
+        'Extra Hours',
 
-          'Extra Hours x1.5',
+        'Extra Hours x1.5',
 
-          'Type',
+        'Type',
 
-          'Break Out Times',
+        'Break Out Times',
 
-          'Break In Times',
+        'Break In Times',
 
-          'Hours Spent Outside'
+        'Hours Spent Outside'
 
-        ]
+      ]
 
       : [
 
-          'Date',
+        'Date',
 
-          'Check In',
+        'Check In',
 
-          'Check Out',
+        'Check Out',
 
-          'Hours Worked',
+        'Hours Worked',
 
-          'Type'
+        'Type'
 
-        ];
+      ];
 
 
 
@@ -301,41 +302,41 @@ function ExportModal({ onClose }) {
 
       ? [
 
-          'TOTAL',
+        'TOTAL',
 
-          '',
+        '',
 
-          '',
+        '',
 
-          `${overtimeDetails.totalHoursWorked.toFixed(2)}h`,
+        `${overtimeDetails.totalHoursWorked.toFixed(2)}h`,
 
-          `${overtimeDetails.totalExtraHours.toFixed(2)}h`,
+        `${overtimeDetails.totalExtraHours.toFixed(2)}h`,
 
-          `${overtimeDetails.totalExtraHoursWithFactor.toFixed(2)}h`,
+        `${overtimeDetails.totalExtraHoursWithFactor.toFixed(2)}h`,
 
-          '',
+        '',
 
-          '',
+        '',
 
-          '',
+        '',
 
-          ''
+        ''
 
-        ]
+      ]
 
       : [
 
-          'TOTAL',
+        'TOTAL',
 
-          '',
+        '',
 
-          '',
+        '',
 
-          `${overtimeDetails.totalHoursWorked.toFixed(2)}h`,
+        `${overtimeDetails.totalHoursWorked.toFixed(2)}h`,
 
-          ''
+        ''
 
-        ];
+      ];
 
 
 
@@ -771,11 +772,11 @@ function ExportModal({ onClose }) {
 
     }
 
-    
+
 
     XLSX.writeFile(wb, fileName);
 
-    
+
 
     const message = templateMode === 'blank'
 
@@ -783,11 +784,11 @@ function ExportModal({ onClose }) {
 
       : templateMode === 'custom'
 
-      ? `✅ Custom template exported!\n\nFile: ${fileName}\nDate Range: ${customStartDate} to ${customEndDate}\nAll dates pre-filled and ready to use!`
+        ? `✅ Custom template exported!\n\nFile: ${fileName}\nDate Range: ${customStartDate} to ${customEndDate}\nAll dates pre-filled and ready to use!`
 
-      : `✅ Template exported!\n\nFile: ${fileName}\nPeriod: ${selectedPeriod.label}\nAll dates pre-filled and ready to use!`;
+        : `✅ Template exported!\n\nFile: ${fileName}\nPeriod: ${selectedPeriod.label}\nAll dates pre-filled and ready to use!`;
 
-    
+
 
     setConfirmModal({
 
@@ -821,7 +822,7 @@ function ExportModal({ onClose }) {
   const handleEnhancedExport = async () => {
     hapticFeedback.buttonClick(); // Initial button feedback
     setIsExporting(true);
-    
+
     try {
       let data = [];
       let filename = '';
@@ -865,7 +866,7 @@ function ExportModal({ onClose }) {
 
         data = generateReportFromTemplate(filteredEntries, reportTemplate, { detailedView });
         selectedPeriod = { label: `${customExportStart} to ${customExportEnd}` };
-        
+
       } else if (exportMode === 'periods') {
         // Period-based export
         if (selectedPeriods.length === 0) {
@@ -884,7 +885,7 @@ function ExportModal({ onClose }) {
 
         const periodsToExport = periods.filter(p => selectedPeriods.includes(p.id));
         selectedPeriod = periodsToExport.length === 1 ? periodsToExport[0] : { label: 'Multiple Periods' };
-        
+
         // Combine data from all selected periods
         const allEntries = [];
         periodsToExport.forEach(period => {
@@ -893,7 +894,7 @@ function ExportModal({ onClose }) {
           const periodEntries = entries.filter(e => e.date >= periodStart && e.date <= periodEnd);
           allEntries.push(...periodEntries);
         });
-        
+
         data = generateReportFromTemplate(allEntries, reportTemplate, { detailedView });
       }
 
@@ -904,7 +905,7 @@ function ExportModal({ onClose }) {
           sheetName: selectedPeriod?.label?.replace(/[:\\/?*\[\]]/g, '-').substring(0, 31) || 'Export',
           includeFormatting: true
         });
-        
+
       } else if (exportFormat === 'pdf') {
         if (includeCharts) {
           // Find chart elements in the DOM
@@ -921,7 +922,7 @@ function ExportModal({ onClose }) {
             period: selectedPeriod
           });
         }
-        
+
       } else if (exportFormat === 'email') {
         if (!emailRecipient) {
           hapticFeedback.warning(); // Warning vibration
@@ -963,7 +964,7 @@ function ExportModal({ onClose }) {
             onClose();
           }
         });
-        
+
         localStorage.setItem('lastBackupDate', new Date().toISOString());
         return;
       }
@@ -982,11 +983,11 @@ function ExportModal({ onClose }) {
           onClose();
         }
       });
-      
+
       localStorage.setItem('lastBackupDate', new Date().toISOString());
-      
+
     } catch (error) {
-      
+
       hapticFeedback.error(); // Error vibration
       setConfirmModal({
         isOpen: true,
@@ -1037,13 +1038,13 @@ function ExportModal({ onClose }) {
 
       const colWidths = detailedView
         ? [
-            { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 14 },
-            { wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 18 },
-            { wch: 18 }, { wch: 16 }
-          ]
+          { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 14 },
+          { wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 18 },
+          { wch: 18 }, { wch: 16 }
+        ]
         : [
-            { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 10 }
-          ];
+          { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 10 }
+        ];
 
       worksheet['!cols'] = colWidths;
 
@@ -1183,17 +1184,16 @@ function ExportModal({ onClose }) {
       {exportMode !== 'template' && exportFormat !== 'excel' && (
         <div className="form-group">
           <label className="form-label">Report Template</label>
-          <select
-            className="form-control"
+          <CustomSelect
+            id="report-template-select"
+            name="reportTemplate"
             value={reportTemplate}
             onChange={(e) => setReportTemplate(e.target.value)}
-          >
-            {Object.entries(reportTemplates).map(([key, template]) => (
-              <option key={key} value={key}>
-                {template.name}
-              </option>
-            ))}
-          </select>
+            options={Object.entries(reportTemplates).map(([key, template]) => ({
+              label: template.name,
+              value: key
+            }))}
+          />
           <small className="form-help">
             {reportTemplates[reportTemplate]?.name} - {reportTemplates[reportTemplate]?.columns?.join(', ')}
           </small>
@@ -1205,8 +1205,8 @@ function ExportModal({ onClose }) {
         <div className="export-toggle-container">
           <div className="export-toggle-wrapper">
             <label className="export-toggle-switch">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={includeCharts}
                 onChange={(e) => {
                   hapticFeedback.toggleSwitch();
@@ -1220,8 +1220,8 @@ function ExportModal({ onClose }) {
             </span>
           </div>
           <span className="export-toggle-help">
-            {includeCharts 
-              ? 'Include charts and graphs in the PDF report' 
+            {includeCharts
+              ? 'Include charts and graphs in the PDF report'
               : 'Generate text-only PDF report'
             }
           </span>
@@ -1287,8 +1287,8 @@ function ExportModal({ onClose }) {
           <div className="export-toggle-container">
             <div className="export-toggle-wrapper">
               <label className="export-toggle-switch">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   checked={detailedView}
                   onChange={(e) => {
                     hapticFeedback.toggleSwitch();
@@ -1302,7 +1302,7 @@ function ExportModal({ onClose }) {
               </span>
             </div>
             <span className="export-toggle-help">
-              {detailedView 
+              {detailedView
                 ? 'Includes extra hours, break times, hours spent outside, and all details'
                 : 'Basic view with date, times, and hours worked only'
               }
@@ -1311,7 +1311,7 @@ function ExportModal({ onClose }) {
 
           <div className="form-group">
             <label className="form-label">Select Periods</label>
-            
+
             <div className="period-checkbox-item">
               <label>
                 <input
@@ -1349,9 +1349,9 @@ function ExportModal({ onClose }) {
           {selectedPeriods.length > 0 && (
             <div className="export-summary">
               <p>
-                <strong>📊 Export Summary:</strong><br/>
-                {selectedPeriods.length} period(s) selected<br/>
-                {detailedView ? 'Detailed' : 'Simple'} view<br/>
+                <strong>📊 Export Summary:</strong><br />
+                {selectedPeriods.length} period(s) selected<br />
+                {detailedView ? 'Detailed' : 'Simple'} view<br />
                 {selectedPeriods.length > 1 ? 'Multiple sheets' : 'Single sheet'}
               </p>
             </div>
@@ -1410,18 +1410,19 @@ function ExportModal({ onClose }) {
           {templateMode === 'period' && (
             <div className="form-group">
               <label className="form-label">Select Period</label>
-              <select
-                className="form-control"
+              <CustomSelect
+                id="template-period-select"
+                name="templatePeriod"
                 value={templatePeriod}
                 onChange={(e) => setTemplatePeriod(e.target.value)}
-              >
-                <option value="">-- Choose a period --</option>
-                {periods.map(period => (
-                  <option key={period.id} value={period.id}>
-                    {period.label}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { label: '-- Choose a period --', value: '' },
+                  ...periods.map(period => ({
+                    label: period.label,
+                    value: period.id
+                  }))
+                ]}
+              />
             </div>
           )}
 
@@ -1453,8 +1454,8 @@ function ExportModal({ onClose }) {
 
           <div className="export-info-box template-info">
             <h4>
-              {templateMode === 'blank' ? '📝 Blank Template' : 
-               templateMode === 'custom' ? '✏️ Custom Template' : '📋 Period Template'}
+              {templateMode === 'blank' ? '📝 Blank Template' :
+                templateMode === 'custom' ? '✏️ Custom Template' : '📋 Period Template'}
             </h4>
             {templateMode === 'blank' ? (
               <>
@@ -1496,8 +1497,8 @@ function ExportModal({ onClose }) {
 
       {/* Actions */}
       <div className="form-actions">
-        <button 
-          type="button" 
+        <button
+          type="button"
           className="btn btn-primary"
           onClick={handleExport}
           disabled={isExporting || (

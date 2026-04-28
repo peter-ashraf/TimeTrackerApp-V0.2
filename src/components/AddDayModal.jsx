@@ -3,6 +3,7 @@ import { useTimeTracker } from '../context/TimeTrackerContext';
 import { useTimeEntry } from '../context/TimeEntryContext';
 import ModalShell from './ModalShell';
 import AlertModal from './AlertModal';
+import CustomSelect from './CustomSelect';
 
 function AddDayModal({ onClose }) {
   const { setEntries, entries, formatDate, showAlert } = useTimeTracker();
@@ -31,7 +32,7 @@ function AddDayModal({ onClose }) {
     const { type, duration } = parseSpecialDayLabel(dayType);
 
     // Check for duplicates
-    const exists = entries.some(e => 
+    const exists = entries.some(e =>
       e.date === selectedDate && e.type === type && e.duration === duration
     );
 
@@ -73,60 +74,62 @@ function AddDayModal({ onClose }) {
   return (
     <>
       <ModalShell onClose={onClose} closeOnOverlay={false}>
-      <h2>Add Special Day</h2>
-      <div className="modal-body">
-        <div className="form-group">
-          <label className="form-label">Day Type</label>
-          <select 
-            className="form-control"
-            value={dayType}
-            onChange={(e) => setDayType(e.target.value)}
-          >
-            <option value="Vacation Full Day">Vacation Full Day</option>
-            <option value="Vacation Half Day">Vacation Half Day</option>
-            <option value="Sick Leave Full Day">Sick Leave Full Day</option>
-            <option value="Sick Leave Half Day">Sick Leave Half Day</option>
-            <option value="Holiday Full Day">Holiday Full Day</option>
-            <option value="Leave Full Day">Leave Full Day</option>
-            <option value="To Be Added Full Day">To Be Added Full Day</option>
-          </select>
+        <h2>Add Special Day</h2>
+        <div className="modal-body">
+          <div className="form-group">
+            <label className="form-label">Day Type</label>
+            <CustomSelect
+              id="add-day-type-select"
+              name="dayType"
+              value={dayType}
+              onChange={(e) => setDayType(e.target.value)}
+              options={[
+                { label: 'Vacation Full Day', value: 'Vacation Full Day' },
+                { label: 'Vacation Half Day', value: 'Vacation Half Day' },
+                { label: 'Sick Leave Full Day', value: 'Sick Leave Full Day' },
+                { label: 'Sick Leave Half Day', value: 'Sick Leave Half Day' },
+                { label: 'Holiday Full Day', value: 'Holiday Full Day' },
+                { label: 'Leave Full Day', value: 'Leave Full Day' },
+                { label: 'To Be Added Full Day', value: 'To Be Added Full Day' }
+              ]}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Date</label>
+            <input
+              type="date"
+              className="form-control"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Notes (optional)</label>
+            <textarea
+              className="form-control"
+              placeholder="Add notes (optional)"
+              rows="3"
+              value={dayNotes}
+              onChange={(e) => setDayNotes(e.target.value)}
+            />
+          </div>
         </div>
 
-        <div className="form-group">
-          <label className="form-label">Date</label>
-          <input
-            type="date"
-            className="form-control"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-          />
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleSave}>Add Day</button>
         </div>
+      </ModalShell>
 
-        <div className="form-group">
-          <label className="form-label">Notes (optional)</label>
-          <textarea
-            className="form-control"
-            placeholder="Add notes (optional)"
-            rows="3"
-            value={dayNotes}
-            onChange={(e) => setDayNotes(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="modal-actions">
-        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" onClick={handleSave}>Add Day</button>
-      </div>
-    </ModalShell>
-    
-    <AlertModal
-      isOpen={alertModal.isOpen}
-      message={alertModal.message}
-      type={alertModal.type}
-      onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
-    />
-  </>
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        message={alertModal.message}
+        type={alertModal.type}
+        onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
+      />
+    </>
   );
 }
 

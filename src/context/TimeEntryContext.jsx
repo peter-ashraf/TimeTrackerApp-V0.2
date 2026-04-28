@@ -17,7 +17,7 @@ export const useTimeEntry = () => {
 
 export const TimeEntryProvider = ({ children }) => {
   const { currentUser, isAuthenticated, getUserData, saveUserData } = useSupabaseAuth();
-  
+
   // Time Entries State
   const [entries, setEntries] = useState([]);
   const [lastSaved, setLastSaved] = useState(null);
@@ -25,7 +25,7 @@ export const TimeEntryProvider = ({ children }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
   const [pendingConflicts, setPendingConflicts] = useState([]);
-  
+
   // Refs to track state
   const isRefreshingRef = useRef(false);
   const isLoadingRef = useRef(false);
@@ -64,7 +64,7 @@ export const TimeEntryProvider = ({ children }) => {
     let retryCount = 0;
     const maxRetries = 5;
     const baseRetryDelay = 1000;
-    
+
     const attemptSave = async () => {
       try {
         // Always save to local storage first as backup
@@ -77,7 +77,7 @@ export const TimeEntryProvider = ({ children }) => {
           setEntries(prev => {
             const updatedEntries = prev.filter(e => e.date !== entriesToSave.date);
             updatedEntries.unshift(entriesToSave);
-            
+
             // Sync to local storage within the update or right after
             setSimpleEncryptedItem(entriesKey, updatedEntries, currentUser.username);
             return updatedEntries;
@@ -88,19 +88,19 @@ export const TimeEntryProvider = ({ children }) => {
         if (currentUser && isAuthenticated && !currentUser.isLocalOnly && navigator.onLine) {
           try {
             // Add timeout to handle intermittent connectivity issues
-            const savePromise = Array.isArray(entriesToSave) 
+            const savePromise = Array.isArray(entriesToSave)
               ? Promise.all(entriesToSave.map(entry => supabaseData.saveTimeEntry(currentUser.id, entry)))
               : supabaseData.saveTimeEntry(currentUser.id, entriesToSave);
-            
+
             const savedData = await savePromise;
-            
+
             // ✅ ADD THIS — merge returned Supabase id back into local state
             if (savedData?.id && !Array.isArray(entriesToSave)) {
               setEntries(prev => prev.map(e =>
                 e.date === entriesToSave.date ? { ...e, id: savedData.id } : e
               ));
             }
-            
+
             setLastSaved(new Date().toISOString());
             return { success: true, savedTo: 'supabase' };
           } catch (saveError) {
@@ -115,7 +115,7 @@ export const TimeEntryProvider = ({ children }) => {
         }
       } catch (error) {
         console.error(`Save attempt ${retryCount + 1} failed:`, error);
-        
+
         // Handle auth-related errors - don't retry these
         if (error.status === 401 || error.status === 406 || (error.message && (error.message.includes('401') || error.message.includes('406')))) {
           if (showAlert) {
@@ -130,11 +130,11 @@ export const TimeEntryProvider = ({ children }) => {
           const exponentialDelay = baseRetryDelay * Math.pow(2, retryCount - 1);
           const jitter = Math.random() * 0.1 * exponentialDelay; // Add 10% jitter
           const delay = exponentialDelay + jitter;
-          
+
           if (showAlert && retryCount === 2) {
             showAlert('Connection issues. Retrying save...', 'info');
           }
-          
+
           await new Promise(resolve => setTimeout(resolve, delay));
           return attemptSave();
         } else {
@@ -167,15 +167,15 @@ export const TimeEntryProvider = ({ children }) => {
     if (isLoadingRef.current) {
       return;
     }
-    
+
     try {
       isLoadingRef.current = true;
-      
+
       // Load from local storage immediately
       const entriesKey = `timeEntries_${currentUser.id}`;
       const localEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
       setEntries(localEntries);
-      
+
       // Immediate Supabase sync if online
       if (navigator.onLine && currentUser) {
         try {
@@ -186,13 +186,13 @@ export const TimeEntryProvider = ({ children }) => {
             )
           ]);
           const entriesData = await fetchWithTimeout;
-          
+
           // If online and Supabase returned empty, trust Supabase (all entries deleted)
           if (navigator.onLine && entriesData && entriesData.length === 0) {
             setEntries([]);
             return;
           }
-          
+
           if (entriesData && entriesData.length > 0) {
             const detectConflicts = (localEntries, remoteEntries) => {
               const conflicts = [];
@@ -203,18 +203,15 @@ export const TimeEntryProvider = ({ children }) => {
                 const localEntry = localMap.get(date);
                 if (!localEntry) continue; // Only in remote → auto-pull, no conflict
 
-                const localCheckIn = localEntry.intervals?.[0]?.in;
-                const localCheckOut = localEntry.intervals?.[0]?.out;
-                const localHours = localEntry.hoursWorked ?? localEntry.hours_worked ?? 0;
+                const localType = localEntry.type;
+                const remoteType = remoteEntry.type;
 
-                const remoteCheckIn = remoteEntry.intervals?.[0]?.in;
-                const remoteCheckOut = remoteEntry.intervals?.[0]?.out;
-                const remoteHours = remoteEntry.hoursWorked ?? remoteEntry.hours_worked ?? 0;
+                const localIntervals = JSON.stringify(localEntry.intervals || []);
+                const remoteIntervals = JSON.stringify(remoteEntry.intervals || []);
 
                 const meaningfullyDifferent =
-                  localCheckIn !== remoteCheckIn ||
-                  localCheckOut !== remoteCheckOut ||
-                  Math.abs((localHours || 0) - (remoteHours || 0)) > 0.05;
+                  localType !== remoteType ||
+                  localIntervals !== remoteIntervals;
 
                 if (!meaningfullyDifferent) continue; // Identical → no conflict
 
@@ -241,9 +238,23 @@ export const TimeEntryProvider = ({ children }) => {
                 }
               });
 
-              // Exclude conflicting dates — user will resolve them
+              // Exclude conflicting dates
               const safeEntries = autoMerged.filter(e => !conflictDates.has(e.date));
-              setEntries(safeEntries.sort((a, b) => b.date.localeCompare(a.date)));
+
+              // Re-apply local version if it was identical in raw data to prevent reverting to bad derived math remotely
+              const finalSafeEntries = safeEntries.map(remoteE => {
+                const localE = localEntries.find(l => l.date === remoteE.date);
+                if (localE) {
+                  const rInt = JSON.stringify(remoteE.intervals || []);
+                  const lInt = JSON.stringify(localE.intervals || []);
+                  if (rInt === lInt && remoteE.type === localE.type) {
+                    return localE; // Local has better derived math
+                  }
+                }
+                return remoteE;
+              });
+
+              setEntries(finalSafeEntries.sort((a, b) => b.date.localeCompare(a.date)));
 
             } else {
               // No conflicts — use Supabase as source of truth (handles deletions)
@@ -268,7 +279,7 @@ export const TimeEntryProvider = ({ children }) => {
           console.error('Failed to fetch from Supabase, staying with local data', onlineError);
         }
       }
-      
+
     } catch (error) {
       console.error('loadTimeEntriesData critical error:', error);
     } finally {
@@ -281,7 +292,7 @@ export const TimeEntryProvider = ({ children }) => {
   useEffect(() => {
     if (!currentUser || !entries) return;
     if (isRefreshingRef.current) return;
-    
+
     // Skip save status updates during initial sync
     const isInitialSync = isInitialSyncRef.current;
     if (isInitialSync) {
@@ -291,7 +302,7 @@ export const TimeEntryProvider = ({ children }) => {
       multiTabSync.notifyDataChange('timeEntries', entries, currentUser.username);
       return;
     }
-    
+
     // Always store to local encrypted storage instantly for offline access
     const entriesKey = `timeEntries_${currentUser.id}`;
     setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
@@ -370,16 +381,16 @@ export const TimeEntryProvider = ({ children }) => {
     isSaving,
     saveStatus,
     pendingConflicts,
-    
+
     // Helper functions
     formatDate,
     formatTime,
-    
+
     // Data operations
     loadTimeEntriesData,
     saveTimeEntriesData,
     resolveConflict,
-    
+
     // Ref management
     setRefreshing: (isRefreshing) => {
       isRefreshingRef.current = isRefreshing;

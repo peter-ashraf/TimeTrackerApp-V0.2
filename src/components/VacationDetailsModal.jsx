@@ -8,22 +8,18 @@ function VacationDetailsModal({ type, onClose }) {
 
   // Filter entries based on type
   const getFilteredEntries = () => {
-    const periodEntries = entries.filter(e => {
-      if (!currentPeriod) return false;
-      
-      const periodStart = currentPeriod.start_date || currentPeriod.start;
-      const periodEnd = currentPeriod.end_date || currentPeriod.end;
-      
-      return e.date >= periodStart && e.date <= periodEnd;
+    const currentYear = new Date().getFullYear().toString();
+    const yearlyEntries = entries.filter(e => {
+      return e.date.startsWith(currentYear);
     });
 
-    switch(type) {
+    switch (type) {
       case 'vacation-taken':
-        return periodEntries.filter(e => e.type === 'Vacation');
+        return yearlyEntries.filter(e => e.type === 'Vacation');
       case 'vacation-to-be-added':
-        return periodEntries.filter(e => e.type === 'To Be Added');
+        return yearlyEntries.filter(e => e.type === 'To Be Added');
       case 'sick-used':
-        return periodEntries.filter(e => e.type === 'Sick Leave');
+        return yearlyEntries.filter(e => e.type === 'Sick Leave');
       default:
         return [];
     }
@@ -38,7 +34,7 @@ function VacationDetailsModal({ type, onClose }) {
 
   // Get title and description
   const getTitle = () => {
-    switch(type) {
+    switch (type) {
       case 'vacation-taken':
         return 'Vacation Days Taken';
       case 'vacation-to-be-added':
@@ -51,13 +47,13 @@ function VacationDetailsModal({ type, onClose }) {
   };
 
   const getDescription = () => {
-    switch(type) {
+    switch (type) {
       case 'vacation-taken':
-        return `You have taken ${totalDays} vacation day(s) this period.`;
+        return `You have taken ${totalDays} vacation day(s) this year.`;
       case 'vacation-to-be-added':
         return `You have ${totalDays} day(s) marked as "To Be Added" - these will be added to your vacation balance.`;
       case 'sick-used':
-        return `You have used ${totalDays} sick day(s) this period.`;
+        return `You have used ${totalDays} sick day(s) this year.`;
       default:
         return '';
     }
@@ -67,10 +63,10 @@ function VacationDetailsModal({ type, onClose }) {
     <ModalShell onClose={onClose} closeOnOverlay={false}>
       <h2>{getTitle()}</h2>
       <p>{getDescription()}</p>
-      
+
       <div className="modal-body">
         {filteredEntries.length === 0 ? (
-          <p style={{textAlign: 'center', padding: '20px'}}>No entries found for this period.</p>
+          <p style={{ textAlign: 'center', padding: '20px' }}>No entries found for this period.</p>
         ) : (
           <table className="data-table">
             <thead>

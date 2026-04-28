@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
+import CustomSelect from './CustomSelect';
 import '../styles/import-modal.css';
 
 function ImportModal({ onClose }) {
-  const { 
-    entries, 
-    setEntries, 
-    periods, 
-    setPeriods, 
+  const {
+    entries,
+    setEntries,
+    periods,
+    setPeriods,
     calculateHoursWorked,
     calculateHoursSpentOutside,
     confirmModal,
-    setConfirmModal 
+    setConfirmModal
   } = useTimeTracker();
 
   // ===== STATE MANAGEMENT =====
@@ -20,7 +21,7 @@ function ImportModal({ onClose }) {
   const [previewData, setPreviewData] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
-  
+
   // Multi-step flow state
   const [currentStep, setCurrentStep] = useState(1); // 1: File, 2: Period, 3: Conflict
   const [selectedPeriod, setSelectedPeriod] = useState(null);
@@ -31,26 +32,26 @@ function ImportModal({ onClose }) {
   const [conflictInfo, setConflictInfo] = useState(null);
 
   // ===== HELPER FUNCTIONS =====
-  
+
   // Convert Excel time (fraction) to HH:MM:SS
   const excelTimeToString = (excelTime) => {
     if (!excelTime || excelTime === '-') return null;
-    
+
     if (typeof excelTime === 'string' && excelTime.includes(':')) {
       return excelTime.trim();
     }
-    
+
     if (typeof excelTime === 'number') {
       const totalSeconds = Math.round(excelTime * 24 * 60 * 60);
       const hours = Math.floor(totalSeconds / 3600);
       const minutes = Math.floor((totalSeconds % 3600) / 60);
       const seconds = totalSeconds % 60;
-      
+
       const result = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
       return result;
     }
-    
+
 
     return null;
   };
@@ -74,144 +75,144 @@ function ImportModal({ onClose }) {
       }
     }
 
-  // Case 2: Already a Date object
-  if (excelDate instanceof Date) {
-    if (isNaN(excelDate.getTime())) {
-      throw new Error('Invalid Date object');
-    }
-    const year = excelDate.getFullYear();
-    const month = String(excelDate.getMonth() + 1).padStart(2, '0');
-    const day = String(excelDate.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  // Case 3: String date
-  if (typeof excelDate === 'string') {
-    const dateStr = excelDate.toString().trim();
-
-    // Format 1: YYYY-MM-DD (ISO format - already correct)
-    if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr)) {
-      const [year, month, day] = dateStr.split('-');
-      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    }
-
-    // Format 2: DD-MM-YYYY
-    if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(dateStr)) {
-      const [day, month, year] = dateStr.split('-');
-      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    }
-
-    // Format 3: DD/MM/YYYY (your current format)
-    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
-      const parts = dateStr.split('/');
-      const part1 = parseInt(parts[0]);
-      const part2 = parseInt(parts[1]);
-      const year = parts[2];
-
-      // Determine if DD/MM/YYYY or MM/DD/YYYY
-      if (part1 > 12 && part2 <= 12) {
-        // part1 must be day, part2 is month -> DD/MM/YYYY
-        return `${year}-${String(part2).padStart(2, '0')}-${String(part1).padStart(2, '0')}`;
-      } else if (part2 > 12 && part1 <= 12) {
-        // part2 must be day, part1 is month -> MM/DD/YYYY
-        return `${year}-${String(part1).padStart(2, '0')}-${String(part2).padStart(2, '0')}`;
-      } else {
-        // Ambiguous - assume DD/MM/YYYY (European format)
-        return `${year}-${String(part2).padStart(2, '0')}-${String(part1).padStart(2, '0')}`;
+    // Case 2: Already a Date object
+    if (excelDate instanceof Date) {
+      if (isNaN(excelDate.getTime())) {
+        throw new Error('Invalid Date object');
       }
-    }
-
-    // Format 4: MM/DD/YYYY (US format with dots)
-    if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(dateStr)) {
-      const parts = dateStr.split('.');
-      const day = String(parts[0]).padStart(2, '0');
-      const month = String(parts[1]).padStart(2, '0');
-      const year = parts[2];
+      const year = excelDate.getFullYear();
+      const month = String(excelDate.getMonth() + 1).padStart(2, '0');
+      const day = String(excelDate.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     }
 
-    // Format 5: "Jan 26, 2026" or "January 26, 2026"
-    const monthTextRegex = /^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/;
-    if (monthTextRegex.test(dateStr)) {
-      const match = dateStr.match(monthTextRegex);
-      const monthStr = match[1];
-      const day = String(match[2]).padStart(2, '0');
-      const year = match[3];
+    // Case 3: String date
+    if (typeof excelDate === 'string') {
+      const dateStr = excelDate.toString().trim();
 
-      // Map month names to numbers
-      const monthMap = {
-        'jan': '01', 'january': '01',
-        'feb': '02', 'february': '02',
-        'mar': '03', 'march': '03',
-        'apr': '04', 'april': '04',
-        'may': '05',
-        'jun': '06', 'june': '06',
-        'jul': '07', 'july': '07',
-        'aug': '08', 'august': '08',
-        'sep': '09', 'sept': '09', 'september': '09',
-        'oct': '10', 'october': '10',
-        'nov': '11', 'november': '11',
-        'dec': '12', 'december': '12'
-      };
+      // Format 1: YYYY-MM-DD (ISO format - already correct)
+      if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr)) {
+        const [year, month, day] = dateStr.split('-');
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
 
-      const month = monthMap[monthStr.toLowerCase()];
-      if (month) {
+      // Format 2: DD-MM-YYYY
+      if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(dateStr)) {
+        const [day, month, year] = dateStr.split('-');
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+
+      // Format 3: DD/MM/YYYY (your current format)
+      if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+        const parts = dateStr.split('/');
+        const part1 = parseInt(parts[0]);
+        const part2 = parseInt(parts[1]);
+        const year = parts[2];
+
+        // Determine if DD/MM/YYYY or MM/DD/YYYY
+        if (part1 > 12 && part2 <= 12) {
+          // part1 must be day, part2 is month -> DD/MM/YYYY
+          return `${year}-${String(part2).padStart(2, '0')}-${String(part1).padStart(2, '0')}`;
+        } else if (part2 > 12 && part1 <= 12) {
+          // part2 must be day, part1 is month -> MM/DD/YYYY
+          return `${year}-${String(part1).padStart(2, '0')}-${String(part2).padStart(2, '0')}`;
+        } else {
+          // Ambiguous - assume DD/MM/YYYY (European format)
+          return `${year}-${String(part2).padStart(2, '0')}-${String(part1).padStart(2, '0')}`;
+        }
+      }
+
+      // Format 4: MM/DD/YYYY (US format with dots)
+      if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(dateStr)) {
+        const parts = dateStr.split('.');
+        const day = String(parts[0]).padStart(2, '0');
+        const month = String(parts[1]).padStart(2, '0');
+        const year = parts[2];
         return `${year}-${month}-${day}`;
       }
-    }
 
-    // Format 6: "26 Jan 2026" or "26 January 2026"
-    const textDate2 = dateStr.match(/^(\d{1,2})\s+([A-Za-z]+),?\s+(\d{4})$/);
-    if (textDate2) {
-      const monthStr = textDate2[2];
-      const day = String(textDate2[1]).padStart(2, '0');
-      const year = textDate2[3];
+      // Format 5: "Jan 26, 2026" or "January 26, 2026"
+      const monthTextRegex = /^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/;
+      if (monthTextRegex.test(dateStr)) {
+        const match = dateStr.match(monthTextRegex);
+        const monthStr = match[1];
+        const day = String(match[2]).padStart(2, '0');
+        const year = match[3];
 
-      const monthMap = {
-        'jan': '01', 'january': '01',
-        'feb': '02', 'february': '02',
-        'mar': '03', 'march': '03',
-        'apr': '04', 'april': '04',
-        'may': '05',
-        'jun': '06', 'june': '06',
-        'jul': '07', 'july': '07',
-        'aug': '08', 'august': '08',
-        'sep': '09', 'sept': '09', 'september': '09',
-        'oct': '10', 'october': '10',
-        'nov': '11', 'november': '11',
-        'dec': '12', 'december': '12'
-      };
+        // Map month names to numbers
+        const monthMap = {
+          'jan': '01', 'january': '01',
+          'feb': '02', 'february': '02',
+          'mar': '03', 'march': '03',
+          'apr': '04', 'april': '04',
+          'may': '05',
+          'jun': '06', 'june': '06',
+          'jul': '07', 'july': '07',
+          'aug': '08', 'august': '08',
+          'sep': '09', 'sept': '09', 'september': '09',
+          'oct': '10', 'october': '10',
+          'nov': '11', 'november': '11',
+          'dec': '12', 'december': '12'
+        };
 
-      const month = monthMap[monthStr.toLowerCase()];
-      if (month) {
-        return `${year}-${month}-${day}`;
+        const month = monthMap[monthStr.toLowerCase()];
+        if (month) {
+          return `${year}-${month}-${day}`;
+        }
+      }
+
+      // Format 6: "26 Jan 2026" or "26 January 2026"
+      const textDate2 = dateStr.match(/^(\d{1,2})\s+([A-Za-z]+),?\s+(\d{4})$/);
+      if (textDate2) {
+        const monthStr = textDate2[2];
+        const day = String(textDate2[1]).padStart(2, '0');
+        const year = textDate2[3];
+
+        const monthMap = {
+          'jan': '01', 'january': '01',
+          'feb': '02', 'february': '02',
+          'mar': '03', 'march': '03',
+          'apr': '04', 'april': '04',
+          'may': '05',
+          'jun': '06', 'june': '06',
+          'jul': '07', 'july': '07',
+          'aug': '08', 'august': '08',
+          'sep': '09', 'sept': '09', 'september': '09',
+          'oct': '10', 'october': '10',
+          'nov': '11', 'november': '11',
+          'dec': '12', 'december': '12'
+        };
+
+        const month = monthMap[monthStr.toLowerCase()];
+        if (month) {
+          return `${year}-${month}-${day}`;
+        }
+      }
+
+      // Format 7: ISO 8601 with time (2026-01-26T00:00:00)
+      if (dateStr.includes('T')) {
+        const datePart = dateStr.split('T')[0];
+        if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+          return datePart;
+        }
+      }
+
+      // Fallback: Try JavaScript Date parsing
+      try {
+        const parsed = new Date(dateStr);
+        if (!isNaN(parsed.getTime())) {
+          const year = parsed.getFullYear();
+          const month = String(parsed.getMonth() + 1).padStart(2, '0');
+          const day = String(parsed.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }
+      } catch (e) {
+        // Fall through to error
       }
     }
 
-    // Format 7: ISO 8601 with time (2026-01-26T00:00:00)
-    if (dateStr.includes('T')) {
-      const datePart = dateStr.split('T')[0];
-      if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
-        return datePart;
-      }
-    }
-
-    // Fallback: Try JavaScript Date parsing
-    try {
-      const parsed = new Date(dateStr);
-      if (!isNaN(parsed.getTime())) {
-        const year = parsed.getFullYear();
-        const month = String(parsed.getMonth() + 1).padStart(2, '0');
-        const day = String(parsed.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      }
-    } catch (e) {
-      // Fall through to error
-    }
-  }
-
-  throw new Error(`Unsupported date format: "${excelDate}" (type: ${typeof excelDate})`);
-};
+    throw new Error(`Unsupported date format: "${excelDate}" (type: ${typeof excelDate})`);
+  };
 
   // Extract date range from imported entries
   const extractDateRange = (importedEntries) => {
@@ -226,16 +227,16 @@ function ImportModal({ onClose }) {
   const formatPeriodLabel = (startDate, endDate) => {
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
+
     const formatDate = (date) => {
-      return date.toLocaleDateString('en-US', { 
-        day: 'numeric', 
-        month: 'short' 
+      return date.toLocaleDateString('en-US', {
+        day: 'numeric',
+        month: 'short'
       });
     };
-    
+
     const year = end.getFullYear();
-    
+
     return `${formatDate(start)} - ${formatDate(end)} ${year}`;
   };
 
@@ -246,7 +247,7 @@ function ImportModal({ onClose }) {
 
   // Check for conflicts (existing data in period)
   const checkForConflicts = (periodStart, periodEnd, importedData) => {
-    const existingEntriesInPeriod = entries.filter(e => 
+    const existingEntriesInPeriod = entries.filter(e =>
       e.date >= periodStart && e.date <= periodEnd
     );
 
@@ -260,7 +261,7 @@ function ImportModal({ onClose }) {
   };
 
   // ===== FILE PARSING =====
-  
+
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -287,14 +288,14 @@ function ImportModal({ onClose }) {
 
   const parseExcelFile = async (file) => {
     setIsProcessing(true);
-    
+
     try {
       // Dynamic import of XLSX
       const XLSX = await import('xlsx');
-      
+
       const data = await new Promise((resolve, reject) => {
         const reader = new FileReader();
-        
+
         reader.onload = (e) => {
           try {
             const arrayData = new Uint8Array(e.target.result);
@@ -303,7 +304,7 @@ function ImportModal({ onClose }) {
             reject(error);
           }
         };
-        
+
         reader.onerror = () => reject(new Error('Failed to read file'));
         reader.readAsArrayBuffer(file);
       });
@@ -448,7 +449,7 @@ function ImportModal({ onClose }) {
         setCustomStartDate(start);
         setCustomEndDate(end);
       }
-      
+
       setIsProcessing(false);
     } catch (err) {
       setConfirmModal({
@@ -465,7 +466,7 @@ function ImportModal({ onClose }) {
   };
 
   // ===== STEP NAVIGATION =====
-  
+
   const handleNextToPeriodSelection = () => {
     if (!previewData || previewData.length === 0) {
       setConfirmModal({
@@ -557,8 +558,8 @@ function ImportModal({ onClose }) {
 
     // Check for conflicts
     const conflict = checkForConflicts(
-      finalPeriod.start, 
-      finalPeriod.end, 
+      finalPeriod.start,
+      finalPeriod.end,
       previewData
     );
 
@@ -573,16 +574,16 @@ function ImportModal({ onClose }) {
   };
 
   // ===== IMPORT EXECUTION =====
-  
+
   const executeImport = (period, mode) => {
     try {
       // CRITICAL: Get entries OUTSIDE selected period (NEVER TOUCH THESE)
-      const entriesOutsidePeriod = entries.filter(e => 
+      const entriesOutsidePeriod = entries.filter(e =>
         e.date < period.start || e.date > period.end
       );
 
       // Get entries INSIDE selected period
-      const entriesInsidePeriod = entries.filter(e => 
+      const entriesInsidePeriod = entries.filter(e =>
         e.date >= period.start && e.date <= period.end
       );
 
@@ -631,7 +632,7 @@ function ImportModal({ onClose }) {
         }
       });
     } catch (err) {
-      
+
       setConfirmModal({
         isOpen: true,
         title: 'Import Failed',
@@ -661,355 +662,356 @@ function ImportModal({ onClose }) {
   };
 
   // ===== RENDER =====
-  
+
   return (
     <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="import-modal">
       <h3>Import Timesheet Data</h3>
-        
-        {/* Step Indicator */}
-        <div className="import-steps">
-          <div className={`import-step ${currentStep >= 1 ? 'active' : ''} ${currentStep > 1 ? 'complete' : ''}`}>
-            <span className="step-number">1</span>
-            <span className="step-label">Select File</span>
-          </div>
-          <div className={`import-step ${currentStep >= 2 ? 'active' : ''} ${currentStep > 2 ? 'complete' : ''}`}>
-            <span className="step-number">2</span>
-            <span className="step-label">Choose Period</span>
-          </div>
-          <div className={`import-step ${currentStep >= 3 ? 'active' : ''}`}>
-            <span className="step-number">3</span>
-            <span className="step-label">Confirm</span>
-          </div>
+
+      {/* Step Indicator */}
+      <div className="import-steps">
+        <div className={`import-step ${currentStep >= 1 ? 'active' : ''} ${currentStep > 1 ? 'complete' : ''}`}>
+          <span className="step-number">1</span>
+          <span className="step-label">Select File</span>
         </div>
+        <div className={`import-step ${currentStep >= 2 ? 'active' : ''} ${currentStep > 2 ? 'complete' : ''}`}>
+          <span className="step-number">2</span>
+          <span className="step-label">Choose Period</span>
+        </div>
+        <div className={`import-step ${currentStep >= 3 ? 'active' : ''}`}>
+          <span className="step-number">3</span>
+          <span className="step-label">Confirm</span>
+        </div>
+      </div>
 
-        {/* STEP 1: FILE SELECTION */}
-        {currentStep === 1 && (
-          <>
-            <p className="settings-description">
-              Import timesheet data from an Excel file. Supports DD/MM/YYYY dates and HH:MM:SS times.
-            </p>
+      {/* STEP 1: FILE SELECTION */}
+      {currentStep === 1 && (
+        <>
+          <p className="settings-description">
+            Import timesheet data from an Excel file. Supports DD/MM/YYYY dates and HH:MM:SS times.
+          </p>
 
-            <div className="form-group">
-              <label className="form-label">Select Excel File</label>
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={handleFileSelect}
-                className="file-input"
-              />
-              {selectedFile && (
-                <div className="selected-file">
-                  {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
-                </div>
-              )}
-            </div>
-
-            {isProcessing && (
-              <div className="import-processing">
-                <div className="spinner"></div>
-                <span>Processing file...</span>
+          <div className="form-group">
+            <label className="form-label">Select Excel File</label>
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileSelect}
+              className="file-input"
+            />
+            {selectedFile && (
+              <div className="selected-file">
+                {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
               </div>
             )}
+          </div>
 
-            {validationErrors.length > 0 && (
-              <div className="import-errors">
-                <strong>Validation Warnings ({validationErrors.length}):</strong>
-                <div className="error-list">
-                  {validationErrors.slice(0, 5).map((error, index) => (
-                    <div key={index} className="error-item">• {error}</div>
+          {isProcessing && (
+            <div className="import-processing">
+              <div className="spinner"></div>
+              <span>Processing file...</span>
+            </div>
+          )}
+
+          {validationErrors.length > 0 && (
+            <div className="import-errors">
+              <strong>Validation Warnings ({validationErrors.length}):</strong>
+              <div className="error-list">
+                {validationErrors.slice(0, 5).map((error, index) => (
+                  <div key={index} className="error-item">• {error}</div>
+                ))}
+                {validationErrors.length > 5 && (
+                  <div className="error-item">... and {validationErrors.length - 5} more</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {previewData && previewData.length > 0 && (
+            <div className="import-preview">
+              <strong>Preview:</strong>
+              <div className="preview-stats">
+                <div className="preview-stat">
+                  <span className="stat-value">{previewData.length}</span>
+                  <span className="stat-label">Total Entries</span>
+                </div>
+                <div className="preview-stat">
+                  <span className="stat-value">
+                    {new Set(previewData.map(d => d.sheetName)).size}
+                  </span>
+                  <span className="stat-label">Sheets Found</span>
+                </div>
+                <div className="preview-stat">
+                  <span className="stat-value">
+                    {previewData.filter(d => d.entry.type === 'Regular').length}
+                  </span>
+                  <span className="stat-label">Regular Days</span>
+                </div>
+              </div>
+
+              <div className="preview-sample">
+                <strong>Sample entries:</strong>
+                <div className="sample-list">
+                  {previewData.slice(0, 3).map((item, index) => (
+                    <div key={index} className="sample-item">
+                      <span className="sample-date">{item.entry.date}</span>
+                      <span className="sample-type">{item.entry.type}</span>
+                      <span className="sample-sheet">({item.sheetName})</span>
+                    </div>
                   ))}
-                  {validationErrors.length > 5 && (
-                    <div className="error-item">... and {validationErrors.length - 5} more</div>
+                  {previewData.length > 3 && (
+                    <div className="sample-item">... and {previewData.length - 3} more</div>
                   )}
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {previewData && previewData.length > 0 && (
-              <div className="import-preview">
-                <strong>Preview:</strong>
-                <div className="preview-stats">
-                  <div className="preview-stat">
-                    <span className="stat-value">{previewData.length}</span>
-                    <span className="stat-label">Total Entries</span>
-                  </div>
-                  <div className="preview-stat">
-                    <span className="stat-value">
-                      {new Set(previewData.map(d => d.sheetName)).size}
-                    </span>
-                    <span className="stat-label">Sheets Found</span>
-                  </div>
-                  <div className="preview-stat">
-                    <span className="stat-value">
-                      {previewData.filter(d => d.entry.type === 'Regular').length}
-                    </span>
-                    <span className="stat-label">Regular Days</span>
+          <div className="form-actions">
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleNextToPeriodSelection}
+              disabled={!previewData || previewData.length === 0 || isProcessing}
+            >
+              Next: Select Period →
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* STEP 2: PERIOD SELECTION */}
+      {currentStep === 2 && (
+        <>
+          <p className="settings-description">
+            Select which period this imported data belongs to. The app can auto-suggest based on date range.
+          </p>
+
+          <div className="period-info-box">
+            <strong>📅 Imported Date Range:</strong><br />
+            {selectedPeriod && `${selectedPeriod.start} to ${selectedPeriod.end}`}
+            <br />
+            <strong>📊 Total Entries:</strong> {previewData.length}
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Period Selection</label>
+
+            {/* Option 1: Auto-suggested */}
+            <div className="period-option">
+              <label>
+                <input
+                  type="radio"
+                  name="periodOption"
+                  value="auto"
+                  checked={periodOption === 'auto'}
+                  onChange={(e) => setPeriodOption(e.target.value)}
+                />
+                <div className="period-option-content">
+                  <strong>✨ Auto-suggested Period (Recommended)</strong>
+                  <div className="period-option-details">
+                    {selectedPeriod && selectedPeriod.label}
                   </div>
                 </div>
+              </label>
+            </div>
 
-                <div className="preview-sample">
-                  <strong>Sample entries:</strong>
-                  <div className="sample-list">
-                    {previewData.slice(0, 3).map((item, index) => (
-                      <div key={index} className="sample-item">
-                        <span className="sample-date">{item.entry.date}</span>
-                        <span className="sample-type">{item.entry.type}</span>
-                        <span className="sample-sheet">({item.sheetName})</span>
+            {/* Option 2: Choose existing */}
+            <div className="period-option">
+              <label>
+                <input
+                  type="radio"
+                  name="periodOption"
+                  value="existing"
+                  checked={periodOption === 'existing'}
+                  onChange={(e) => setPeriodOption(e.target.value)}
+                />
+                <div className="period-option-content">
+                  <strong>📋 Choose Existing Period</strong>
+                  {periodOption === 'existing' && (
+                    <CustomSelect
+                      id="import-period-select"
+                      name="importPeriod"
+                      value={selectedPeriod?.id || ''}
+                      onChange={(e) => {
+                        const period = periods.find(p => p.id === e.target.value);
+                        setSelectedPeriod(period);
+                      }}
+                      options={[
+                        { label: '-- Select Period --', value: '' },
+                        ...periods.map(period => ({
+                          label: period.label,
+                          value: period.id
+                        }))
+                      ]}
+                    />
+                  )}
+                </div>
+              </label>
+            </div>
+
+            {/* Option 3: Custom dates */}
+            <div className="period-option">
+              <label>
+                <input
+                  type="radio"
+                  name="periodOption"
+                  value="custom"
+                  checked={periodOption === 'custom'}
+                  onChange={(e) => setPeriodOption(e.target.value)}
+                />
+                <div className="period-option-content">
+                  <strong>✏️ Custom Date Range</strong>
+                  {periodOption === 'custom' && (
+                    <div className="custom-date-inputs">
+                      <div className="date-input-group">
+                        <label>Start Date:</label>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                        />
                       </div>
-                    ))}
-                    {previewData.length > 3 && (
-                      <div className="sample-item">... and {previewData.length - 3} more</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="form-actions">
-              <button 
-                type="button" 
-                className="btn btn-primary"
-                onClick={handleNextToPeriodSelection}
-                disabled={!previewData || previewData.length === 0 || isProcessing}
-              >
-                Next: Select Period →
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={onClose}
-              >
-                Cancel
-              </button>
-            </div>
-          </>
-        )}
-
-        {/* STEP 2: PERIOD SELECTION */}
-        {currentStep === 2 && (
-          <>
-            <p className="settings-description">
-              Select which period this imported data belongs to. The app can auto-suggest based on date range.
-            </p>
-
-            <div className="period-info-box">
-              <strong>📅 Imported Date Range:</strong><br/>
-              {selectedPeriod && `${selectedPeriod.start} to ${selectedPeriod.end}`}
-              <br/>
-              <strong>📊 Total Entries:</strong> {previewData.length}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Period Selection</label>
-              
-              {/* Option 1: Auto-suggested */}
-              <div className="period-option">
-                <label>
-                  <input
-                    type="radio"
-                    name="periodOption"
-                    value="auto"
-                    checked={periodOption === 'auto'}
-                    onChange={(e) => setPeriodOption(e.target.value)}
-                  />
-                  <div className="period-option-content">
-                    <strong>✨ Auto-suggested Period (Recommended)</strong>
-                    <div className="period-option-details">
-                      {selectedPeriod && selectedPeriod.label}
+                      <div className="date-input-group">
+                        <label>End Date:</label>
+                        <input
+                          type="date"
+                          className="form-control"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                        />
+                      </div>
                     </div>
-                  </div>
-                </label>
-              </div>
-
-              {/* Option 2: Choose existing */}
-              <div className="period-option">
-                <label>
-                  <input
-                    type="radio"
-                    name="periodOption"
-                    value="existing"
-                    checked={periodOption === 'existing'}
-                    onChange={(e) => setPeriodOption(e.target.value)}
-                  />
-                  <div className="period-option-content">
-                    <strong>📋 Choose Existing Period</strong>
-                    {periodOption === 'existing' && (
-                      <select
-                        className="form-control"
-                        value={selectedPeriod?.id || ''}
-                        onChange={(e) => {
-                          const period = periods.find(p => p.id === e.target.value);
-                          setSelectedPeriod(period);
-                        }}
-                      >
-                        <option value="">-- Select Period --</option>
-                        {periods.map(period => (
-                          <option key={period.id} value={period.id}>
-                            {period.label}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                </label>
-              </div>
-
-              {/* Option 3: Custom dates */}
-              <div className="period-option">
-                <label>
-                  <input
-                    type="radio"
-                    name="periodOption"
-                    value="custom"
-                    checked={periodOption === 'custom'}
-                    onChange={(e) => setPeriodOption(e.target.value)}
-                  />
-                  <div className="period-option-content">
-                    <strong>✏️ Custom Date Range</strong>
-                    {periodOption === 'custom' && (
-                      <div className="custom-date-inputs">
-                        <div className="date-input-group">
-                          <label>Start Date:</label>
-                          <input
-                            type="date"
-                            className="form-control"
-                            value={customStartDate}
-                            onChange={(e) => setCustomStartDate(e.target.value)}
-                          />
-                        </div>
-                        <div className="date-input-group">
-                          <label>End Date:</label>
-                          <input
-                            type="date"
-                            className="form-control"
-                            value={customEndDate}
-                            onChange={(e) => setCustomEndDate(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            <div className="import-help">
-              <strong>💡 Note:</strong> Only data within the selected period dates will be affected. All other data remains untouched.
-            </div>
-
-            <div className="form-actions">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setCurrentStep(1)}
-              >
-                ← Back
-              </button>
-              <button 
-                type="button" 
-                className="btn btn-primary"
-                onClick={handlePeriodConfirm}
-              >
-                Next: Confirm Import →
-              </button>
-            </div>
-          </>
-        )}
-
-        {/* STEP 3: CONFLICT RESOLUTION */}
-        {currentStep === 3 && conflictInfo && (
-          <>
-            <div className="conflict-warning-box">
-              <h4>⚠️ Period Already Contains Data</h4>
-              <p>The selected period already has existing entries. Choose how to handle this:</p>
-              
-              <div className="conflict-stats">
-                <div className="conflict-stat">
-                  <span className="stat-icon">📥</span>
-                  <div>
-                    <strong>{conflictInfo.importingCount}</strong>
-                    <small>Importing</small>
-                  </div>
+                  )}
                 </div>
-                <div className="conflict-stat">
-                  <span className="stat-icon">📊</span>
-                  <div>
-                    <strong>{conflictInfo.existingCount}</strong>
-                    <small>Existing</small>
-                  </div>
+              </label>
+            </div>
+          </div>
+
+          <div className="import-help">
+            <strong>💡 Note:</strong> Only data within the selected period dates will be affected. All other data remains untouched.
+          </div>
+
+          <div className="form-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setCurrentStep(1)}
+            >
+              ← Back
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handlePeriodConfirm}
+            >
+              Next: Confirm Import →
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* STEP 3: CONFLICT RESOLUTION */}
+      {currentStep === 3 && conflictInfo && (
+        <>
+          <div className="conflict-warning-box">
+            <h4>⚠️ Period Already Contains Data</h4>
+            <p>The selected period already has existing entries. Choose how to handle this:</p>
+
+            <div className="conflict-stats">
+              <div className="conflict-stat">
+                <span className="stat-icon">📥</span>
+                <div>
+                  <strong>{conflictInfo.importingCount}</strong>
+                  <small>Importing</small>
                 </div>
-                <div className="conflict-stat">
-                  <span className="stat-icon">📅</span>
-                  <div>
-                    <strong>{selectedPeriod.label}</strong>
-                    <small>Period</small>
-                  </div>
+              </div>
+              <div className="conflict-stat">
+                <span className="stat-icon">📊</span>
+                <div>
+                  <strong>{conflictInfo.existingCount}</strong>
+                  <small>Existing</small>
+                </div>
+              </div>
+              <div className="conflict-stat">
+                <span className="stat-icon">📅</span>
+                <div>
+                  <strong>{selectedPeriod.label}</strong>
+                  <small>Period</small>
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="form-group">
-              <label className="form-label">Import Mode</label>
-              
-              <div className="import-mode-option">
-                <label>
-                  <input
-                    type="radio"
-                    name="importMode"
-                    value="merge"
-                    checked={importMode === 'merge'}
-                    onChange={(e) => setImportMode(e.target.value)}
-                  />
-                  <div className="import-mode-content">
-                    <strong>🔄 Merge (Recommended)</strong>
-                    <small>Keep existing entries and add/update new ones. Duplicate dates will be updated with imported data.</small>
-                  </div>
-                </label>
-              </div>
+          <div className="form-group">
+            <label className="form-label">Import Mode</label>
 
-              <div className="import-mode-option">
-                <label>
-                  <input
-                    type="radio"
-                    name="importMode"
-                    value="replace"
-                    checked={importMode === 'replace'}
-                    onChange={(e) => setImportMode(e.target.value)}
-                  />
-                  <div className="import-mode-content">
-                    <strong>⚠️ Replace</strong>
-                    <small>
-                      Delete ALL existing entries in this period ({conflictInfo.existingCount} entries) and import new data.
-                      <br/>
-                      <strong>✅ Data outside this period is safe and will NOT be touched.</strong>
-                    </small>
-                  </div>
-                </label>
-              </div>
+            <div className="import-mode-option">
+              <label>
+                <input
+                  type="radio"
+                  name="importMode"
+                  value="merge"
+                  checked={importMode === 'merge'}
+                  onChange={(e) => setImportMode(e.target.value)}
+                />
+                <div className="import-mode-content">
+                  <strong>🔄 Merge (Recommended)</strong>
+                  <small>Keep existing entries and add/update new ones. Duplicate dates will be updated with imported data.</small>
+                </div>
+              </label>
             </div>
 
-            <div className="import-help">
-              <strong>🔒 Safety Guarantee:</strong> Only entries within <strong>{selectedPeriod.label}</strong> will be affected. All data outside this period remains completely untouched.
+            <div className="import-mode-option">
+              <label>
+                <input
+                  type="radio"
+                  name="importMode"
+                  value="replace"
+                  checked={importMode === 'replace'}
+                  onChange={(e) => setImportMode(e.target.value)}
+                />
+                <div className="import-mode-content">
+                  <strong>⚠️ Replace</strong>
+                  <small>
+                    Delete ALL existing entries in this period ({conflictInfo.existingCount} entries) and import new data.
+                    <br />
+                    <strong>✅ Data outside this period is safe and will NOT be touched.</strong>
+                  </small>
+                </div>
+              </label>
             </div>
+          </div>
 
-            <div className="form-actions">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setCurrentStep(2)}
-              >
-                ← Back
-              </button>
-              <button 
-                type="button" 
-                className="btn btn-primary"
-                onClick={handleFinalImport}
-              >
-                {importMode === 'replace' ? '⚠️ Replace & Import' : '✅ Merge & Import'}
-              </button>
-            </div>
-          </>
-        )}
+          <div className="import-help">
+            <strong>🔒 Safety Guarantee:</strong> Only entries within <strong>{selectedPeriod.label}</strong> will be affected. All data outside this period remains completely untouched.
+          </div>
+
+          <div className="form-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setCurrentStep(2)}
+            >
+              ← Back
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleFinalImport}
+            >
+              {importMode === 'replace' ? '⚠️ Replace & Import' : '✅ Merge & Import'}
+            </button>
+          </div>
+        </>
+      )}
     </ModalShell>
   );
 }

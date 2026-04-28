@@ -4,6 +4,7 @@ import AlertModal from './AlertModal';
 import { getSimpleEncryptedItem, generateSimpleEncryptionKey, simpleDecrypt } from '../utils/simple-encryption';
 import { exportToExcel, generatePDFReport } from '../utils/exportUtils';
 import hapticFeedback from '../utils/hapticFeedback';
+import CustomSelect from './CustomSelect';
 import '../styles/export-modal-enhanced.css';
 
 const RecoveryModal = ({ onClose }) => {
@@ -21,12 +22,12 @@ const RecoveryModal = ({ onClose }) => {
   // Extract potential usernames from localStorage (enhanced logic)
   const extractPotentialUsernames = () => {
     const allKeys = Object.keys(localStorage);
-    const userSpecificKeys = allKeys.filter(key => 
+    const userSpecificKeys = allKeys.filter(key =>
       key.includes('_') && !key.startsWith('__') && key !== 'currentUser' && key !== 'users'
     );
-    
+
     const potentialUsernames = new Set();
-    
+
     // Try multiple extraction methods
     userSpecificKeys.forEach(key => {
       // Method 1: Split on first underscore
@@ -34,13 +35,13 @@ const RecoveryModal = ({ onClose }) => {
       if (parts1.length > 1) {
         potentialUsernames.add(parts1.slice(1).join('_'));
       }
-      
+
       // Method 2: Split on last underscore  
       const lastUnderscore = key.lastIndexOf('_');
       if (lastUnderscore > 0) {
         potentialUsernames.add(key.substring(lastUnderscore + 1));
       }
-      
+
       // Method 3: Try common patterns
       const patterns = [
         /timeEntries_(.+)/,
@@ -51,7 +52,7 @@ const RecoveryModal = ({ onClose }) => {
         /sickDays_(.+)/,
         /currentPeriodId_(.+)/
       ];
-      
+
       patterns.forEach(pattern => {
         const match = key.match(pattern);
         if (match && match[1]) {
@@ -59,7 +60,7 @@ const RecoveryModal = ({ onClose }) => {
         }
       });
     });
-    
+
     // Also try to get username from currentUser if available
     try {
       const currentUserData = localStorage.getItem('currentUser');
@@ -80,7 +81,7 @@ const RecoveryModal = ({ onClose }) => {
     } catch (e) {
       // Ignore errors
     }
-    
+
     return Array.from(potentialUsernames).filter(Boolean);
   };
 
@@ -101,7 +102,7 @@ const RecoveryModal = ({ onClose }) => {
 
     try {
       const allKeys = Object.keys(localStorage);
-      
+
       // Try multiple key matching patterns
       const keyPatterns = [
         `_${username}`,
@@ -111,10 +112,10 @@ const RecoveryModal = ({ onClose }) => {
         `${username.toLowerCase()}_`,
         `${username.toUpperCase()}_`
       ];
-      
-      const userKeys = allKeys.filter(key => 
-        keyPatterns.some(pattern => key.includes(pattern)) || 
-        key === 'currentUser' || 
+
+      const userKeys = allKeys.filter(key =>
+        keyPatterns.some(pattern => key.includes(pattern)) ||
+        key === 'currentUser' ||
         key === 'users'
       );
 
@@ -131,10 +132,10 @@ const RecoveryModal = ({ onClose }) => {
               username.toUpperCase(),
               username.charAt(0).toUpperCase() + username.slice(1).toLowerCase()
             ];
-            
+
             let decrypted = null;
             let successfulVariation = null;
-            
+
             for (const variation of usernameVariations) {
               try {
                 decrypted = simpleDecrypt(encryptedData, variation);
@@ -146,13 +147,13 @@ const RecoveryModal = ({ onClose }) => {
                 // Try next variation
               }
             }
-            
+
             if (decrypted !== null && decrypted !== undefined) {
               results.decryptedData[key] = decrypted;
               results.success = true;
               results.dataCount++;
               results.debugInfo.keysDecrypted++;
-              
+
               // If we found data with a variation, add it to potential usernames
               if (successfulVariation !== username) {
                 results.alternativeUsername = successfulVariation;
@@ -203,7 +204,7 @@ const RecoveryModal = ({ onClose }) => {
       for (let i = 0; i < potentialUsernames.length; i++) {
         const username = potentialUsernames[i];
         const result = tryDecryptWithUsername(username);
-        
+
         if (result.success) {
           results.push(result);
         }
@@ -214,7 +215,7 @@ const RecoveryModal = ({ onClose }) => {
 
       setRecoveryResults(results);
       setScanComplete(true);
-      
+
       if (results.length === 0) {
         // Provide detailed error message
         const allKeys = Object.keys(localStorage);
@@ -222,9 +223,9 @@ const RecoveryModal = ({ onClose }) => {
           const value = localStorage.getItem(key);
           return value && value.startsWith('encrypted:');
         });
-        
+
         let errorMsg = 'No recoverable data found. ';
-        
+
         if (!hasEncryptedData) {
           errorMsg += 'No encrypted data found in this browser. This might mean:\n';
           errorMsg += '• Data was cleared from this browser\n';
@@ -242,7 +243,7 @@ const RecoveryModal = ({ onClose }) => {
           errorMsg += '• Data was corrupted\n\n';
           errorMsg += `Usernames tried: ${potentialUsernames.join(', ')}`;
         }
-        
+
         setError(errorMsg);
       }
     } catch (error) {
@@ -268,7 +269,7 @@ const RecoveryModal = ({ onClose }) => {
   const generateRecoveryData = (recoveryResult) => {
     const decryptedData = recoveryResult.decryptedData;
     const periodEntries = decryptedData[`timeEntries_${recoveryResult.username}`] || [];
-    
+
     // Use exact same headers as ExportModal (detailed view to match template)
     const headers = [
       'Date',
@@ -320,7 +321,7 @@ const RecoveryModal = ({ onClose }) => {
     // Prefer the entry with more complete data
     const existingCompleteness = calculateEntryCompleteness(existing);
     const duplicateCompleteness = calculateEntryCompleteness(duplicate);
-    
+
     if (duplicateCompleteness > existingCompleteness) {
       return duplicate;
     } else if (existingCompleteness > duplicateCompleteness) {
@@ -328,28 +329,28 @@ const RecoveryModal = ({ onClose }) => {
     } else {
       // If equal completeness, merge the data
       const merged = { ...existing };
-      
+
       // Merge intervals (take all unique intervals)
       const allIntervals = [...(existing.intervals || []), ...(duplicate.intervals || [])];
       merged.intervals = allIntervals;
-      
+
       // Take the higher values for numeric fields
       merged.hoursWorked = Math.max(existing.hoursWorked || 0, duplicate.hoursWorked || 0);
       merged.extraHours = Math.max(existing.extraHours || 0, duplicate.extraHours || 0);
       merged.extraHoursWithFactor = Math.max(existing.extraHoursWithFactor || 0, duplicate.extraHoursWithFactor || 0);
       merged.hoursSpentOutside = Math.max(existing.hoursSpentOutside || 0, duplicate.hoursSpentOutside || 0);
-      
+
       // Merge notes
       const notes = [existing.notes, duplicate.notes].filter(Boolean).join('; ');
       merged.notes = notes || existing.notes || duplicate.notes;
-      
+
       // Prefer Regular type if one is Regular
       if (existing.type === 'Regular' || duplicate.type === 'Regular') {
         merged.type = 'Regular';
       } else {
         merged.type = existing.type || duplicate.type;
       }
-      
+
       return merged;
     }
   };
@@ -357,7 +358,7 @@ const RecoveryModal = ({ onClose }) => {
   // Helper function to calculate how complete an entry is
   const calculateEntryCompleteness = (entry) => {
     let score = 0;
-    
+
     if (entry.date) score += 1;
     if (entry.type) score += 1;
     if (entry.hoursWorked !== undefined && entry.hoursWorked !== null) score += 1;
@@ -372,7 +373,7 @@ const RecoveryModal = ({ onClose }) => {
         if (interval.out) score += 0.5;
       });
     }
-    
+
     return score;
   };
 
@@ -413,30 +414,30 @@ const RecoveryModal = ({ onClose }) => {
       let filename = '';
       let dataByType = {}; // Declare in outer scope
       let totalDecrypted = 0; // Declare in outer scope
-      
+
       if (exportFormat === 'excel') {
         // Create a workbook with all encrypted data
         const XLSX = await import('xlsx');
         const workbook = XLSX.utils.book_new();
-        
+
         // Group data by type and try decryption with multiple methods
         dataByType = {};
         const allUsernames = extractPotentialUsernames();
         const commonUsernames = ['admin', 'user', 'test', 'guest', 'employee', 'default', 'user1', 'demo', 'john', 'jane', 'peter', 'mary', 'david', 'sarah'];
         const allPossibleUsernames = [...new Set([...allUsernames, ...commonUsernames])];
-        
+
         // Try to decrypt each key with all possible usernames
         encryptedKeys.forEach(key => {
           const parts = key.split('_');
           const dataType = parts[0] || 'unknown';
-          
+
           if (!dataByType[dataType]) {
             dataByType[dataType] = [];
           }
-          
+
           let decrypted = null;
           let successfulUsername = null;
-          
+
           // Try all possible usernames
           for (const username of allPossibleUsernames) {
             try {
@@ -451,7 +452,7 @@ const RecoveryModal = ({ onClose }) => {
               // Try next username
             }
           }
-          
+
           if (decrypted) {
             dataByType[dataType].push({
               key,
@@ -461,14 +462,14 @@ const RecoveryModal = ({ onClose }) => {
             });
           }
         });
-        
+
         // Check if we successfully decrypted any data
         totalDecrypted = Object.values(dataByType).reduce((sum, items) => sum + items.length, 0);
         if (totalDecrypted === 0) {
           setError('Found encrypted data but could not decrypt with any known usernames. The data may be corrupted or use an unknown encryption key.');
           return;
         }
-        
+
         // Create sheets for each data type with exact same structure as single user export
         Object.entries(dataByType).forEach(([dataType, items]) => {
           if (dataType === 'timeEntries' && items.length > 0) {
@@ -476,17 +477,17 @@ const RecoveryModal = ({ onClose }) => {
             const sheetData = [
               ['Date', 'Check In', 'Check Out', 'Hours Worked', 'Extra Hours', 'Extra Hours x1.5', 'Type', 'Break Out Times', 'Break In Times', 'Hours Spent Outside', 'Notes']
             ];
-            
+
             // Collect all entries and handle duplicates
             const allEntries = [];
             const dateMap = new Map(); // To handle duplicates by date
-            
+
             items.forEach(item => {
               if (Array.isArray(item.data)) {
                 item.data.forEach(entry => {
                   if (entry && entry.date) {
                     const dateKey = entry.date;
-                    
+
                     if (dateMap.has(dateKey)) {
                       // Handle duplicate - merge or keep most complete
                       const existing = dateMap.get(dateKey);
@@ -500,7 +501,7 @@ const RecoveryModal = ({ onClose }) => {
               } else if (typeof item.data === 'object' && item.data.date) {
                 // Single entry object
                 const dateKey = item.data.date;
-                
+
                 if (dateMap.has(dateKey)) {
                   // Handle duplicate
                   const existing = dateMap.get(dateKey);
@@ -515,7 +516,7 @@ const RecoveryModal = ({ onClose }) => {
                   const entry = item.data[i];
                   if (entry && entry.date) {
                     const dateKey = entry.date;
-                    
+
                     if (dateMap.has(dateKey)) {
                       // Handle duplicate
                       const existing = dateMap.get(dateKey);
@@ -528,12 +529,12 @@ const RecoveryModal = ({ onClose }) => {
                 }
               }
             });
-            
+
             // Convert map to array and sort by date
             const uniqueEntries = Array.from(dateMap.values()).sort((a, b) => {
               return new Date(a.date) - new Date(b.date);
             });
-            
+
             // Process unique entries
             uniqueEntries.forEach(entry => {
               const hoursWorked = entry.hoursWorked || 0;
@@ -545,7 +546,7 @@ const RecoveryModal = ({ onClose }) => {
               const breakIntervals = entry.intervals?.slice(1) || [];
               const breakOutTimes = breakIntervals.map(b => formatTime(b.out)).join(', ') || '-';
               const breakInTimes = breakIntervals.map(b => formatTime(b.in)).join(', ') || '-';
-              
+
               // Add username to notes if from different users
               let notes = entry.notes || '';
               if (entry.username && notes && !notes.includes(`(User: ${entry.username})`)) {
@@ -553,7 +554,7 @@ const RecoveryModal = ({ onClose }) => {
               } else if (entry.username && !notes) {
                 notes = `User: ${entry.username}`;
               }
-              
+
               sheetData.push([
                 formatDate(entry.date),
                 formatTime(firstIn),
@@ -568,7 +569,7 @@ const RecoveryModal = ({ onClose }) => {
                 notes
               ]);
             });
-            
+
             const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
             worksheet['!cols'] = [
               { wch: 12 }, // Date
@@ -583,26 +584,26 @@ const RecoveryModal = ({ onClose }) => {
               { wch: 16 }, // Hours Spent Outside
               { wch: 20 }  // Notes
             ];
-            
+
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Time Entries');
           } else if (items.length > 0) {
             // Create a simple sheet for other data types (EXCLUDE SENSITIVE DATA)
             // Skip sensitive data types like salary, passwordHash, etc.
             const sensitiveDataTypes = ['salary', 'passwordHash', 'users', 'currentUser'];
             if (sensitiveDataTypes.includes(dataType)) {
-              
+
               return; // Skip this data type entirely
             }
-            
+
             const sheetData = [[`Data Type: ${dataType}`, 'Key', 'Username', 'Data Preview', 'Full Data']];
-            
+
             items.forEach(item => {
               if (typeof item.data === 'object') {
                 Object.entries(item.data).forEach(([key, value]) => {
-                  const preview = typeof value === 'string' 
+                  const preview = typeof value === 'string'
                     ? value.substring(0, 50) + (value.length > 50 ? '...' : '')
                     : JSON.stringify(value).substring(0, 50) + (JSON.stringify(value).length > 50 ? '...' : '');
-                  
+
                   sheetData.push([key, item.originalKey, item.username, preview, JSON.stringify(value)]);
                 });
               } else {
@@ -610,36 +611,36 @@ const RecoveryModal = ({ onClose }) => {
                 sheetData.push([item.originalKey, item.originalKey, item.username, preview, JSON.stringify(item.data)]);
               }
             });
-            
+
             const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
             worksheet['!cols'] = [{ wch: 15 }, { wch: 30 }, { wch: 15 }, { wch: 30 }, { wch: 50 }];
-            
+
             XLSX.utils.book_append_sheet(workbook, worksheet, dataType.charAt(0).toUpperCase() + dataType.slice(1));
           }
         });
-        
+
         const timestamp = new Date().toISOString().split('T')[0];
         filename = `Timesheet_All_Data_${timestamp}.xlsx`;
-        
+
         XLSX.writeFile(workbook, filename);
       } else if (exportFormat === 'pdf') {
         // For PDF, create a summary of all data
         const summaryData = [['Data Type', 'Key', 'Username', 'Data Preview', 'Decrypted Items']];
-        
+
         // Initialize dataByType for PDF format
         dataByType = {};
         totalDecrypted = 0;
-        
+
         encryptedKeys.forEach(key => {
           const value = localStorage.getItem(key);
           const parts = key.split('_');
           const dataType = parts[0] || 'unknown';
-          
+
           // Try to decrypt with common usernames
           const commonUsernames = ['admin', 'user', 'test', 'guest', 'employee'];
           let decrypted = null;
           let successfulUsername = null;
-          
+
           for (const username of commonUsernames) {
             try {
               const result = simpleDecrypt(value, username);
@@ -652,15 +653,15 @@ const RecoveryModal = ({ onClose }) => {
               // Try next username
             }
           }
-          
+
           if (decrypted) {
             // Skip sensitive data types in PDF export too
             const sensitiveDataTypes = ['salary', 'passwordHash', 'users', 'currentUser'];
             if (sensitiveDataTypes.includes(dataType)) {
-              
+
               return; // Skip this data type entirely
             }
-            
+
             if (!dataByType[dataType]) {
               dataByType[dataType] = [];
             }
@@ -671,22 +672,22 @@ const RecoveryModal = ({ onClose }) => {
               originalKey: key
             });
             totalDecrypted++;
-            
-            const preview = typeof decrypted === 'object' 
-              ? `${Object.keys(decrypted).length} items` 
+
+            const preview = typeof decrypted === 'object'
+              ? `${Object.keys(decrypted).length} items`
               : String(decrypted).substring(0, 50);
-            
+
             summaryData.push([dataType, key, successfulUsername, preview, '✅']);
           } else {
             summaryData.push([dataType, key, 'Unknown', 'Encrypted data', '❌']);
           }
         });
-        
+
         if (totalDecrypted === 0) {
           setError('Found encrypted data but could not decrypt with any known usernames.');
           return;
         }
-        
+
         filename = await generatePDFReport(summaryData, {
           title: 'All Timesheet Data Summary',
           employee: { name: 'All Users' },
@@ -695,7 +696,7 @@ const RecoveryModal = ({ onClose }) => {
       }
 
       hapticFeedback.success();
-      
+
       // Set success message instead of alert
       setTimeout(() => {
         setScanComplete(false);
@@ -716,16 +717,16 @@ const RecoveryModal = ({ onClose }) => {
 
     try {
       let filename = '';
-      
+
       if (exportFormat === 'excel') {
         // Create a workbook with multiple sheets, one for each user
         const XLSX = await import('xlsx');
         const workbook = XLSX.utils.book_new();
-        
+
         recoveryResults.forEach((result, index) => {
           const sheetData = generateRecoveryData(result);
           const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
-          
+
           // Set column widths (same as ExportModal)
           const colWidths = [
             { wch: 12 }, // Date
@@ -740,25 +741,25 @@ const RecoveryModal = ({ onClose }) => {
             { wch: 16 }, // Hours Spent Outside
             { wch: 20 }  // Notes
           ];
-          
+
           worksheet['!cols'] = colWidths;
-          
+
           // Clean sheet name
           let sheetName = result.username
             .replace(/[:\\/?*\[\]]/g, '-')
             .substring(0, 31);
-          
+
           XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
         });
-        
+
         const timestamp = new Date().toISOString().split('T')[0];
         filename = `Timesheet_Recovery_All_Users_${timestamp}.xlsx`;
-        
+
         XLSX.writeFile(workbook, filename);
       } else if (exportFormat === 'pdf') {
         // For PDF, combine all data into one sheet
         const allData = [['Date', 'Check In', 'Check Out', 'Hours Worked', 'Type']];
-        
+
         recoveryResults.forEach(result => {
           const userData = generateRecoveryData(result);
           // Skip header row for subsequent users
@@ -767,7 +768,7 @@ const RecoveryModal = ({ onClose }) => {
             allData.push([`${result.username}: ${row[0]}`, ...row.slice(1)]);
           });
         });
-        
+
         filename = await generatePDFReport(allData, {
           title: 'Timesheet Recovery - All Users',
           employee: { name: 'Multiple Users' },
@@ -776,7 +777,7 @@ const RecoveryModal = ({ onClose }) => {
       }
 
       hapticFeedback.success();
-      
+
       // Show success message
       setTimeout(() => {
         setError(`✅ All data exported successfully!\n\nFile: ${filename}\nUsers: ${recoveryResults.length}\n\nNext steps:\n1. Create a new account\n2. Use the Import feature to restore your data`);
@@ -796,7 +797,7 @@ const RecoveryModal = ({ onClose }) => {
 
     try {
       let filename = '';
-      
+
       if (exportFormat === 'excel') {
         // Use existing Excel export function with exact same structure as ExportModal
         const excelData = generateRecoveryData(recoveryResult);
@@ -816,7 +817,7 @@ const RecoveryModal = ({ onClose }) => {
       }
 
       hapticFeedback.success();
-      
+
       // Show success message
       setTimeout(() => {
         setError(`✅ Data exported successfully!\n\nFile: ${filename}\n\nNext steps:\n1. Create a new account\n2. Use the Import feature to restore your data`);
@@ -847,357 +848,358 @@ const RecoveryModal = ({ onClose }) => {
   const getDataSummary = (recoveryResult) => {
     const data = recoveryResult.decryptedData;
     const summary = [];
-    
+
     if (data[`timeEntries_${recoveryResult.username}`]) {
       const entries = data[`timeEntries_${recoveryResult.username}`];
       summary.push(`${entries.length} time entries`);
     }
-    
+
     if (data[`payPeriods_${recoveryResult.username}`]) {
       const periods = data[`payPeriods_${recoveryResult.username}`];
       summary.push(`${periods.length} pay periods`);
     }
-    
+
     if (data[`fullName_${recoveryResult.username}`]) {
       summary.push('user settings');
     }
-    
+
     return summary.length > 0 ? summary.join(', ') : 'Basic data';
   };
 
   return (
     <>
       <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="export-modal">
-      <h3>🔐 Data Recovery</h3>
-      <p className="settings-description">
-        Recover your timesheet data when you've forgotten your password. 
-        Your data is encrypted locally for security, so we'll extract it for you to import into a new account.
-      </p>
+        <h3>🔐 Data Recovery</h3>
+        <p className="settings-description">
+          Recover your timesheet data when you've forgotten your password.
+          Your data is encrypted locally for security, so we'll extract it for you to import into a new account.
+        </p>
 
-      {/* Employee Info Preview */}
-      <div className="export-preview-box">
-        <strong>🔍 Recovery Status:</strong> {scanComplete ? `${recoveryResults.length} user(s) found` : 'Ready to scan'}
-      </div>
-
-      {!scanComplete ? (
-        <div className="form-group">
-          <label className="form-label">Recovery Options</label>
-          <div className="export-mode-tabs">
-            <button
-              className={`export-mode-tab active`}
-              onClick={startScan}
-              disabled={isScanning}
-            >
-              {isScanning ? (
-                <>
-                  <div className="btn-spinner"></div>
-                  Scanning...
-                </>
-              ) : (
-                '🔍 Scan for Data'
-              )}
-            </button>
-          </div>
+        {/* Employee Info Preview */}
+        <div className="export-preview-box">
+          <strong>🔍 Recovery Status:</strong> {scanComplete ? `${recoveryResults.length} user(s) found` : 'Ready to scan'}
         </div>
-      ) : (
-        <>
-          {/* Recovery Mode Selection */}
+
+        {!scanComplete ? (
           <div className="form-group">
             <label className="form-label">Recovery Options</label>
-            <div className="recovery-mode-tabs">
+            <div className="export-mode-tabs">
               <button
-                className={`recovery-mode-tab ${recoveryMode === 'show' ? 'active' : ''}`}
-                onClick={() => {
-                  hapticFeedback.buttonClick();
-                  setRecoveryMode('show');
-                }}
+                className={`export-mode-tab active`}
+                onClick={startScan}
+                disabled={isScanning}
               >
-                <span className="tab-icon">👁️</span>
-                <span className="tab-text">Show Users Found</span>
-              </button>
-              <button
-                className={`recovery-mode-tab ${recoveryMode === 'specific' ? 'active' : ''}`}
-                onClick={() => {
-                  hapticFeedback.buttonClick();
-                  setRecoveryMode('specific');
-                }}
-                disabled={recoveryResults.length === 0}
-              >
-                <span className="tab-icon">👤</span>
-                <span className="tab-text">Export Specific User</span>
-              </button>
-              <button
-                className={`recovery-mode-tab ${recoveryMode === 'all' ? 'active' : ''}`}
-                onClick={() => {
-                  hapticFeedback.buttonClick();
-                  setRecoveryMode('all');
-                }}
-                disabled={recoveryResults.length === 0}
-              >
-                <span className="tab-icon">📦</span>
-                <span className="tab-text">Export All Users</span>
-              </button>
-              <button
-                className={`recovery-mode-tab ${recoveryMode === 'all-data' ? 'active' : ''}`}
-                onClick={() => {
-                  hapticFeedback.buttonClick();
-                  setRecoveryMode('all-data');
-                }}
-              >
-                <span className="tab-icon">💾</span>
-                <span className="tab-text">Export All Data</span>
+                {isScanning ? (
+                  <>
+                    <div className="btn-spinner"></div>
+                    Scanning...
+                  </>
+                ) : (
+                  '🔍 Scan for Data'
+                )}
               </button>
             </div>
           </div>
-
-          {/* Show Users Mode */}
-          {recoveryMode === 'show' && (
-            <div className="recovery-show-section">
-              <h4>🔍 Users Found ({recoveryResults.length})</h4>
-              {recoveryResults.length > 0 ? (
-                <div className="recovery-list">
-                  {recoveryResults.map((result, index) => (
-                    <div key={index} className="recovery-item">
-                      <div className="recovery-item-header">
-                        <div className="user-info">
-                          <h5>👤 {result.username}</h5>
-                          <span className="data-count">{result.dataCount} data items</span>
-                        </div>
-                        <div className="data-summary">
-                          {getDataSummary(result)}
-                        </div>
-                      </div>
-                      
-                      <div className="recovery-item-details">
-                        <div className="data-size">
-                          Size: {formatDataSize(result.decryptedData)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="no-users-found">
-                  <p>No valid users were found during the scan.</p>
-                  {hasAnyEncryptedData() ? (
-                    <>
-                      <p>However, {getEncryptedDataCount()} encrypted data items were found!</p>
-                      <p>Use the "Export All Data" option to recover this data.</p>
-                    </>
-                  ) : (
-                    <p>No encrypted data found in this browser.</p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Export Specific User Mode */}
-          {recoveryMode === 'specific' && (
-            <div className="recovery-specific-section">
-              <h4>👤 Export Specific User</h4>
-              <div className="user-selection">
-                <label className="form-label">Select User</label>
-                <select 
-                  className="form-select"
-                  value={selectedUserForExport}
-                  onChange={(e) => {
+        ) : (
+          <>
+            {/* Recovery Mode Selection */}
+            <div className="form-group">
+              <label className="form-label">Recovery Options</label>
+              <div className="recovery-mode-tabs">
+                <button
+                  className={`recovery-mode-tab ${recoveryMode === 'show' ? 'active' : ''}`}
+                  onClick={() => {
                     hapticFeedback.buttonClick();
-                    setSelectedUserForExport(e.target.value);
+                    setRecoveryMode('show');
                   }}
                 >
-                  <option value="">Choose a user...</option>
-                  {recoveryResults.map((result, index) => (
-                    <option key={index} value={result.username}>
-                      {result.username} ({result.dataCount} items)
-                    </option>
-                  ))}
-                </select>
-                
-                {selectedUserForExport && (
-                  <div className="selected-user-info">
-                    <div className="user-details">
-                      <strong>👤 {selectedUserForExport}</strong>
-                      <span className="data-count">
-                        {recoveryResults.find(r => r.username === selectedUserForExport)?.dataCount || 0} data items
-                      </span>
-                      <span className="data-summary">
-                        {getDataSummary(recoveryResults.find(r => r.username === selectedUserForExport))}
-                      </span>
+                  <span className="tab-icon">👁️</span>
+                  <span className="tab-text">Show Users Found</span>
+                </button>
+                <button
+                  className={`recovery-mode-tab ${recoveryMode === 'specific' ? 'active' : ''}`}
+                  onClick={() => {
+                    hapticFeedback.buttonClick();
+                    setRecoveryMode('specific');
+                  }}
+                  disabled={recoveryResults.length === 0}
+                >
+                  <span className="tab-icon">👤</span>
+                  <span className="tab-text">Export Specific User</span>
+                </button>
+                <button
+                  className={`recovery-mode-tab ${recoveryMode === 'all' ? 'active' : ''}`}
+                  onClick={() => {
+                    hapticFeedback.buttonClick();
+                    setRecoveryMode('all');
+                  }}
+                  disabled={recoveryResults.length === 0}
+                >
+                  <span className="tab-icon">📦</span>
+                  <span className="tab-text">Export All Users</span>
+                </button>
+                <button
+                  className={`recovery-mode-tab ${recoveryMode === 'all-data' ? 'active' : ''}`}
+                  onClick={() => {
+                    hapticFeedback.buttonClick();
+                    setRecoveryMode('all-data');
+                  }}
+                >
+                  <span className="tab-icon">💾</span>
+                  <span className="tab-text">Export All Data</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Show Users Mode */}
+            {recoveryMode === 'show' && (
+              <div className="recovery-show-section">
+                <h4>🔍 Users Found ({recoveryResults.length})</h4>
+                {recoveryResults.length > 0 ? (
+                  <div className="recovery-list">
+                    {recoveryResults.map((result, index) => (
+                      <div key={index} className="recovery-item">
+                        <div className="recovery-item-header">
+                          <div className="user-info">
+                            <h5>👤 {result.username}</h5>
+                            <span className="data-count">{result.dataCount} data items</span>
+                          </div>
+                          <div className="data-summary">
+                            {getDataSummary(result)}
+                          </div>
+                        </div>
+
+                        <div className="recovery-item-details">
+                          <div className="data-size">
+                            Size: {formatDataSize(result.decryptedData)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="no-users-found">
+                    <p>No valid users were found during the scan.</p>
+                    {hasAnyEncryptedData() ? (
+                      <>
+                        <p>However, {getEncryptedDataCount()} encrypted data items were found!</p>
+                        <p>Use the "Export All Data" option to recover this data.</p>
+                      </>
+                    ) : (
+                      <p>No encrypted data found in this browser.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Export Specific User Mode */}
+            {recoveryMode === 'specific' && (
+              <div className="recovery-specific-section">
+                <h4>👤 Export Specific User</h4>
+                <div className="user-selection">
+                  <label className="form-label">Select User</label>
+                  <CustomSelect
+                    id="recovery-user-select"
+                    name="selectedUserForExport"
+                    value={selectedUserForExport}
+                    onChange={(e) => {
+                      hapticFeedback.buttonClick();
+                      setSelectedUserForExport(e.target.value);
+                    }}
+                    options={[
+                      { label: 'Choose a user...', value: '' },
+                      ...recoveryResults.map((result, index) => ({
+                        label: `${result.username} (${result.dataCount} items)`,
+                        value: result.username
+                      }))
+                    ]}
+                  />
+
+                  {selectedUserForExport && (
+                    <div className="selected-user-info">
+                      <div className="user-details">
+                        <strong>👤 {selectedUserForExport}</strong>
+                        <span className="data-count">
+                          {recoveryResults.find(r => r.username === selectedUserForExport)?.dataCount || 0} data items
+                        </span>
+                        <span className="data-summary">
+                          {getDataSummary(recoveryResults.find(r => r.username === selectedUserForExport))}
+                        </span>
+                      </div>
+                      <button
+                        className="recovery-btn recovery-btn-primary"
+                        onClick={() => exportUserData(recoveryResults.find(r => r.username === selectedUserForExport))}
+                        disabled={isExporting}
+                      >
+                        {isExporting ? (
+                          <>
+                            <div className="recovery-btn-spinner"></div>
+                            Exporting...
+                          </>
+                        ) : (
+                          '📥 Export Data'
+                        )}
+                      </button>
                     </div>
-                    <button 
-                      className="recovery-btn recovery-btn-primary"
-                      onClick={() => exportUserData(recoveryResults.find(r => r.username === selectedUserForExport))}
-                      disabled={isExporting}
-                    >
-                      {isExporting ? (
-                        <>
-                          <div className="recovery-btn-spinner"></div>
-                          Exporting...
-                        </>
-                      ) : (
-                        '📥 Export Data'
-                      )}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Export All Users Mode */}
-          {recoveryMode === 'all' && (
-            <div className="recovery-all-section">
-              <h4>📦 Export All Users</h4>
-              <div className="export-all-info">
-                <p>Export all {recoveryResults.length} recovered users into a single file.</p>
-                <ul>
-                  <li>Excel: Creates separate sheets for each user</li>
-                  <li>PDF: Combines all data with username prefixes</li>
-                </ul>
-              </div>
-              <button 
-                className="recovery-btn recovery-btn-primary recovery-btn-large"
-                onClick={exportAllData}
-                disabled={isExporting}
-              >
-                {isExporting ? (
-                  <>
-                    <div className="recovery-btn-spinner"></div>
-                    Exporting All...
-                  </>
-                ) : (
-                  `📦 Export All Users (${recoveryResults.length})`
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* Export All Data Mode */}
-          {recoveryMode === 'all-data' && (
-            <div className="recovery-all-data-section">
-              <h4>💾 Export All Data</h4>
-              <div className="export-all-info">
-                <p>Export ALL encrypted data found in this browser, regardless of user detection.</p>
-                <div className="data-count-info">
-                  <strong>Found {getEncryptedDataCount()} encrypted data items</strong>
+                  )}
                 </div>
-                <ul>
-                  <li>Finds all encrypted localStorage keys</li>
-                  <li>Attempts decryption with common usernames</li>
-                  <li>Groups data by type (timeEntries, payPeriods, etc.)</li>
-                  <li>Useful when user detection fails</li>
-                  <li>Exports data in Excel/PDF format</li>
-                </ul>
-                {recoveryResults.length > 0 && (
-                  <div className="alternative-option">
-                    <p><strong>Alternative:</strong> {recoveryResults.length} valid users were found. Consider using "Export All Users" for better organization.</p>
-                  </div>
-                )}
               </div>
-              <button 
-                className="recovery-btn recovery-btn-warning recovery-btn-large"
-                onClick={exportAllDataRegardless}
-                disabled={isExporting}
-              >
-                {isExporting ? (
-                  <>
-                    <div className="recovery-btn-spinner"></div>
-                    Exporting All Data...
-                  </>
-                ) : (
-                  '💾 Export All Data'
-                )}
-              </button>
-            </div>
-          )}
+            )}
 
-          {/* Export Format Selection (for specific and all modes) */}
-          {(recoveryMode === 'specific' || recoveryMode === 'all' || recoveryMode === 'all-data') && (
-            <div className="form-group">
-              <label className="form-label">Export Format</label>
-              <div className="export-format-options">
-                <label className="export-format-option">
-                  <input
-                    type="radio"
-                    name="exportFormat"
-                    value="excel"
-                    checked={exportFormat === 'excel'}
-                    onChange={(e) => {
-                      hapticFeedback.buttonClick();
-                      setExportFormat(e.target.value);
-                    }}
-                  />
-                  <div className="export-format-content">
-                    <strong>📊 Excel</strong>
-                    <small>Formatted spreadsheet with data</small>
-                  </div>
-                </label>
-                <label className="export-format-option">
-                  <input
-                    type="radio"
-                    name="exportFormat"
-                    value="pdf"
-                    checked={exportFormat === 'pdf'}
-                    onChange={(e) => {
-                      hapticFeedback.buttonClick();
-                      setExportFormat(e.target.value);
-                    }}
-                  />
-                  <div className="export-format-content">
-                    <strong>📄 PDF Report</strong>
-                    <small>Professional document format</small>
-                  </div>
-                </label>
+            {/* Export All Users Mode */}
+            {recoveryMode === 'all' && (
+              <div className="recovery-all-section">
+                <h4>📦 Export All Users</h4>
+                <div className="export-all-info">
+                  <p>Export all {recoveryResults.length} recovered users into a single file.</p>
+                  <ul>
+                    <li>Excel: Creates separate sheets for each user</li>
+                    <li>PDF: Combines all data with username prefixes</li>
+                  </ul>
+                </div>
+                <button
+                  className="recovery-btn recovery-btn-primary recovery-btn-large"
+                  onClick={exportAllData}
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <>
+                      <div className="recovery-btn-spinner"></div>
+                      Exporting All...
+                    </>
+                  ) : (
+                    `📦 Export All Users (${recoveryResults.length})`
+                  )}
+                </button>
               </div>
-            </div>
-          )}
-        </>
-      )}
+            )}
 
-      {/* Actions */}
-      <div className="form-actions">
-        {!scanComplete && (
-          <button 
-            type="button" 
-            className="recovery-btn recovery-btn-secondary"
-            onClick={onClose}
-          >
-            Close
-          </button>
-        )}
-        
-        {scanComplete && (
-          <>
-            <button 
-              type="button" 
-              className="recovery-btn recovery-btn-secondary"
-              onClick={() => {
-                setScanComplete(false);
-                setRecoveryResults([]);
-                setError('');
-              }}
-            >
-              🔄 Scan Again
-            </button>
-            <button 
-              type="button"
-              className="recovery-btn recovery-btn-primary"
-              onClick={onClose}
-            >
-              Done
-            </button>
+            {/* Export All Data Mode */}
+            {recoveryMode === 'all-data' && (
+              <div className="recovery-all-data-section">
+                <h4>💾 Export All Data</h4>
+                <div className="export-all-info">
+                  <p>Export ALL encrypted data found in this browser, regardless of user detection.</p>
+                  <div className="data-count-info">
+                    <strong>Found {getEncryptedDataCount()} encrypted data items</strong>
+                  </div>
+                  <ul>
+                    <li>Finds all encrypted localStorage keys</li>
+                    <li>Attempts decryption with common usernames</li>
+                    <li>Groups data by type (timeEntries, payPeriods, etc.)</li>
+                    <li>Useful when user detection fails</li>
+                    <li>Exports data in Excel/PDF format</li>
+                  </ul>
+                  {recoveryResults.length > 0 && (
+                    <div className="alternative-option">
+                      <p><strong>Alternative:</strong> {recoveryResults.length} valid users were found. Consider using "Export All Users" for better organization.</p>
+                    </div>
+                  )}
+                </div>
+                <button
+                  className="recovery-btn recovery-btn-warning recovery-btn-large"
+                  onClick={exportAllDataRegardless}
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <>
+                      <div className="recovery-btn-spinner"></div>
+                      Exporting All Data...
+                    </>
+                  ) : (
+                    '💾 Export All Data'
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* Export Format Selection (for specific and all modes) */}
+            {(recoveryMode === 'specific' || recoveryMode === 'all' || recoveryMode === 'all-data') && (
+              <div className="form-group">
+                <label className="form-label">Export Format</label>
+                <div className="export-format-options">
+                  <label className="export-format-option">
+                    <input
+                      type="radio"
+                      name="exportFormat"
+                      value="excel"
+                      checked={exportFormat === 'excel'}
+                      onChange={(e) => {
+                        hapticFeedback.buttonClick();
+                        setExportFormat(e.target.value);
+                      }}
+                    />
+                    <div className="export-format-content">
+                      <strong>📊 Excel</strong>
+                      <small>Formatted spreadsheet with data</small>
+                    </div>
+                  </label>
+                  <label className="export-format-option">
+                    <input
+                      type="radio"
+                      name="exportFormat"
+                      value="pdf"
+                      checked={exportFormat === 'pdf'}
+                      onChange={(e) => {
+                        hapticFeedback.buttonClick();
+                        setExportFormat(e.target.value);
+                      }}
+                    />
+                    <div className="export-format-content">
+                      <strong>📄 PDF Report</strong>
+                      <small>Professional document format</small>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            )}
           </>
         )}
-      </div>
-    </ModalShell>
-    
-    <AlertModal
-      isOpen={alertModal.isOpen}
-      message={alertModal.message}
-      type={alertModal.type}
-      onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
-    />
+
+        {/* Actions */}
+        <div className="form-actions">
+          {!scanComplete && (
+            <button
+              type="button"
+              className="recovery-btn recovery-btn-secondary"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          )}
+
+          {scanComplete && (
+            <>
+              <button
+                type="button"
+                className="recovery-btn recovery-btn-secondary"
+                onClick={() => {
+                  setScanComplete(false);
+                  setRecoveryResults([]);
+                  setError('');
+                }}
+              >
+                🔄 Scan Again
+              </button>
+              <button
+                type="button"
+                className="recovery-btn recovery-btn-primary"
+                onClick={onClose}
+              >
+                Done
+              </button>
+            </>
+          )}
+        </div>
+      </ModalShell>
+
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        message={alertModal.message}
+        type={alertModal.type}
+        onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
+      />
     </>
   );
 };

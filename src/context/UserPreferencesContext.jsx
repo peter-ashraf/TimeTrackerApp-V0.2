@@ -16,46 +16,51 @@ export const useUserPreferences = () => {
 
 export const UserPreferencesProvider = ({ children }) => {
   const { currentUser, isAuthenticated, getUserData, saveUserData } = useSupabaseAuth();
-  
+
   // Theme State (app-wide)
   const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem('theme');
-    if (saved) return saved;
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
-    return 'light';
+    return localStorage.getItem('theme') || 'system';
   });
-  
+
+  // Helper to get active theme (light or dark)
+  const getActiveTheme = useCallback((baseTheme) => {
+    if (baseTheme === 'system') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return baseTheme;
+  }, []);
+
+  const [activeTheme, setActiveTheme] = useState(() => getActiveTheme(theme));
+
   // UI Preferences
   const [hideSalary, setHideSalary] = useState(() => {
     const saved = localStorage.getItem('hideSalary');
     return saved === 'true';
   });
-  
+
   const [use12Hour, setUse12Hour] = useState(() => {
     const saved = localStorage.getItem('use12HourFormat');
     return saved !== 'false';
   });
-  
+
   const [detailedView, setDetailedView] = useState(() => {
     const saved = localStorage.getItem('detailedView');
     return saved === 'true';
   });
 
   // Employee Data
-  const [employee, setEmployee] = useState({ 
-    name: '', 
+  const [employee, setEmployee] = useState({
+    name: '',
     salary: 0,
     employeeType: 'full-time',
     dailyHours: 9,
     monthlyHours: 187,
     workDaysPerWeek: 5
   });
-  
+
   // Leave Settings
-  const [leaveSettings, setLeaveSettings] = useState({ 
-    annualVacation: 10, 
+  const [leaveSettings, setLeaveSettings] = useState({
+    annualVacation: 10,
     sickDays: 7,
     personalDays: 2,
     usedVacationDays: 0,
@@ -66,26 +71,26 @@ export const UserPreferencesProvider = ({ children }) => {
   // Load user preferences
   const loadUserPreferences = useCallback(async () => {
     if (!currentUser || !isAuthenticated) return;
-    
+
     try {
       // Load from local storage immediately
       const salaryKey = `salary_${currentUser.id}`;
       const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
-      
+
       let localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
       const localLeaveSettings = getSimpleEncryptedItem(leaveSettingsKey, currentUser.username) || {
         annualVacation: 10,
         sickDays: 7,
         personalDays: 2
       };
-      
+
       setEmployee(prev => ({
         ...prev,
         name: localStorage.getItem('userDisplayName') || currentUser.fullName || currentUser.username || 'User',
         salary: localSalary
       }));
       setLeaveSettings(localLeaveSettings);
-      
+
       // Defer Supabase sync
       setTimeout(async () => {
         if (navigator.onLine && currentUser && !currentUser.isLocalOnly) {
@@ -94,12 +99,12 @@ export const UserPreferencesProvider = ({ children }) => {
               supabaseData.getUserProfile(currentUser.id),
               supabaseData.getLeaveSettings(currentUser.id)
             ]);
-            
+
             if (profileData) {
               // Check if user recently changed name locally (within last 5 seconds)
               const lastNameChange = localStorage.getItem('userDisplayNameTimestamp');
               const recentlyChanged = lastNameChange && (Date.now() - parseInt(lastNameChange)) < 5000;
-              
+
               setEmployee(prev => ({
                 ...prev,
                 // Don't overwrite local name if user just changed it
@@ -126,7 +131,7 @@ export const UserPreferencesProvider = ({ children }) => {
           }
         }
       }, 300);
-      
+
     } catch (error) {
       console.error('loadUserPreferences critical error:', error);
     }
@@ -135,7 +140,7 @@ export const UserPreferencesProvider = ({ children }) => {
   // Save employee data
   useEffect(() => {
     if (!currentUser) return;
-    
+
     const saveEmployeeData = async () => {
       try {
         // Only save employee type fields to Supabase - NEVER save full_name automatically!
@@ -148,11 +153,11 @@ export const UserPreferencesProvider = ({ children }) => {
           monthly_hours: employee.monthlyHours,
           work_days_per_week: employee.workDaysPerWeek
         });
-        
+
         // Save salary to encrypted localStorage only
         const salaryKey = `salary_${currentUser.id}`;
         setSimpleEncryptedItem(salaryKey, employee.salary, currentUser.username);
-        
+
       } catch (error) {
         console.error('Failed to save employee data:', error);
         // Fallback
@@ -160,7 +165,7 @@ export const UserPreferencesProvider = ({ children }) => {
         setSimpleEncryptedItem(salaryKey, employee.salary, currentUser.username);
       }
     };
-    
+
     saveEmployeeData();
     multiTabSync.notifyDataChange('employee', employee, currentUser.username);
   }, [employee, currentUser]);
@@ -168,7 +173,7 @@ export const UserPreferencesProvider = ({ children }) => {
   // Save leave settings
   useEffect(() => {
     if (!currentUser) return;
-    
+
     const saveLeaveSettingsData = async () => {
       try {
         await supabaseData.saveLeaveSettings(currentUser.id, {
@@ -179,7 +184,7 @@ export const UserPreferencesProvider = ({ children }) => {
           used_sick_days: leaveSettings.usedSickDays,
           used_personal_days: leaveSettings.usedPersonalDays
         });
-        
+
       } catch (error) {
         console.error('Failed to save leave settings:', error);
         // Fallback to localStorage
@@ -187,49 +192,58 @@ export const UserPreferencesProvider = ({ children }) => {
         setSimpleEncryptedItem(leaveSettingsKey, leaveSettings, currentUser.username);
       }
     };
-    
+
     saveLeaveSettingsData();
     multiTabSync.notifyDataChange('leaveSettings', leaveSettings, currentUser.username);
   }, [leaveSettings, currentUser]);
 
-  // Persist UI preferences
+  // Update theme-color meta tag for PWA and iOS status bar
+  const updateThemeColorMeta = useCallback((currentActiveTheme) => {
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      document.getElementsByTagName('head')[0].appendChild(meta);
+    }
+
+    // Exact colors from public/css/styles.css
+    // Light: var(--color-background) -> #fcfcf9 (Cream 50)
+    // Dark: var(--color-background) -> #1f2121 (Charcoal 700)
+    const color = currentActiveTheme === 'dark' ? '#1f2121' : '#fcfcf9';
+    meta.setAttribute('content', color);
+  }, []);
+
+  // Persist UI preferences and handle theme changes
   useEffect(() => {
     localStorage.setItem('theme', theme);
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
-  
+
+    const handleThemeChange = () => {
+      const newActiveTheme = getActiveTheme(theme);
+      setActiveTheme(newActiveTheme);
+      document.documentElement.setAttribute('data-theme', newActiveTheme);
+      updateThemeColorMeta(newActiveTheme);
+    };
+
+    handleThemeChange();
+
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      mediaQuery.addEventListener('change', handleThemeChange);
+      return () => mediaQuery.removeEventListener('change', handleThemeChange);
+    }
+  }, [theme, getActiveTheme, updateThemeColorMeta]);
+
   useEffect(() => {
     localStorage.setItem('hideSalary', hideSalary);
   }, [hideSalary]);
-  
+
   useEffect(() => {
     localStorage.setItem('use12HourFormat', use12Hour);
   }, [use12Hour]);
-  
+
   useEffect(() => {
     localStorage.setItem('detailedView', detailedView);
   }, [detailedView]);
-
-  // Listen for system theme changes
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
-    const handleThemeChange = (e) => {
-      const savedTheme = localStorage.getItem('theme');
-      if (!savedTheme) {
-        const newTheme = e.matches ? 'dark' : 'light';
-        setTheme(newTheme);
-      }
-    };
-    
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', handleThemeChange);
-      return () => mediaQuery.removeEventListener('change', handleThemeChange);
-    } else if (mediaQuery.addListener) {
-      mediaQuery.addListener(handleThemeChange);
-      return () => mediaQuery.removeListener(handleThemeChange);
-    }
-  }, []);
 
   // Load preferences when user changes
   useEffect(() => {
@@ -237,8 +251,8 @@ export const UserPreferencesProvider = ({ children }) => {
       loadUserPreferences();
     } else {
       // Reset to defaults
-      setEmployee({ 
-        name: '', 
+      setEmployee({
+        name: '',
         salary: 0,
         employeeType: 'full-time',
         dailyHours: 9,
@@ -253,21 +267,22 @@ export const UserPreferencesProvider = ({ children }) => {
     // Employee data
     employee,
     setEmployee,
-    
+
     // Leave settings
     leaveSettings,
     setLeaveSettings,
-    
+
     // UI preferences
     theme,
     setTheme,
+    activeTheme,
     hideSalary,
     setHideSalary,
     use12Hour,
     setUse12Hour,
     detailedView,
     setDetailedView,
-    
+
     // Data operations
     loadUserPreferences
   };

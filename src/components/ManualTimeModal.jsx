@@ -3,6 +3,7 @@ import { useTimeTracker } from '../context/TimeTrackerContext';
 import { useTimeEntry } from '../context/TimeEntryContext';
 import ModalShell from './ModalShell';
 import ConfirmModal from './ConfirmModal';
+import CustomSelect from './CustomSelect';
 
 function ManualTimeModal({ mode, onClose }) {
   const { setEntries, entries, formatDate, getCurrentPeriod, updateEntry, setConfirmModal, confirmModal, showAlert } = useTimeTracker();
@@ -13,7 +14,7 @@ function ManualTimeModal({ mode, onClose }) {
 
   const handleSave = async () => {
     const dateToUse = applyMode === 'today' ? formatDate(new Date()) : selectedDate;
-    
+
     if (!timeValue) {
       setConfirmModal({
         isOpen: true,
@@ -35,7 +36,7 @@ function ManualTimeModal({ mode, onClose }) {
     if (currentPeriod) {
       const periodStart = currentPeriod.start_date || currentPeriod.start;
       const periodEnd = currentPeriod.end_date || currentPeriod.end;
-      
+
       if (dateToUse < periodStart || dateToUse > periodEnd) {
         const proceed = window.confirm(`Warning: ${dateToUse} is outside the current period (${currentPeriod.label}). Do you want to continue?`);
         if (!proceed) return;
@@ -59,7 +60,7 @@ function ManualTimeModal({ mode, onClose }) {
           });
           return;
         }
-        
+
         // Add new check-in interval
         await updateEntry(dateToUse, {
           intervals: [...existingEntry.intervals, { in: timeWithSeconds, out: null }]
@@ -76,11 +77,11 @@ function ManualTimeModal({ mode, onClose }) {
           extraHoursWithFactor: 0,
           hoursSpentOutside: 0
         };
-        
+
         // Update entries locally first
         const updatedEntries = [newEntry, ...entries.filter(e => e.date !== dateToUse)];
         setEntries(updatedEntries);
-        
+
         // Save to Supabase with retry logic
         await saveTimeEntriesData(newEntry, showAlert);
       }
@@ -124,7 +125,7 @@ function ManualTimeModal({ mode, onClose }) {
         });
         return;
       }
-      
+
       // Update last interval with check-out time
       const updatedIntervals = existingEntry.intervals.map((interval, idx) =>
         idx === existingEntry.intervals.length - 1
@@ -135,7 +136,7 @@ function ManualTimeModal({ mode, onClose }) {
       await updateEntry(dateToUse, {
         intervals: updatedIntervals
       });
-      
+
       setConfirmModal({
         isOpen: true,
         title: '✓ Manually Checked Out Successfully',
@@ -159,14 +160,16 @@ function ManualTimeModal({ mode, onClose }) {
         <div className="modal-body">
           <div className="form-group">
             <label className="form-label">Apply for</label>
-            <select 
-              className="form-control"
+            <CustomSelect
+              id="apply-mode-select"
+              name="applyMode"
               value={applyMode}
               onChange={(e) => setApplyMode(e.target.value)}
-            >
-              <option value="today">Today ({formatDate(new Date())})</option>
-              <option value="date">Specific date</option>
-            </select>
+              options={[
+                { label: `Today (${formatDate(new Date())})`, value: 'today' },
+                { label: 'Specific date', value: 'date' }
+              ]}
+            />
           </div>
 
           {applyMode === 'date' && (
@@ -198,7 +201,7 @@ function ManualTimeModal({ mode, onClose }) {
           <button className="btn btn-primary" onClick={handleSave}>Save</button>
         </div>
       </ModalShell>
-      
+
       <ConfirmModal
         isOpen={confirmModal?.isOpen}
         title={confirmModal?.title}
