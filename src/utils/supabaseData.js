@@ -489,7 +489,7 @@ export const supabaseData = {
       if (response.status === 406 || response.status === 404) return null;
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      return data?.id || null;
+      return data || null;
     } finally {
       clearTimeout(timeoutId);
     }

@@ -13,7 +13,7 @@ const CustomSelect = ({
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef(null);
 
-    const selectedOption = options.find(opt => opt.value === value) || null;
+    const selectedOption = options.find(opt => String(opt.value) === String(value)) || null;
 
     // Handle outside click to close
     useEffect(() => {
@@ -65,7 +65,7 @@ const CustomSelect = ({
                 {options.map((option) => (
                     <div
                         key={option.value}
-                        className={`custom-select-option ${option.value === value ? 'selected' : ''} ${option.disabled ? 'disabled-option' : ''}`}
+                        className={`custom-select-option ${String(option.value) === String(value) ? 'selected' : ''} ${option.disabled ? 'disabled-option' : ''}`}
                         onClick={(e) => {
                             if (option.disabled) {
                                 e.stopPropagation();
@@ -75,7 +75,7 @@ const CustomSelect = ({
                         }}
                     >
                         {option.label}
-                        {option.value === value && !option.disabled && (
+                        {String(option.value) === String(value) && !option.disabled && (
                             <i className="fa-solid fa-check check-icon"></i>
                         )}
                     </div>

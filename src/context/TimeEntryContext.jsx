@@ -95,9 +95,10 @@ export const TimeEntryProvider = ({ children }) => {
             const savedData = await savePromise;
 
             // ✅ ADD THIS — merge returned Supabase id back into local state
-            if (savedData?.id && !Array.isArray(entriesToSave)) {
+            const returnedEntry = Array.isArray(savedData) ? savedData[0] : savedData;
+            if (returnedEntry?.id && !Array.isArray(entriesToSave)) {
               setEntries(prev => prev.map(e =>
-                e.date === entriesToSave.date ? { ...e, id: savedData.id } : e
+                e.date === entriesToSave.date ? { ...e, id: returnedEntry.id } : e
               ));
             }
 
@@ -187,92 +188,142 @@ export const TimeEntryProvider = ({ children }) => {
           ]);
           const entriesData = await fetchWithTimeout;
 
-          // If online and Supabase returned empty, trust Supabase (all entries deleted)
+          // If online and Supabase returned empty, check if we have offline-created entries
           if (navigator.onLine && entriesData && entriesData.length === 0) {
-            setEntries([]);
+            const unsyncedLocal = localEntries.filter(e => !e.id);
+            if (unsyncedLocal.length > 0) {
+              setEntries(unsyncedLocal.sort((a, b) => b.date.localeCompare(a.date)));
+              console.log(`[Sync] Supabase returned empty, but uploading ${unsyncedLocal.length} offline-created entries...`);
+              Promise.all(
+                unsyncedLocal.map(async (entry) => {
+                  try {
+                    const saved = await supabaseData.saveTimeEntry(currentUser.id, entry);
+                    const returnedEntry = Array.isArray(saved) ? saved[0] : saved;
+                    if (returnedEntry?.id) {
+                      setEntries(prev => prev.map(e =>
+                        e.date === entry.date ? { ...e, id: returnedEntry.id } : e
+                      ));
+                    }
+                  } catch (err) {
+                    console.error(`[Sync] Failed to upload entry for ${entry.date}:`, err);
+                  }
+                })
+              );
+            } else {
+              setEntries([]);
+            }
             return;
           }
 
           if (entriesData && entriesData.length > 0) {
-            const detectConflicts = (localEntries, remoteEntries) => {
-              const conflicts = [];
-              const localMap = new Map(localEntries.map(e => [e.date, e]));
-              const remoteMap = new Map(remoteEntries.map(e => [e.date, e]));
+            const localMap = new Map(localEntries.map(e => [e.date, e]));
+            const remoteMap = new Map(entriesData.map(e => [e.date, e]));
 
-              for (const [date, remoteEntry] of remoteMap) {
-                const localEntry = localMap.get(date);
-                if (!localEntry) continue; // Only in remote → auto-pull, no conflict
+            const entriesToUpload = [];
+            const finalEntries = [];
+            const conflicts = [];
 
-                const localType = localEntry.type;
-                const remoteType = remoteEntry.type;
+            // 1. Process all remote entries
+            for (const [date, remoteEntry] of remoteMap) {
+              const localEntry = localMap.get(date);
+
+              if (!localEntry) {
+                // Only on remote -> pull remote
+                finalEntries.push(remoteEntry);
+              } else {
+                // On both -> compare fields
+                const localType = localEntry.type || 'Regular';
+                const remoteType = remoteEntry.type || 'Regular';
 
                 const localIntervals = JSON.stringify(localEntry.intervals || []);
                 const remoteIntervals = JSON.stringify(remoteEntry.intervals || []);
 
-                const meaningfullyDifferent =
+                const localNotes = (localEntry.notes || '').trim();
+                const remoteNotes = (remoteEntry.notes || '').trim();
+
+                const localDuration = localEntry.duration || 1;
+                const remoteDuration = remoteEntry.duration || 1;
+
+                const localDouble = !!(localEntry.doubleHours || localEntry.double_hours);
+                const remoteDouble = !!(remoteEntry.doubleHours || remoteEntry.double_hours);
+
+                const isDifferent =
                   localType !== remoteType ||
-                  localIntervals !== remoteIntervals;
+                  localIntervals !== remoteIntervals ||
+                  localNotes !== remoteNotes ||
+                  localDuration !== remoteDuration ||
+                  localDouble !== remoteDouble;
 
-                if (!meaningfullyDifferent) continue; // Identical → no conflict
+                if (isDifferent) {
+                  const localTime = Date.parse(localEntry.lastModified || localEntry.updated_at || 0);
+                  const remoteTime = Date.parse(remoteEntry.updated_at || remoteEntry.lastModified || 0);
 
-                // If meaningfully different → always show conflict to user
-                conflicts.push({ date, local: localEntry, remote: remoteEntry });
-              }
-
-              return conflicts;
-            };
-
-            const conflicts = detectConflicts(localEntries, entriesData);
-
-            if (conflicts.length > 0) {
-              setPendingConflicts(conflicts);
-
-              // Use remote data as base for non-conflicting entries
-              const conflictDates = new Set(conflicts.map(c => c.date));
-              const autoMerged = [...entriesData];
-
-              // Add local-only entries (offline created, not yet in Supabase)
-              localEntries.forEach(local => {
-                if (!entriesData.find(r => r.date === local.date) && !local.id) {
-                  autoMerged.push(local);
-                }
-              });
-
-              // Exclude conflicting dates
-              const safeEntries = autoMerged.filter(e => !conflictDates.has(e.date));
-
-              // Re-apply local version if it was identical in raw data to prevent reverting to bad derived math remotely
-              const finalSafeEntries = safeEntries.map(remoteE => {
-                const localE = localEntries.find(l => l.date === remoteE.date);
-                if (localE) {
-                  const rInt = JSON.stringify(remoteE.intervals || []);
-                  const lInt = JSON.stringify(localE.intervals || []);
-                  if (rInt === lInt && remoteE.type === localE.type) {
-                    return localE; // Local has better derived math
+                  if (localTime > remoteTime + 2000) {
+                    // Local is newer -> upload local to Supabase
+                    entriesToUpload.push({
+                      ...localEntry,
+                      id: remoteEntry.id // Keep remote ID
+                    });
+                    finalEntries.push({
+                      ...localEntry,
+                      id: remoteEntry.id
+                    });
+                  } else if (remoteTime > localTime + 2000) {
+                    // Remote is newer -> use remote
+                    finalEntries.push(remoteEntry);
+                  } else {
+                    // Conflict! (within 2s threshold)
+                    conflicts.push({ date, local: localEntry, remote: remoteEntry });
+                    finalEntries.push(remoteEntry);
                   }
+                } else {
+                  // Identical raw data -> keep local to preserve computed/derived math
+                  finalEntries.push({
+                    ...localEntry,
+                    id: remoteEntry.id
+                  });
                 }
-                return remoteE;
-              });
+              }
+            }
 
-              setEntries(finalSafeEntries.sort((a, b) => b.date.localeCompare(a.date)));
-
-            } else {
-              // No conflicts — use Supabase as source of truth (handles deletions)
-              setPendingConflicts([]);
-
-              const remoteDates = new Set(entriesData.map(e => e.date));
-              const remoteMap = new Map(entriesData.map(e => [e.date, e]));
-
-              // Keep local-only offline entries (no id = never synced)
-              localEntries.forEach(local => {
-                if (!remoteDates.has(local.date) && !local.id) {
-                  remoteMap.set(local.date, local);
+            // 2. Process local-only entries
+            for (const [date, localEntry] of localMap) {
+              if (!remoteMap.has(date)) {
+                if (!localEntry.id) {
+                  // Created offline -> upload to Supabase
+                  entriesToUpload.push(localEntry);
+                  finalEntries.push(localEntry);
+                } else {
+                  // Deleted on remote -> do not add to finalEntries
+                  console.log(`[Sync] Entry for ${date} was deleted on remote. Removing locally.`);
                 }
-              });
+              }
+            }
 
-              setEntries(
-                Array.from(remoteMap.values()).sort((a, b) => b.date.localeCompare(a.date))
-              );
+            // Update local state immediately with auto-reconciled list
+            setPendingConflicts(conflicts);
+            setEntries(finalEntries.sort((a, b) => b.date.localeCompare(a.date)));
+
+            // Trigger background upload for unsynced/newer local entries
+            if (entriesToUpload.length > 0) {
+              console.log(`[Sync] Uploading ${entriesToUpload.length} local/edited entries to Supabase...`);
+              Promise.all(
+                entriesToUpload.map(async (entry) => {
+                  try {
+                    const saved = await supabaseData.saveTimeEntry(currentUser.id, entry);
+                    const returnedEntry = Array.isArray(saved) ? saved[0] : saved;
+                    if (returnedEntry?.id) {
+                      setEntries(prev => prev.map(e =>
+                        e.date === entry.date ? { ...e, id: returnedEntry.id } : e
+                      ));
+                    }
+                  } catch (err) {
+                    console.error(`[Sync] Failed to upload entry for ${entry.date}:`, err);
+                  }
+                })
+              ).catch(err => {
+                console.error('[Sync] Error uploading unsynced entries:', err);
+              });
             }
           }
         } catch (onlineError) {

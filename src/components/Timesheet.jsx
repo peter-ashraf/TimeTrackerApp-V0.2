@@ -191,7 +191,7 @@ function Timesheet() {
   }, [currentPeriodId, viewingPeriodId]);
 
   const viewingPeriod = useMemo(() => {
-    return periods.find(p => p.id === viewingPeriodId) || getCurrentPeriod();
+    return periods.find(p => String(p.id) === String(viewingPeriodId)) || getCurrentPeriod();
   }, [periods, viewingPeriodId, getCurrentPeriod]);
 
   // Filter and sort entries for VIEWING period

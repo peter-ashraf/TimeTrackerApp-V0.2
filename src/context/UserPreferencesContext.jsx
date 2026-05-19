@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useSupabaseAuth } from './SupabaseAuthContext';
 import { supabaseData } from '../utils/supabaseData';
 import { setSimpleEncryptedItem, getSimpleEncryptedItem } from '../utils/simple-encryption';
@@ -68,6 +68,8 @@ export const UserPreferencesProvider = ({ children }) => {
     usedPersonalDays: 0
   });
 
+  const isInitialSyncCompleted = useRef(false);
+
   // Load user preferences
   const loadUserPreferences = useCallback(async () => {
     if (!currentUser || !isAuthenticated) return;
@@ -128,20 +130,29 @@ export const UserPreferencesProvider = ({ children }) => {
             }
           } catch (onlineError) {
             console.error('Failed to fetch user preferences from Supabase, staying with local data', onlineError);
+          } finally {
+            isInitialSyncCompleted.current = true;
           }
+        } else {
+          isInitialSyncCompleted.current = true;
         }
       }, 300);
 
     } catch (error) {
       console.error('loadUserPreferences critical error:', error);
+      isInitialSyncCompleted.current = true;
     }
   }, [currentUser, isAuthenticated]);
 
   // Save employee data
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || !isInitialSyncCompleted.current) return;
 
     const saveEmployeeData = async () => {
+      // Save salary to encrypted localStorage immediately
+      const salaryKey = `salary_${currentUser.id}`;
+      setSimpleEncryptedItem(salaryKey, employee.salary, currentUser.username);
+
       try {
         // Only save employee type fields to Supabase - NEVER save full_name automatically!
         // full_name should only be updated when user explicitly changes it in Settings
@@ -153,16 +164,8 @@ export const UserPreferencesProvider = ({ children }) => {
           monthly_hours: employee.monthlyHours,
           work_days_per_week: employee.workDaysPerWeek
         });
-
-        // Save salary to encrypted localStorage only
-        const salaryKey = `salary_${currentUser.id}`;
-        setSimpleEncryptedItem(salaryKey, employee.salary, currentUser.username);
-
       } catch (error) {
         console.error('Failed to save employee data:', error);
-        // Fallback
-        const salaryKey = `salary_${currentUser.id}`;
-        setSimpleEncryptedItem(salaryKey, employee.salary, currentUser.username);
       }
     };
 
@@ -172,9 +175,13 @@ export const UserPreferencesProvider = ({ children }) => {
 
   // Save leave settings
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || !isInitialSyncCompleted.current) return;
 
     const saveLeaveSettingsData = async () => {
+      // Always save to localStorage immediately to keep local cache sync'd
+      const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
+      setSimpleEncryptedItem(leaveSettingsKey, leaveSettings, currentUser.username);
+
       try {
         await supabaseData.saveLeaveSettings(currentUser.id, {
           annual_vacation: leaveSettings.annualVacation,
@@ -184,12 +191,8 @@ export const UserPreferencesProvider = ({ children }) => {
           used_sick_days: leaveSettings.usedSickDays,
           used_personal_days: leaveSettings.usedPersonalDays
         });
-
       } catch (error) {
         console.error('Failed to save leave settings:', error);
-        // Fallback to localStorage
-        const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
-        setSimpleEncryptedItem(leaveSettingsKey, leaveSettings, currentUser.username);
       }
     };
 
@@ -259,7 +262,15 @@ export const UserPreferencesProvider = ({ children }) => {
         monthlyHours: 187,
         workDaysPerWeek: 5
       });
-      setLeaveSettings({ annualVacation: 10, sickDays: 7 });
+      setLeaveSettings({
+        annualVacation: 10,
+        sickDays: 7,
+        personalDays: 2,
+        usedVacationDays: 0,
+        usedSickDays: 0,
+        usedPersonalDays: 0
+      });
+      isInitialSyncCompleted.current = false;
     }
   }, [currentUser, isAuthenticated, loadUserPreferences]);
 

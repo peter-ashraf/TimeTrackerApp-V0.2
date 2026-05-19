@@ -387,8 +387,8 @@ function Settings() {
     }
 
     // NOW update local state after database save (or queue)
-    setEmployee(employeeData);
-    setLeaveSettings({ annualVacation: parsedVacation, sickDays: parsedSickDays });
+    setEmployee(prev => ({ ...prev, ...employeeData }));
+    setLeaveSettings(prev => ({ ...prev, annualVacation: parsedVacation, sickDays: parsedSickDays }));
 
     // ✅ IMMEDIATE SAVE: Force immediate salary save to localStorage
     if (salaryChanged && !hideSalary && currentUser) {
@@ -431,10 +431,10 @@ function Settings() {
 
     // Fallback to currentPeriodId if no is_current flag found
     if (!current) {
-      current = periods.find(p => p.id === currentPeriodId);
+      current = periods.find(p => String(p.id) === String(currentPeriodId));
     }
 
-    const otherPeriods = periods.filter(p => p.id !== current?.id);
+    const otherPeriods = periods.filter(p => String(p.id) !== String(current?.id));
 
     if (!current) {
       return { current, upcoming: [], previous: otherPeriods };
@@ -575,7 +575,7 @@ function Settings() {
           setPeriods(newPeriods);
 
           // If deleting current period, switch to first available
-          if (currentPeriodId === periodId) {
+          if (String(currentPeriodId) === String(periodId)) {
             setCurrentPeriodId(newPeriods[0]?.id || null);
           }
 
@@ -597,7 +597,7 @@ function Settings() {
           setPeriods(newPeriods);
 
           // If deleting current period, switch to first available
-          if (currentPeriodId === periodId) {
+          if (String(currentPeriodId) === String(periodId)) {
             setCurrentPeriodId(newPeriods[0]?.id || null);
           }
 
@@ -662,7 +662,7 @@ function Settings() {
   };
 
   const handleClearCurrentPeriod = () => {
-    const currentPeriod = periods.find(p => p.id === currentPeriodId);
+    const currentPeriod = periods.find(p => String(p.id) === String(currentPeriodId));
     const periodEntries = entries.filter(e =>
       e.date >= (currentPeriod.start_date || currentPeriod.start) && e.date <= (currentPeriod.end_date || currentPeriod.end)
     );

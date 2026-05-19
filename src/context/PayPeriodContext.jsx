@@ -39,7 +39,9 @@ export const PayPeriodProvider = ({ children }) => {
       const localCurrentPeriodId = localStorage.getItem(currentPeriodIdKey);
       
       setPeriods(localPeriods);
-      if (localCurrentPeriodId) setCurrentPeriodId(localCurrentPeriodId);
+      if (localCurrentPeriodId && localCurrentPeriodId !== 'undefined' && localCurrentPeriodId !== 'null') {
+        setCurrentPeriodId(localCurrentPeriodId);
+      }
       
       // Defer Supabase sync
       setTimeout(async () => {
@@ -53,8 +55,11 @@ export const PayPeriodProvider = ({ children }) => {
             if (periodsData && periodsData.length > 0) {
               setPeriods(periodsData);
               if (currentPeriodData) {
-                setCurrentPeriodId(currentPeriodData.id);
-                localStorage.setItem(currentPeriodIdKey, currentPeriodData.id);
+                const pId = currentPeriodData.id || currentPeriodData;
+                if (pId && pId !== 'undefined' && pId !== 'null') {
+                  setCurrentPeriodId(pId);
+                  localStorage.setItem(currentPeriodIdKey, pId);
+                }
               }
             }
           } catch (onlineError) {
@@ -149,7 +154,7 @@ export const PayPeriodProvider = ({ children }) => {
     }
     
     // Fallback to currentPeriodId state
-    const found = periods.find(p => p.id === currentPeriodId);
+    const found = periods.find(p => String(p.id) === String(currentPeriodId));
     if (found) {
       return found;
     }
