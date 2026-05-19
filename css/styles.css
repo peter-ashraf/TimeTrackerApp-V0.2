@@ -88,9 +88,10 @@
   --color-info-rgb: 98, 108, 113;
 
   /* Typography */
-  --font-family-base: "FKGroteskNeue", "Geist", "Inter", -apple-system,
+  --font-family-base: "Inter", "FKGroteskNeue", "Geist", -apple-system,
     BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-family-mono: "Berkeley Mono", ui-monospace, SFMono-Regular, Menlo,
+  --font-family-heading: "Outfit", var(--font-family-base);
+  --font-family-mono: "JetBrains Mono", "Berkeley Mono", ui-monospace, SFMono-Regular, Menlo,
     Monaco, Consolas, monospace;
   --font-size-xs: 11px;
   --font-size-sm: 12px;
@@ -278,19 +279,49 @@ html[data-theme="dark"] {
 /* === APPLY THEMES EVERYWHERE === */
 body,
 .main-content,
-.header-title-content,
+.header-title-content {
+  background-color: var(--color-surface) !important;
+  color: var(--color-text) !important;
+  border-color: var(--color-border) !important;
+  font-family: var(--font-family-base);
+  font-variant-numeric: tabular-nums;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family-heading);
+  letter-spacing: -0.02em;
+}
+
 #header,
 .tab-navigation,
+.data-table,
+#tableContainer {
+  background-color: var(--color-surface) !important;
+  color: var(--color-text) !important;
+  border-color: var(--color-border) !important;
+}
+
 .btn-theme,
 .card,
 .employee-card,
 .vacation-card-redesigned,
-.data-table,
-#tableContainer,
 .modal-content {
-  background-color: var(--color-surface) !important;
+  background-color: rgba(var(--color-bg-1), 0.75) !important; /* Base transparency */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   color: var(--color-text) !important;
   border-color: var(--color-border) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05); /* Subtle glow border */
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
+}
+
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .employee-card,
+html[data-theme="dark"] .vacation-card-redesigned,
+html[data-theme="dark"] .modal-content {
+  background-color: rgba(19, 52, 59, 0.4) !important; /* Dark mode transparency */
+  border: 1px solid rgba(255, 255, 255, 0.08); /* Dark mode glow border */
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
 
 #header {
@@ -3157,6 +3188,62 @@ body.salary-blur .overtime-money-amount {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   width: fit-content;
+}
+
+.check-in-btn {
+  flex: 1;
+  background-color: var(--color-success);
+  color: var(--color-btn-primary-text);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.check-in-btn:hover {
+  background-color: var(--color-success);
+  filter: brightness(1.1);
+  box-shadow: 0 6px 16px rgba(var(--color-success-rgb), 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.check-in-btn:active {
+  transform: scale(0.97);
+}
+
+.check-out-btn {
+  flex: 1;
+  background-color: var(--color-warning);
+  color: var(--color-btn-primary-text);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.check-out-btn:hover {
+  background-color: var(--color-warning);
+  filter: brightness(1.1);
+  box-shadow: 0 6px 16px rgba(var(--color-warning-rgb), 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.check-out-btn:active {
+  transform: scale(0.97);
+}
+
+@keyframes pulse-active {
+  0% { box-shadow: 0 0 0 0 rgba(var(--color-warning-rgb), 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(var(--color-warning-rgb), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--color-warning-rgb), 0); }
+}
+
+.timer-active {
+  animation: pulse-active 2s infinite;
 }
 
 .period-actions {
