@@ -127,6 +127,27 @@ export const UserPreferencesProvider = ({ children }) => {
                 usedSickDays: leaveSettingsData.used_sick_days || leaveSettingsData.usedSickDays || 0,
                 usedPersonalDays: leaveSettingsData.used_personal_days || leaveSettingsData.usedPersonalDays || 0
               });
+            } else {
+              // If no settings exist on Supabase, initialize the DB record with local/default data
+              const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
+              const currentLocal = getSimpleEncryptedItem(leaveSettingsKey, currentUser.username) || {
+                annualVacation: 10,
+                sickDays: 7,
+                personalDays: 2
+              };
+              
+              try {
+                await supabaseData.saveLeaveSettings(currentUser.id, {
+                  annual_vacation: currentLocal.annualVacation,
+                  sick_days: currentLocal.sickDays,
+                  personal_days: currentLocal.personalDays || 2,
+                  used_vacation_days: currentLocal.usedVacationDays || 0,
+                  used_sick_days: currentLocal.usedSickDays || 0,
+                  used_personal_days: currentLocal.usedPersonalDays || 0
+                });
+              } catch (saveError) {
+                console.error('Failed to initialize leave settings on Supabase:', saveError);
+              }
             }
           } catch (onlineError) {
             console.error('Failed to fetch user preferences from Supabase, staying with local data', onlineError);
