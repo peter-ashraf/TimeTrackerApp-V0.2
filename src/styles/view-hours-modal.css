@@ -1,0 +1,163 @@
+/* View Hours Modal Styles */
+.view-hours-modal {
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-hours-modal .modal-header {
+  flex-shrink: 0;
+  padding: var(--space-16);
+  border-bottom: 1px solid var(--color-card-border-inner);
+}
+
+.view-hours-modal .modal-header h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.view-hours-modal .modal-body {
+  flex: 1;
+  padding: var(--space-16);
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-hours-modal .hours-summary {
+  flex-shrink: 0;
+  margin-bottom: var(--space-16);
+  padding: var(--space-12);
+  background: var(--color-bg-1);
+  border-radius: var(--radius-base);
+  border: 1px solid var(--color-card-border-inner);
+}
+
+.view-hours-modal .summary-item {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-8) 0;
+  color: var(--color-text);
+}
+
+.view-hours-modal .summary-label {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.view-hours-modal .summary-value {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.view-hours-modal .modal-body h3 {
+  flex-shrink: 0;
+  margin: 0 0 var(--space-12);
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.view-hours-modal .table-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--color-card-border-inner);
+  border-radius: var(--radius-base);
+  overflow: hidden;
+}
+
+.view-hours-modal .table-header {
+  flex-shrink: 0;
+  
+  border-bottom: 1px solid var(--color-card-border-inner);
+}
+
+.view-hours-modal .table-container {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.view-hours-modal .table-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+.view-hours-modal .data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  color: var(--color-text);
+  table-layout: fixed;
+}
+
+.view-hours-modal .data-table th,
+.view-hours-modal .data-table td {
+  padding: var(--space-12);
+  text-align: left;
+}
+
+.view-hours-modal .data-table th {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-card-border-inner);
+}
+
+.view-hours-modal .data-table th:nth-child(1),
+.view-hours-modal .data-table td:nth-child(1) {
+  width: 35%;
+}
+
+.view-hours-modal .data-table th:nth-child(2),
+.view-hours-modal .data-table td:nth-child(2) {
+  width: 35%;
+}
+
+.view-hours-modal .data-table th:nth-child(3),
+.view-hours-modal .data-table td:nth-child(3) {
+  width: 30%;
+}
+
+.view-hours-modal .data-table td {
+  padding: var(--space-12);
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-card-border-inner);
+}
+
+.view-hours-modal .data-table tbody tr:hover {
+  background: var(--color-bg-1);
+}
+
+.view-hours-modal .modal-footer {
+  flex-shrink: 0;
+  padding: var(--space-16);
+  border-top: 1px solid var(--color-card-border-inner);
+  background: var(--color-surface);
+}
+
+.view-hours-modal .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-10);
+  border-top: none;
+}
+
+/* Dark mode adjustments */
+html[data-theme="dark"] .view-hours-modal .hours-summary {
+  background: rgba(var(--color-gray-400-rgb), 0.1);
+}
+
+html[data-theme="dark"] .view-hours-modal .data-table thead {
+  background: rgba(var(--color-gray-400-rgb), 0.15);
+}
+
+html[data-theme="dark"] .view-hours-modal .data-table tbody tr:hover {
+  background: rgba(var(--color-gray-400-rgb), 0.1);
+}

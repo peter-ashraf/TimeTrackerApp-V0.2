@@ -1,0 +1,163 @@
+/* Vacation Details Modal Styles */
+.vacation-details-modal {
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.vacation-details-modal .modal-header {
+  flex-shrink: 0;
+  padding: var(--space-16);
+  border-bottom: 1px solid var(--color-card-border-inner);
+}
+
+.vacation-details-modal .modal-header h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.vacation-details-modal .modal-description {
+  flex-shrink: 0;
+  padding: var(--space-16);
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  border-bottom: 1px solid var(--color-card-border-inner);
+}
+
+.vacation-details-modal .modal-description p {
+  margin: 0;
+}
+
+.vacation-details-modal .modal-body {
+  flex: 1;
+  padding: var(--space-16);
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.vacation-details-modal .modal-body p {
+  color: var(--color-text);
+  text-align: center;
+  padding: var(--space-20);
+  margin: 0;
+}
+
+.vacation-details-modal .table-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--color-card-border-inner);
+  border-radius: var(--radius-base);
+  overflow: hidden;
+}
+
+.vacation-details-modal .table-header {
+  flex-shrink: 0;
+  background: var(--color-bg-2);
+  border-bottom: 1px solid var(--color-card-border-inner);
+}
+
+.vacation-details-modal .table-container {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.vacation-details-modal .table-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+.vacation-details-modal .data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  color: var(--color-text);
+  table-layout: fixed;
+}
+
+.vacation-details-modal .data-table th,
+.vacation-details-modal .data-table td {
+  padding: var(--space-12);
+  text-align: left;
+}
+
+.vacation-details-modal .data-table th {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-card-border-inner);
+}
+
+.vacation-details-modal .data-table th:nth-child(1),
+.vacation-details-modal .data-table td:nth-child(1) {
+  width: 20%;
+}
+
+.vacation-details-modal .data-table th:nth-child(2),
+.vacation-details-modal .data-table td:nth-child(2) {
+  width: 25%;
+}
+
+.vacation-details-modal .data-table th:nth-child(3),
+.vacation-details-modal .data-table td:nth-child(3) {
+  width: 25%;
+}
+
+.vacation-details-modal .data-table th:nth-child(4),
+.vacation-details-modal .data-table td:nth-child(4) {
+  width: 30%;
+}
+
+.vacation-details-modal .data-table td {
+  padding: var(--space-12);
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-card-border-inner);
+}
+
+.vacation-details-modal .data-table tbody tr:hover {
+  background: var(--color-bg-1);
+}
+
+.vacation-details-modal .data-table .totals-row {
+  background: var(--color-bg-2);
+  font-weight: var(--font-weight-semibold);
+}
+
+.vacation-details-modal .data-table .totals-row td {
+  color: var(--color-text);
+  border-top: 2px solid var(--color-card-border-inner);
+}
+
+.vacation-details-modal .modal-footer {
+  flex-shrink: 0;
+  padding: var(--space-16);
+  border-top: 1px solid var(--color-card-border-inner);
+  background: var(--color-surface);
+}
+
+.vacation-details-modal .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-10);
+}
+
+/* Dark mode adjustments */
+html[data-theme="dark"] .vacation-details-modal .data-table thead {
+  background: rgba(var(--color-gray-400-rgb), 0.15);
+}
+
+html[data-theme="dark"] .vacation-details-modal .data-table tbody tr:hover {
+  background: rgba(var(--color-gray-400-rgb), 0.1);
+}
+
+html[data-theme="dark"] .vacation-details-modal .data-table .totals-row {
+  background: rgba(var(--color-gray-400-rgb), 0.15);
+}

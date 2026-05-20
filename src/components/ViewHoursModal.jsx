@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
+import '../styles/view-hours-modal.css';
 
 function ViewHoursModal({ onClose }) {
   const { entries, getCurrentPeriod, employee } = useTimeTracker();
@@ -38,6 +39,9 @@ function ViewHoursModal({ onClose }) {
   const totalHours = periodEntries.reduce((sum, entry) => {
     if (entry.type === 'Regular') {
       return sum + calculateHours(entry.intervals);
+    } else if (entry.type === 'Sick Leave' || entry.type === 'Holiday' || entry.type === 'Vacation') {
+      // Each sick day, holiday, or vacation day counts as 8.5 hours (normal working day without half hour break)
+      return sum + (8.5 * (entry.duration || 1));
     }
     return sum;
   }, 0);
@@ -46,8 +50,10 @@ function ViewHoursModal({ onClose }) {
   const overtime = totalHours - expectedHours;
 
   return (
-    <ModalShell onClose={onClose} closeOnOverlay={false}>
-      <h2>Hours Summary - {currentPeriod?.label || 'Current Period'}</h2>
+    <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="view-hours-modal">
+      <div className="modal-header">
+        <h2>Hours Summary - {currentPeriod?.label || 'Current Period'}</h2>
+      </div>
       <div className="modal-body">
         <div className="hours-summary">
           <div className="summary-item">
@@ -66,35 +72,52 @@ function ViewHoursModal({ onClose }) {
           </div>
         </div>
 
-        <h3 style={{marginTop: '20px'}}>Daily Breakdown</h3>
-        <table className="data-table" style={{marginTop: '10px'}}>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Type</th>
-              <th>Hours</th>
-            </tr>
-          </thead>
-          <tbody>
-            {periodEntries.length === 0 ? (
-              <tr>
-                <td colSpan="3" style={{textAlign: 'center'}}>No entries found</td>
-              </tr>
-            ) : (
-              periodEntries.map(entry => (
-                <tr key={entry.date}>
-                  <td>{entry.date}</td>
-                  <td>{entry.type}</td>
-                  <td>{entry.type === 'Regular' ? calculateHours(entry.intervals).toFixed(2) + 'h' : '-'}</td>
+        <h3>Daily Breakdown</h3>
+        <div className="table-wrapper">
+          <div className="table-header">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Hours</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              </thead>
+            </table>
+          </div>
+          <div className="table-container">
+            <table className="data-table">
+              <tbody>
+                {periodEntries.length === 0 ? (
+                  <tr>
+                    <td colSpan="3" style={{textAlign: 'center'}}>No entries found</td>
+                  </tr>
+                ) : (
+                  periodEntries.map(entry => (
+                    <tr key={entry.date}>
+                      <td>{entry.date}</td>
+                      <td>{entry.type}</td>
+                      <td>
+                        {entry.type === 'Regular' 
+                          ? calculateHours(entry.intervals).toFixed(2) + 'h' 
+                          : (entry.type === 'Sick Leave' || entry.type === 'Holiday' || entry.type === 'Vacation')
+                            ? (8.5 * (entry.duration || 1)).toFixed(2) + 'h'
+                            : '-'
+                        }
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
-      <div className="modal-actions">
-        <button className="btn btn-primary" onClick={onClose}>Close</button>
+      <div className="modal-footer">
+        <div className="modal-actions">
+          <button className="btn btn-primary" onClick={onClose}>Close</button>
+        </div>
       </div>
     </ModalShell>
   );
