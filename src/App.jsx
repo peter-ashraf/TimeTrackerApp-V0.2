@@ -719,7 +719,13 @@ function App() {
 
         if (currentUser && !currentUser.isLocalOnly && syncStatus.isOnline) {
 
-          const supabaseEntries = await supabaseData.getTimeEntries(currentUser.id);
+          const supabaseEntries = await supabaseData.getTimeEntries(currentUser.id).catch(err => {
+            if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+              console.warn('Session expired during time entries fetch in App refresh');
+              return [];
+            }
+            throw err;
+          });
 
           if (supabaseEntries && supabaseEntries.length > 0) {
 
@@ -771,7 +777,13 @@ function App() {
 
         try {
 
-          const freshSupabaseEntries = await supabaseData.getTimeEntries(currentUser.id);
+          const freshSupabaseEntries = await supabaseData.getTimeEntries(currentUser.id).catch(err => {
+            if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+              console.warn('Session expired during fresh time entries fetch in App');
+              return [];
+            }
+            throw err;
+          });
 
           const supabaseDates = new Set(freshSupabaseEntries.map(entry => entry.date));
 

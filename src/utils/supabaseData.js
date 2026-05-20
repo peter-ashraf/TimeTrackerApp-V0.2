@@ -6,64 +6,33 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export const supabaseData = {
   async getTimeEntries(userId) {
-    let token = null;
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.includes('auth-token')) {
-          const raw = localStorage.getItem(key);
-          const parsed = raw ? JSON.parse(raw) : null;
-          if (parsed?.access_token) { token = parsed.access_token; break; }
-        }
-      }
-    } catch (e) {}
-    if (!token) throw new Error('No auth token available');
-
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/time_entries?user_id=eq.${userId}&order=date.desc`,
-        {
-          signal: controller.signal,
-          headers: {
-            'apikey': SUPABASE_PUBLISHABLE_KEY,
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+      const { data, error } = await supabaseClient
+        .from('time_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false });
+
+      if (error) {
+        if (error.code === '401' || error.status === 401) {
+          throw new Error('Unauthorized - session expired');
         }
-      );
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.json() || [];
+        throw error;
+      }
+      return data || [];
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw error;
     } finally {
       clearTimeout(timeoutId);
     }
   },
 
   async saveTimeEntry(userId, entry) {
-    let token = null;
-
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.includes('auth-token')) {
-          const raw = localStorage.getItem(key);
-          const parsed = raw ? JSON.parse(raw) : null;
-          if (parsed?.access_token) {
-            token = parsed.access_token;
-            break;
-          }
-        }
-      }
-    } catch (e) {
-      console.error('[Save] Failed to read auth token from localStorage:', e);
-    }
-
-    if (!token) {
-      console.error('[Save] No auth token available');
-      return null;
-    }
-
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
@@ -83,44 +52,32 @@ export const supabaseData = {
         updated_at: new Date().toISOString()
       };
 
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/time_entries?on_conflict=user_id,date`,
-        {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_PUBLISHABLE_KEY,
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'resolution=merge-duplicates,return=representation'
-          },
-          body: JSON.stringify(body),
-          signal: controller.signal
-        }
-      );
+      const { data, error } = await supabaseClient
+        .from('time_entries')
+        .upsert(body, {
+          onConflict: 'user_id,date',
+          ignoreDuplicates: false
+        })
+        .select()
+        .abortSignal(controller.signal);
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[Save] Request failed:', response.status, errorText);
-        if (response.status === 401 || response.status === 403) {
+      if (error) {
+        console.error('[Save] Error:', error);
+        if (error.code === '401' || error.status === 401 || error.code === '403') {
           return null;
         }
-        throw new Error(`Save failed: ${response.status} ${errorText}`);
+        throw error;
       }
 
-      const data = await response.json();
-      return Array.isArray(data) ? data : data;
+      return data;
 
     } catch (error) {
       clearTimeout(timeoutId);
       console.error('[Save] Error:', error);
 
-      if (
-        error.name === 'AbortError' ||
-        error.message?.includes('timed out') ||
-        error.message?.includes('Save failed: 5')
-      ) {
+      if (error.name === 'AbortError' || error.message?.includes('timed out')) {
         return null;
       }
       throw error;
@@ -128,28 +85,6 @@ export const supabaseData = {
   },
 
   async deleteTimeEntry({ id, userId, date }) {
-    let token = null;
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.includes('auth-token')) {
-          const raw = localStorage.getItem(key);
-          const parsed = raw ? JSON.parse(raw) : null;
-          if (parsed?.access_token) {
-            token = parsed.access_token;
-            break;
-          }
-        }
-      }
-    } catch (e) {
-      console.error('[Delete] Failed to read auth token from localStorage:', e);
-    }
-
-    if (!token) {
-      console.error('[Delete] No auth token available');
-      return { success: false, deletedFrom: 'none', reason: 'no_auth_token' };
-    }
-
     if (!id) {
       console.warn('[Delete] Entry id missing locally, resolving from server for date:', date);
       return { success: false, deletedFrom: 'none', reason: 'missing_id' };
@@ -159,35 +94,29 @@ export const supabaseData = {
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/time_entries?id=eq.${id}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'apikey': SUPABASE_PUBLISHABLE_KEY,
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
-          signal: controller.signal
-        }
-      );
+      const { error } = await supabaseClient
+        .from('time_entries')
+        .delete()
+        .eq('id', id)
+        .abortSignal(controller.signal);
 
       clearTimeout(timeoutId);
 
-      if (response.ok || response.status === 204) {
-        return { success: true, deletedFrom: 'supabase' };
+      if (error) {
+        console.error('[Delete] Error:', error);
+        if (error.code === '404' || error.code === 'PGRST116') {
+          return { success: true, deletedFrom: 'supabase' };
+        }
+        if (error.code === '401' || error.status === 401) {
+          return { success: false, deletedFrom: 'none', reason: 'unauthorized' };
+        }
+        return { success: false, deletedFrom: 'none', reason: 'http_error' };
       }
 
-      if (response.status === 404) {
-        return { success: true, deletedFrom: 'supabase' };
-      }
-
-      const errorText = await response.text();
-      console.error('[Delete] Request failed:', response.status, errorText);
-      return { success: false, deletedFrom: 'none', reason: 'http_error' };
+      return { success: true, deletedFrom: 'supabase' };
 
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error('[Delete] Error:', error);
 
       if (error.name === 'AbortError') {
@@ -199,37 +128,31 @@ export const supabaseData = {
   },
 
   async getUserProfile(userId) {
-    let token = null;
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.includes('auth-token')) {
-          const raw = localStorage.getItem(key);
-          const parsed = raw ? JSON.parse(raw) : null;
-          if (parsed?.access_token) { token = parsed.access_token; break; }
-        }
-      }
-    } catch (e) {}
-    if (!token) throw new Error('No auth token available');
-
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&limit=1`,
-        {
-          signal: controller.signal,
-          headers: {
-            'apikey': SUPABASE_PUBLISHABLE_KEY,
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/vnd.pgrst.object+json'
-          }
+      const { data, error } = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+        .abortSignal(controller.signal);
+
+      if (error) {
+        if (error.code === 'PGRST116' || error.code === '406' || error.code === '404') {
+          return null;
         }
-      );
-      if (response.status === 406 || response.status === 404) return null;
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.json();
+        if (error.code === '401' || error.status === 401) {
+          throw new Error('Unauthorized - session expired');
+        }
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw error;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -280,37 +203,31 @@ export const supabaseData = {
   },
 
   async getLeaveSettings(userId) {
-    let token = null;
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.includes('auth-token')) {
-          const raw = localStorage.getItem(key);
-          const parsed = raw ? JSON.parse(raw) : null;
-          if (parsed?.access_token) { token = parsed.access_token; break; }
-        }
-      }
-    } catch (e) {}
-    if (!token) throw new Error('No auth token available');
-
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/leave_settings?user_id=eq.${userId}&limit=1`,
-        {
-          signal: controller.signal,
-          headers: {
-            'apikey': SUPABASE_PUBLISHABLE_KEY,
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/vnd.pgrst.object+json'
-          }
+      const { data, error } = await supabaseClient
+        .from('leave_settings')
+        .select('*')
+        .eq('user_id', userId)
+        .single()
+        .abortSignal(controller.signal);
+
+      if (error) {
+        if (error.code === 'PGRST116' || error.code === '406' || error.code === '404') {
+          return null;
         }
-      );
-      if (response.status === 406 || response.status === 404) return null;
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.json();
+        if (error.code === '401' || error.status === 401) {
+          throw new Error('Unauthorized - session expired');
+        }
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw error;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -342,35 +259,28 @@ export const supabaseData = {
   },
 
   async getPayPeriods(userId) {
-    let token = null;
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.includes('auth-token')) {
-          const raw = localStorage.getItem(key);
-          const parsed = raw ? JSON.parse(raw) : null;
-          if (parsed?.access_token) { token = parsed.access_token; break; }
-        }
-      }
-    } catch (e) {}
-    if (!token) throw new Error('No auth token available');
-
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/pay_periods?user_id=eq.${userId}&order=start_date.desc`,
-        {
-          signal: controller.signal,
-          headers: {
-            'apikey': SUPABASE_PUBLISHABLE_KEY,
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+      const { data, error } = await supabaseClient
+        .from('pay_periods')
+        .select('*')
+        .eq('user_id', userId)
+        .order('start_date', { ascending: false })
+        .abortSignal(controller.signal);
+
+      if (error) {
+        if (error.code === '401' || error.status === 401) {
+          throw new Error('Unauthorized - session expired');
         }
-      );
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.json() || [];
+        throw error;
+      }
+      return data || [];
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw error;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -458,38 +368,32 @@ export const supabaseData = {
   },
 
   async getCurrentPayPeriod(userId) {
-    let token = null;
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.includes('auth-token')) {
-          const raw = localStorage.getItem(key);
-          const parsed = raw ? JSON.parse(raw) : null;
-          if (parsed?.access_token) { token = parsed.access_token; break; }
-        }
-      }
-    } catch (e) {}
-    if (!token) throw new Error('No auth token available');
-
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/pay_periods?user_id=eq.${userId}&is_current=eq.true&limit=1`,
-        {
-          signal: controller.signal,
-          headers: {
-            'apikey': SUPABASE_PUBLISHABLE_KEY,
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/vnd.pgrst.object+json'
-          }
+      const { data, error } = await supabaseClient
+        .from('pay_periods')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_current', true)
+        .single()
+        .abortSignal(controller.signal);
+
+      if (error) {
+        if (error.code === 'PGRST116' || error.code === '406' || error.code === '404') {
+          return null;
         }
-      );
-      if (response.status === 406 || response.status === 404) return null;
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      return data || null;
+        if (error.code === '401' || error.status === 401) {
+          throw new Error('Unauthorized - session expired');
+        }
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw error;
     } finally {
       clearTimeout(timeoutId);
     }

@@ -10,4 +10,20 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Create a singleton supabase client to avoid multiple instances
-export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+// Configure auth options to prevent Navigator LockManager timeout issues
+export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    // Disable lock to prevent Navigator LockManager timeout issues
+    lock: null,
+    // Increase timeout for session operations
+    storage: window.localStorage,
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'timetracker-app'
+    }
+  }
+});

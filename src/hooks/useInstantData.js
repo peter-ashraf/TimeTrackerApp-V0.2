@@ -67,10 +67,34 @@ export const useInstantData = () => {
       // Remove timeout to prevent hanging - let the calls complete naturally
       // Parallel fetch of all data
       const [timeEntries, userProfile, payPeriods, leaveSettings] = await Promise.all([
-        supabaseData.getTimeEntries(currentUser.id),
-        supabaseData.getUserProfile(currentUser.id),
-        supabaseData.getPayPeriods(currentUser.id),
-        supabaseData.getLeaveSettings(currentUser.id)
+        supabaseData.getTimeEntries(currentUser.id).catch(err => {
+          if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+            console.warn('Session expired during time entries fetch');
+            return []; // Return empty array to not break the app
+          }
+          throw err;
+        }),
+        supabaseData.getUserProfile(currentUser.id).catch(err => {
+          if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+            console.warn('Session expired during profile fetch');
+            return null;
+          }
+          throw err;
+        }),
+        supabaseData.getPayPeriods(currentUser.id).catch(err => {
+          if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+            console.warn('Session expired during pay periods fetch');
+            return [];
+          }
+          throw err;
+        }),
+        supabaseData.getLeaveSettings(currentUser.id).catch(err => {
+          if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+            console.warn('Session expired during leave settings fetch');
+            return null;
+          }
+          throw err;
+        })
       ]);
 
       // Update cache with fresh data

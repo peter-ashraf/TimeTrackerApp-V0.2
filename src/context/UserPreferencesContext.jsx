@@ -98,8 +98,20 @@ export const UserPreferencesProvider = ({ children }) => {
         if (navigator.onLine && currentUser && !currentUser.isLocalOnly) {
           try {
             const [profileData, leaveSettingsData] = await Promise.all([
-              supabaseData.getUserProfile(currentUser.id),
-              supabaseData.getLeaveSettings(currentUser.id)
+              supabaseData.getUserProfile(currentUser.id).catch(err => {
+                if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+                  console.warn('Session expired during profile fetch in UserPreferencesContext');
+                  return null;
+                }
+                throw err;
+              }),
+              supabaseData.getLeaveSettings(currentUser.id).catch(err => {
+                if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+                  console.warn('Session expired during leave settings fetch in UserPreferencesContext');
+                  return null;
+                }
+                throw err;
+              })
             ]);
 
             if (profileData) {

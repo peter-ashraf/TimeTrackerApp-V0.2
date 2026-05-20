@@ -48,8 +48,20 @@ export const PayPeriodProvider = ({ children }) => {
         if (navigator.onLine && currentUser && !currentUser.isLocalOnly) {
           try {
             const [periodsData, currentPeriodData] = await Promise.all([
-              supabaseData.getPayPeriods(currentUser.id),
-              supabaseData.getCurrentPayPeriod(currentUser.id)
+              supabaseData.getPayPeriods(currentUser.id).catch(err => {
+                if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+                  console.warn('Session expired during pay periods fetch in PayPeriodContext');
+                  return [];
+                }
+                throw err;
+              }),
+              supabaseData.getCurrentPayPeriod(currentUser.id).catch(err => {
+                if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+                  console.warn('Session expired during current pay period fetch in PayPeriodContext');
+                  return null;
+                }
+                throw err;
+              })
             ]);
             
             if (periodsData && periodsData.length > 0) {

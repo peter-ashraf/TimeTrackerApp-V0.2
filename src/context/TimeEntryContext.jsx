@@ -181,7 +181,13 @@ export const TimeEntryProvider = ({ children }) => {
       if (navigator.onLine && currentUser) {
         try {
           const fetchWithTimeout = Promise.race([
-            supabaseData.getTimeEntries(currentUser.id),
+            supabaseData.getTimeEntries(currentUser.id).catch(err => {
+              if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+                console.warn('Session expired during time entries fetch in TimeEntryContext');
+                return []; // Return empty array to not break the app
+              }
+              throw err;
+            }),
             new Promise((_, reject) =>
               setTimeout(() => reject(new Error('Supabase fetch timed out')), 8000)
             )

@@ -33,6 +33,7 @@ npm-debug.log*
 !README.md
 !INSTALL_GUIDE.md
 Features & Fixes.md
+design-overhaul-plan-2026-05-20.md
 
 # Internal development files (keep private)
 database/
