@@ -173,6 +173,19 @@ export const TimeTrackerProvider = ({ children }) => {
     }
 
     const hoursWorked = calculateHoursWorked(entry.intervals, entry.date);
+
+    // Safety net: warn if hours_worked is 0 on non-empty intervals
+    if (hoursWorked === 0 && entry.intervals?.length > 0) {
+      const hasValidIntervals = entry.intervals.some(interval => interval.in && interval.out);
+      if (hasValidIntervals) {
+        console.warn('[recalculateEntryFields] hours_worked=0 on non-empty intervals:', {
+          date: entry.date,
+          intervals: entry.intervals,
+          hoursWorked
+        });
+      }
+    }
+
     const dayOfWeek = new Date(entry.date).getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const isSpecialDay = entry.type === 'Holiday' || entry.type === 'Vacation';
@@ -584,12 +597,15 @@ export const TimeTrackerProvider = ({ children }) => {
         lastModified: new Date().toISOString()
       };
 
-      await timeEntryContext.saveTimeEntriesData(updatedEntry, showAlert);
+      // Recalculate computed fields if intervals were updated
+      const entryToSave = updates.intervals ? recalculateEntryFields(updatedEntry) : updatedEntry;
+
+      await timeEntryContext.saveTimeEntriesData(entryToSave, showAlert);
     } catch (error) {
       console.error('Error updating entry:', error);
       showAlert('Failed to update entry', 'error');
     }
-  }, [timeEntryContext, ensureTimeSeconds, showAlert]);
+  }, [timeEntryContext, ensureTimeSeconds, showAlert, recalculateEntryFields]);
 
   const deleteEntry = useCallback(async (date) => {
     if (!date) return;
