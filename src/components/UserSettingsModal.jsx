@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSupabaseAuth } from '../context/SupabaseAuthContext';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import { useUserPreferences } from '../context/UserPreferencesContext';
