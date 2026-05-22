@@ -2979,6 +2979,134 @@ body.salary-blur .overtime-money-amount {
 
 
 
+/* Bento Grid Layout for Dashboard */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-template-rows: auto auto auto;
+  gap: var(--space-16);
+  margin-bottom: var(--space-24);
+}
+
+.bento-grid .employee-card {
+  grid-column: span 12;
+  grid-row: span 1;
+}
+
+.bento-grid .manual-time-actions {
+  grid-column: span 12;
+  grid-row: span 1;
+}
+
+.bento-grid .quick-actions {
+  grid-column: span 12;
+  grid-row: span 1;
+}
+
+.bento-grid .vacation-cards {
+  grid-column: span 12;
+  grid-row: span 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-16);
+}
+
+/* Quick Stats Row */
+.quick-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-16);
+  margin-bottom: var(--space-20);
+}
+
+.quick-stat-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-16);
+  border: 1px solid var(--color-card-border);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--duration-normal) var(--ease-standard);
+  position: relative;
+}
+
+.quick-stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-lg);
+  padding: 1px;
+  background: linear-gradient(135deg, 
+    rgba(var(--color-teal-500-rgb), 0.1) 0%, 
+    rgba(var(--color-teal-500-rgb), 0.05) 50%, 
+    rgba(var(--color-teal-500-rgb), 0.1) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.quick-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.quick-stat-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-4);
+}
+
+.quick-stat-value {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+}
+
+.quick-stat-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-4);
+}
+
+/* Responsive Bento Grid */
+@media (min-width: 768px) {
+  .bento-grid .employee-card {
+    grid-column: span 8;
+  }
+
+  .bento-grid .manual-time-actions {
+    grid-column: span 4;
+    grid-row: span 1;
+  }
+
+  .bento-grid .quick-actions {
+    grid-column: span 12;
+  }
+
+  .bento-grid .vacation-cards {
+    grid-column: span 12;
+  }
+}
+
+@media (min-width: 1024px) {
+  .bento-grid .employee-card {
+    grid-column: span 6;
+  }
+
+  .bento-grid .manual-time-actions {
+    grid-column: span 6;
+  }
+
+  .bento-grid .quick-actions {
+    grid-column: span 12;
+  }
+
+  .bento-grid .vacation-cards {
+    grid-column: span 12;
+  }
+}
+
 /* TABLE */
 .data-table {
   width: 100%;
