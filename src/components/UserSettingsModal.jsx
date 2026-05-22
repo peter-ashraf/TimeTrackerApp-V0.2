@@ -23,6 +23,35 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
   const [errors, setErrors] = useState({});
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter tabs based on search query
+  const tabs = [
+    { id: 'username', icon: '👤', label: 'Username', keywords: ['username', 'name', 'profile', 'account'] },
+    { id: 'password', icon: '🔒', label: 'Password', keywords: ['password', 'security', 'login', 'auth'] },
+    { id: 'session', icon: '⏱️', label: 'Session', keywords: ['session', 'timeout', 'logout', 'auto'] },
+    { id: 'appearance', icon: '✨', label: 'Appearance', keywords: ['appearance', 'theme', 'dark', 'light', 'color'] }
+  ];
+
+  const filteredTabs = useMemo(() => {
+    if (!searchQuery.trim()) return tabs;
+    
+    const query = searchQuery.toLowerCase();
+    return tabs.filter(tab => 
+      tab.label.toLowerCase().includes(query) ||
+      tab.keywords.some(keyword => keyword.includes(query))
+    );
+  }, [searchQuery, tabs]);
+
+  // Auto-switch to first matching tab when searching
+  useEffect(() => {
+    if (searchQuery.trim() && filteredTabs.length > 0) {
+      const firstMatch = filteredTabs[0];
+      if (firstMatch.id !== activeTab) {
+        setActiveTab(firstMatch.id);
+      }
+    }
+  }, [searchQuery, filteredTabs, activeTab]);
 
   if (!isOpen) return null;
 
@@ -240,35 +269,31 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
         <p className="user-settings-subtitle">Manage your account credentials and session</p>
       </div>
 
+      {/* Search Bar */}
+      <div className="settings-search">
+        <div className="search-input-wrapper">
+          <span className="search-icon">🔍</span>
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Search settings..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
+
       <div className="user-settings-tabs">
-        <button
-          className={`tab-btn ${activeTab === 'username' ? 'active' : ''}`}
-          onClick={() => handleTabSwitch('username')}
-        >
-          <span className="tab-icon">👤</span>
-          <span className="tab-label">Username</span>
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'password' ? 'active' : ''}`}
-          onClick={() => handleTabSwitch('password')}
-        >
-          <span className="tab-icon">🔒</span>
-          <span className="tab-label">Password</span>
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'session' ? 'active' : ''}`}
-          onClick={() => handleTabSwitch('session')}
-        >
-          <span className="tab-icon">⏱️</span>
-          <span className="tab-label">Session</span>
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'appearance' ? 'active' : ''}`}
-          onClick={() => handleTabSwitch('appearance')}
-        >
-          <span className="tab-icon">✨</span>
-          <span className="tab-label">Appearance</span>
-        </button>
+        {filteredTabs.map(tab => (
+          <button
+            key={tab.id}
+            className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => handleTabSwitch(tab.id)}
+          >
+            <span className="tab-icon">{tab.icon}</span>
+            <span className="tab-label">{tab.label}</span>
+          </button>
+        ))}
       </div>
 
       {errors.submit && (
@@ -481,31 +506,52 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
                 <span className="label-icon">🎨</span>
                 Application Theme
               </label>
-              <div className="theme-options">
-                <button
-                  type="button"
-                  className={`theme-option-btn ${theme === 'light' ? 'selected' : ''}`}
+              <div className="theme-preview-grid">
+                <div
+                  className={`theme-preview-card ${theme === 'light' ? 'selected' : ''}`}
                   onClick={() => setTheme('light')}
                 >
-                  <span className="option-icon">☀️</span>
-                  <span className="option-label">Light</span>
-                </button>
-                <button
-                  type="button"
-                  className={`theme-option-btn ${theme === 'dark' ? 'selected' : ''}`}
+                  <div className="theme-preview-header light">
+                    <span>☀️</span>
+                    <span>Light</span>
+                  </div>
+                  <div className="theme-preview-body">
+                    <div className="theme-preview-skeleton light"></div>
+                    <div className="theme-preview-skeleton light" style={{ width: '60%' }}></div>
+                  </div>
+                  <div className="theme-preview-label">Light Mode</div>
+                  <div className="theme-preview-description">Bright and clean</div>
+                </div>
+                <div
+                  className={`theme-preview-card ${theme === 'dark' ? 'selected' : ''}`}
                   onClick={() => setTheme('dark')}
                 >
-                  <span className="option-icon">🌙</span>
-                  <span className="option-label">Dark</span>
-                </button>
-                <button
-                  type="button"
-                  className={`theme-option-btn ${theme === 'system' ? 'selected' : ''}`}
+                  <div className="theme-preview-header dark">
+                    <span>🌙</span>
+                    <span>Dark</span>
+                  </div>
+                  <div className="theme-preview-body">
+                    <div className="theme-preview-skeleton dark"></div>
+                    <div className="theme-preview-skeleton dark" style={{ width: '60%' }}></div>
+                  </div>
+                  <div className="theme-preview-label">Dark Mode</div>
+                  <div className="theme-preview-description">Easy on the eyes</div>
+                </div>
+                <div
+                  className={`theme-preview-card ${theme === 'system' ? 'selected' : ''}`}
                   onClick={() => setTheme('system')}
                 >
-                  <span className="option-icon">🖥️</span>
-                  <span className="option-label">System</span>
-                </button>
+                  <div className="theme-preview-header system">
+                    <span>🖥️</span>
+                    <span>System</span>
+                  </div>
+                  <div className="theme-preview-body">
+                    <div className="theme-preview-skeleton system"></div>
+                    <div className="theme-preview-skeleton system" style={{ width: '60%' }}></div>
+                  </div>
+                  <div className="theme-preview-label">System Theme</div>
+                  <div className="theme-preview-description">Follows your device</div>
+                </div>
               </div>
             </div>
 
