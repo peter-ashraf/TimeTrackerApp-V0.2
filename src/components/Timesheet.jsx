@@ -8,6 +8,7 @@ import EditEntryModal from './EditEntryModal';
 import NoPeriodPrompt from './NoPeriodPrompt';
 import VirtualizedTimesheetTable from './VirtualizedTimesheetTable';
 import CustomSelect from './CustomSelect';
+import CalendarView from './CalendarView';
 import '../styles/performance-optimizations.css';
 
 // Memoized individual row component to prevent unnecessary re-renders
@@ -139,6 +140,7 @@ function Timesheet() {
   const [showNoPeriodPrompt, setShowNoPeriodPrompt] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredEntries, setFilteredEntries] = useState([]);
+  const [viewMode, setViewMode] = useState('table'); // 'table' or 'calendar'
 
   // Debounced search function
   const debouncedSearch = useMemo(
@@ -330,6 +332,19 @@ function Timesheet() {
 
             {/* Toggle Group */}
             <div className="toggle-group">
+              {/* View Mode Toggle */}
+              <div className="time-format-toggle">
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={viewMode === 'calendar'}
+                    onChange={(e) => setViewMode(e.target.checked ? 'calendar' : 'table')}
+                  />
+                  <span className="toggle-slider"></span>
+                  <span className="toggle-label">{viewMode === 'calendar' ? '📅 Calendar' : '📋 Table'}</span>
+                </label>
+              </div>
+
               {/* Detailed View Toggle */}
               <div className="time-format-toggle">
                 <label className="toggle-switch">
@@ -418,7 +433,19 @@ function Timesheet() {
 
           {/* Table Container */}
           <div id="tableContainer">
-            {shouldUseVirtualization ? (
+            {viewMode === 'calendar' ? (
+              <CalendarView
+                entries={displayEntries}
+                onDateClick={(dateStr) => {
+                  // Handle date click - could open modal to add entry
+                  console.log('Date clicked:', dateStr);
+                }}
+                onEntryClick={(entry) => {
+                  // Handle entry click - open edit modal
+                  setEditingEntry(entry);
+                }}
+              />
+            ) : shouldUseVirtualization ? (
               <VirtualizedTimesheetTable
                 periodEntries={displayEntries.filter(entry => {
                   if (!viewingPeriod) return true;
