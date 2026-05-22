@@ -4,6 +4,7 @@ import { useTimeEntry } from '../context/TimeEntryContext';
 import ModalShell from './ModalShell';
 import AlertModal from './AlertModal';
 import CustomSelect from './CustomSelect';
+import '../styles/add-day-modal.css';
 
 function AddDayModal({ onClose }) {
   const { setEntries, entries, formatDate, showAlert } = useTimeTracker();
@@ -73,8 +74,10 @@ function AddDayModal({ onClose }) {
 
   return (
     <>
-      <ModalShell onClose={onClose} closeOnOverlay={false}>
-        <h2>Add Special Day</h2>
+      <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="add-day-modal">
+        <div className="modal-header">
+          <h2>Add Special Day</h2>
+        </div>
         <div className="modal-body">
           <div className="form-group">
             <label className="form-label">Day Type</label>
@@ -117,9 +120,11 @@ function AddDayModal({ onClose }) {
           </div>
         </div>
 
-        <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave}>Add Day</button>
+        <div className="modal-footer">
+          <div className="modal-actions">
+            <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleSave}>Add Day</button>
+          </div>
         </div>
       </ModalShell>
 

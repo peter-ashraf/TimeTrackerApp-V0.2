@@ -1,28 +1,30 @@
 /* View Hours Modal Styles */
-.view-hours-modal {
+.modal-content.view-hours-modal {
   max-height: 90vh;
-  display: flex;
-  flex-direction: column;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding: 0 !important;
 }
 
-.view-hours-modal .modal-header {
+.modal-content.view-hours-modal .modal-header {
   flex-shrink: 0;
   padding: var(--space-16);
   border-bottom: 1px solid var(--color-card-border-inner);
 }
 
-.view-hours-modal .modal-header h2 {
+.modal-content.view-hours-modal .modal-header h2 {
   margin: 0;
   color: var(--color-text);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
 }
 
-.view-hours-modal .modal-body {
+.modal-content.view-hours-modal .modal-body {
   flex: 1;
   padding: var(--space-16);
   min-height: 0;
-  overflow: hidden;
+  overflow: hidden !important;
   display: flex;
   flex-direction: column;
 }
@@ -135,18 +137,21 @@
   background: var(--color-bg-1);
 }
 
-.view-hours-modal .modal-footer {
+.modal-content.view-hours-modal .modal-footer {
   flex-shrink: 0;
   padding: var(--space-16);
   border-top: 1px solid var(--color-card-border-inner);
   background: var(--color-surface);
+  justify-content: center;
+  width: 100%;
 }
 
-.view-hours-modal .modal-actions {
+.modal-content.view-hours-modal .modal-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: var(--space-10);
   border-top: none;
+  width: 100%;
 }
 
 /* Dark mode adjustments */

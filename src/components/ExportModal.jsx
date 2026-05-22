@@ -1079,13 +1079,16 @@ function ExportModal({ onClose }) {
 
   return (
     <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="export-modal">
-      <h3>📤 Enhanced Export Timesheet Data</h3>
-      <p className="settings-description">
-        Export your timesheet data to Excel, PDF reports, or send via email with advanced formatting options.
-      </p>
+      <div className="modal-header">
+        <h3>📤 Enhanced Export Timesheet Data</h3>
+      </div>
+      <div className="modal-body">
+        <p className="settings-description">
+          Export your timesheet data to Excel, PDF reports, or send via email with advanced formatting options.
+        </p>
 
-      {/* Employee Info Preview */}
-      <div className="export-preview-box">
+        {/* Employee Info Preview */}
+        <div className="export-preview-box">
         <strong>📋 Employee:</strong> {employee.name || 'Not set'}
       </div>
 
@@ -1494,9 +1497,11 @@ function ExportModal({ onClose }) {
           </div>
         </>
       )}
+      </div>
 
-      {/* Actions */}
-      <div className="form-actions">
+      <div className="modal-footer">
+        {/* Actions */}
+        <div className="form-actions">
         <button
           type="button"
           className="btn btn-primary"
@@ -1517,7 +1522,8 @@ function ExportModal({ onClose }) {
           onClick={onClose}
         >
           Cancel
-        </button>
+          </button>
+        </div>
       </div>
     </ModalShell>
   );

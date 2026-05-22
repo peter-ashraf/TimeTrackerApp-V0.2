@@ -1,7 +1,24 @@
+.validation-modal {
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .validation-modal-content {
   text-align: center;
   padding: 2rem;
   animation: slideInUp 0.3s ease-out;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.validation-modal-content::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 .validation-modal-icon {
@@ -31,6 +48,9 @@
 .validation-modal-actions {
   display: flex;
   justify-content: center;
+  padding: 1rem;
+  border-top: 1px solid #e5e7eb;
+  flex-shrink: 0;
 }
 
 .validation-modal-button {

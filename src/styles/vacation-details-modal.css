@@ -1,17 +1,19 @@
 /* Vacation Details Modal Styles */
-.vacation-details-modal {
+.modal-content.vacation-details-modal {
   max-height: 90vh;
-  display: flex;
-  flex-direction: column;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding: 0 !important;
 }
 
-.vacation-details-modal .modal-header {
+.modal-content.vacation-details-modal .modal-header {
   flex-shrink: 0;
   padding: var(--space-16);
   border-bottom: 1px solid var(--color-card-border-inner);
 }
 
-.vacation-details-modal .modal-header h2 {
+.modal-content.vacation-details-modal .modal-header h2 {
   margin: 0;
   color: var(--color-text);
   font-size: var(--font-size-lg);
@@ -31,11 +33,11 @@
   margin: 0;
 }
 
-.vacation-details-modal .modal-body {
+.modal-content.vacation-details-modal .modal-body {
   flex: 1;
   padding: var(--space-16);
   min-height: 0;
-  overflow: hidden;
+  overflow: hidden !important;
   display: flex;
   flex-direction: column;
 }
@@ -136,14 +138,14 @@
   border-top: 2px solid var(--color-card-border-inner);
 }
 
-.vacation-details-modal .modal-footer {
+.modal-content.vacation-details-modal .modal-footer {
   flex-shrink: 0;
   padding: var(--space-16);
   border-top: 1px solid var(--color-card-border-inner);
   background: var(--color-surface);
 }
 
-.vacation-details-modal .modal-actions {
+.modal-content.vacation-details-modal .modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-10);

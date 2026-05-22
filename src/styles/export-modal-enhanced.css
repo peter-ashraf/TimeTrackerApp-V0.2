@@ -1,13 +1,38 @@
 /* Enhanced Export Modal Styles */
-.export-modal {
+.modal-content.export-modal {
   max-width: 600px;
   width: 100%;
+  max-height: 90vh;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding: 0 !important;
 }
 
-.export-modal h3 {
+.modal-content.export-modal .modal-header {
+  flex-shrink: 0;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-content.export-modal h3 {
   color: var(--color-text);
-  margin-bottom: 8px;
+  margin: 0;
   font-size: 1.5rem;
+}
+
+.modal-content.export-modal .modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto !important;
+  padding: 1.5rem;
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.modal-content.export-modal .modal-body::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 .export-preview-box {
@@ -480,6 +505,13 @@
   padding: 8px;
   margin-top: 8px;
   background-color: var(--color-surface);
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.period-checkbox-list::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 .period-checkbox-item {
@@ -613,9 +645,13 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .export-modal {
+  .modal-content.export-modal {
     max-width: 95vw;
     margin: 10px;
+  }
+  
+  .modal-content.export-modal .modal-body {
+    padding: 1rem;
   }
   
   .export-mode-tabs {

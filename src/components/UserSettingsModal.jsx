@@ -331,34 +331,6 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
                 </div>
               )}
             </div>
-
-            <div className="form-actions">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={onClose}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <span className="spinner"></span>
-                    Updating...
-                  </>
-                ) : (
-                  <>
-                    <span className="btn-icon">🔄</span>
-                    Update Username
-                  </>
-                )}
-              </button>
-            </div>
           </form>
         )}
 
@@ -419,34 +391,6 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
                   <strong>Security Tip:</strong> For public computers, consider using a shorter timeout period.
                 </p>
               </div>
-            </div>
-
-            <div className="form-actions">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={onClose}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <span className="spinner"></span>
-                    Updating...
-                  </>
-                ) : (
-                  <>
-                    <span className="btn-icon">⏱️</span>
-                    Update Session
-                  </>
-                )}
-              </button>
             </div>
           </form>
         )}
@@ -521,34 +465,6 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
                 </div>
               )}
             </div>
-
-            <div className="form-actions">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={onClose}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <span className="spinner"></span>
-                    Updating...
-                  </>
-                ) : (
-                  <>
-                    <span className="btn-icon">🔒</span>
-                    Update Password
-                  </>
-                )}
-              </button>
-            </div>
           </form>
         )}
         {activeTab === 'appearance' && (
@@ -607,17 +523,110 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
                 </ul>
               </div>
             </div>
-
-            <div className="form-actions">
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={onClose}
-              >
-                Done
-              </button>
-            </div>
           </div>
+        )}
+      </div>
+
+      {/* Form Actions - Fixed at bottom */}
+      <div className="form-actions">
+        {activeTab === 'username' && (
+          <>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              onClick={handleUsernameSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="spinner"></span>
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <span className="btn-icon">🔄</span>
+                  Update Username
+                </>
+              )}
+            </button>
+          </>
+        )}
+        {activeTab === 'session' && (
+          <>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              onClick={handleSessionSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="spinner"></span>
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <span className="btn-icon">⏱️</span>
+                  Update Session
+                </>
+              )}
+            </button>
+          </>
+        )}
+        {activeTab === 'password' && (
+          <>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              onClick={handlePasswordSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="spinner"></span>
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <span className="btn-icon">🔒</span>
+                  Update Password
+                </>
+              )}
+            </button>
+          </>
+        )}
+        {activeTab === 'appearance' && (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={onClose}
+          >
+            Done
+          </button>
         )}
       </div>
     </ModalShell>

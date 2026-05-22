@@ -1,3 +1,38 @@
+/* ===== IMPORT MODAL STRUCTURE ===== */
+.modal-content.import-modal {
+  max-height: 90vh;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+.modal-content.import-modal .modal-header {
+  flex-shrink: 0;
+  padding: var(--space-16);
+  border-bottom: 1px solid var(--color-card-border-inner);
+}
+
+.modal-content.import-modal .modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto !important;
+  padding: var(--space-16);
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.modal-content.import-modal .modal-body::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+.modal-content.import-modal .modal-footer {
+  flex-shrink: 0;
+  padding: var(--space-16);
+  border-top: 1px solid var(--color-card-border-inner);
+}
+
 /* ===== IMPORT MODAL STEPS ===== */
 .import-steps {
   display: flex;
@@ -6,6 +41,7 @@
   padding: 16px;
   background: var(--color-secondary);
   border-radius: var(--radius-base);
+  flex-shrink: 0;
 }
 
 .import-step {

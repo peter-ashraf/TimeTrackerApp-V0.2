@@ -665,10 +665,12 @@ function ImportModal({ onClose }) {
 
   return (
     <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="import-modal">
-      <h3>Import Timesheet Data</h3>
-
-      {/* Step Indicator */}
-      <div className="import-steps">
+      <div className="modal-header">
+        <h3>Import Timesheet Data</h3>
+      </div>
+      <div className="modal-body">
+        {/* Step Indicator */}
+        <div className="import-steps">
         <div className={`import-step ${currentStep >= 1 ? 'active' : ''} ${currentStep > 1 ? 'complete' : ''}`}>
           <span className="step-number">1</span>
           <span className="step-label">Select File</span>
@@ -1012,6 +1014,7 @@ function ImportModal({ onClose }) {
           </div>
         </>
       )}
+      </div>
     </ModalShell>
   );
 }

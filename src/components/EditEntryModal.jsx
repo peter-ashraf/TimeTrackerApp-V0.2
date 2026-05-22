@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 import CustomSelect from './CustomSelect';
+import '../styles/edit-entry-modal.css';
 
 function EditEntryModal({ entry, onClose }) {
   const { updateEntry, confirmModal, setConfirmModal } = useTimeTracker();
@@ -183,7 +184,9 @@ function EditEntryModal({ entry, onClose }) {
 
   return (
     <ModalShell onClose={onClose} contentClassName="edit-entry-modal" closeOnOverlay={false}>
-      <h2>✏️ Edit Entry - {entry.date}</h2>
+      <div className="modal-header">
+        <h2>✏️ Edit Entry - {entry.date}</h2>
+      </div>
       <div className="modal-body">
         <div className="form-group">
           <label className="form-label">Type</label>
@@ -223,85 +226,82 @@ function EditEntryModal({ entry, onClose }) {
                   <label className="interval-label">
                     {index === 0 ? '🕐 Main Work Hours' : `☕ Break ${index}`}
                   </label>
-                  <div className="interval-inputs">
-                    {/* Check In */}
-                    <div className="time-input-wrapper">
-                      <label className="time-input-label">{firstLabel}</label>
-                      <div className="time-input-with-picker">
-                        <input
-                          type="text"
-                          className="form-control time-input-text"
-                          placeholder="08:30:00"
-                          value={interval.in || ''}
-                          onChange={(e) => handleIntervalChange(index, 'in', e.target.value)}
-                          maxLength="8"
-                        />
-                        {/* <button
-                          type="button"
-                          className="time-picker-button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.currentTarget.nextElementSibling.showPicker();
-                          }}
-                          title="Pick time"
-                        >
-                          🕐
-                        </button> */}
-                        <input
-                          type="time"
-                          step="1"
-                          className="time-picker-input"
-                          value={
-                            isValidTime(interval.in) ||
-                              /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(interval.in)
-                              ? interval.in
-                              : ''
-                          }
-                          onChange={(e) => handleTimePickerChange(index, 'in', e.target.value)}
-                          title="Pick time (HH:MM:SS)"
-                        />
-                      </div>
+                  
+                  {/* Check In */}
+                  <div className="time-input-wrapper">
+                    <label className="time-input-label">{firstLabel}</label>
+                    <div className="time-input-with-picker">
+                      <input
+                        type="text"
+                        className="form-control time-input-text"
+                        placeholder="08:30:00"
+                        value={interval.in || ''}
+                        onChange={(e) => handleIntervalChange(index, 'in', e.target.value)}
+                        maxLength="8"
+                      />
+                      {/* <button
+                        type="button"
+                        className="time-picker-button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.currentTarget.nextElementSibling.showPicker();
+                        }}
+                        title="Pick time"
+                      >
+                        🕐
+                      </button> */}
+                      <input
+                        type="time"
+                        step="1"
+                        className="time-picker-input"
+                        value={
+                          isValidTime(interval.in) ||
+                            /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(interval.in)
+                            ? interval.in
+                            : ''
+                        }
+                        onChange={(e) => handleTimePickerChange(index, 'in', e.target.value)}
+                        title="Pick time (HH:MM:SS)"
+                      />
                     </div>
+                  </div>
 
-                    <span className="time-separator">→</span>
-
-                    {/* Check Out */}
-                    <div className="time-input-wrapper">
-                      <label className="time-input-label">{secondLabel}</label>
-                      <div className="time-input-with-picker">
-                        <input
-                          type="text"
-                          className="form-control time-input-text"
-                          placeholder="17:45:00"
-                          value={interval.out || ''}
-                          onChange={(e) => handleIntervalChange(index, 'out', e.target.value)}
-                          maxLength="8"
-                        />
-                        {/* <button
-                          type="button"
-                          className="time-picker-button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.currentTarget.nextElementSibling.showPicker();
-                          }}
-                          title="Pick time"
-                        >
-                          🕐
-                        </button> */}
-                        <input
-                          type="time"
-                          step="1"
-                          className="time-picker-input"
-                          value={
-                            isValidTime(interval.out) ||
-                              /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(interval.out)
-                              ? interval.out
-                              : ''
-                          }
-                          onChange={(e) => handleTimePickerChange(index, 'out', e.target.value)}
-                          title="Pick time (HH:MM:SS)"
-                        />
-                      </div>
+                  {/* Check Out */}
+                  <div className="time-input-wrapper">
+                    <label className="time-input-label">{secondLabel}</label>
+                    <div className="time-input-with-picker">
+                      <input
+                        type="text"
+                        className="form-control time-input-text"
+                        placeholder="17:45:00"
+                        value={interval.out || ''}
+                        onChange={(e) => handleIntervalChange(index, 'out', e.target.value)}
+                        maxLength="8"
+                      />
+                      {/* <button
+                        type="button"
+                        className="time-picker-button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.currentTarget.nextElementSibling.showPicker();
+                        }}
+                        title="Pick time"
+                      >
+                        🕐
+                      </button> */}
+                      <input
+                        type="time"
+                        step="1"
+                        className="time-picker-input"
+                        value={
+                          isValidTime(interval.out) ||
+                            /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(interval.out)
+                            ? interval.out
+                            : ''
+                        }
+                        onChange={(e) => handleTimePickerChange(index, 'out', e.target.value)}
+                        title="Pick time (HH:MM:SS)"
+                      />
                     </div>
                   </div>
                   {!isValidTime(interval.in) && interval.in && (
@@ -357,9 +357,11 @@ function EditEntryModal({ entry, onClose }) {
         </div>
       </div>
 
-      <div className="modal-actions">
-        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" onClick={handleSave}>💾 Save Changes</button>
+      <div className="modal-footer">
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleSave}>💾 Save Changes</button>
+        </div>
       </div>
     </ModalShell>
   );

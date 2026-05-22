@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 import AlertModal from './AlertModal';
+import '../styles/add-break-modal.css';
 
 function AddBreakModal({ onClose }) {
   const { entries, formatDate, updateEntry } = useTimeTracker();
@@ -64,8 +65,10 @@ function AddBreakModal({ onClose }) {
 
   return (
     <>
-      <ModalShell onClose={onClose} closeOnOverlay={false}>
-      <h2>Add Break</h2>
+      <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="add-break-modal">
+      <div className="modal-header">
+        <h2>Add Break</h2>
+      </div>
       <div className="modal-body">
         <div className="form-group">
           <label className="form-label">Date</label>
@@ -79,7 +82,9 @@ function AddBreakModal({ onClose }) {
 
         <div className="form-group interval-group">
           <label>Break Times</label>
-          <div className="interval-inputs">
+          
+          <div className="time-input-wrapper">
+            <label className="time-input-label">Break Start</label>
             <input
               type="time"
               className="form-control"
@@ -87,6 +92,10 @@ function AddBreakModal({ onClose }) {
               value={breakStart}
               onChange={(e) => setBreakStart(e.target.value)}
             />
+          </div>
+
+          <div className="time-input-wrapper">
+            <label className="time-input-label">Break End</label>
             <input
               type="time"
               className="form-control"
@@ -109,9 +118,11 @@ function AddBreakModal({ onClose }) {
         </div>
       </div>
 
-      <div className="modal-actions">
-        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" onClick={handleSave}>Add Break</button>
+      <div className="modal-footer">
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleSave}>Add Break</button>
+        </div>
       </div>
     </ModalShell>
     

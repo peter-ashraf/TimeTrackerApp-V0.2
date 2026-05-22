@@ -4,6 +4,7 @@ import { useTimeEntry } from '../context/TimeEntryContext';
 import ModalShell from './ModalShell';
 import ConfirmModal from './ConfirmModal';
 import CustomSelect from './CustomSelect';
+import '../styles/manual-time-modal.css';
 
 function ManualTimeModal({ mode, onClose }) {
   const { setEntries, entries, formatDate, getCurrentPeriod, updateEntry, setConfirmModal, confirmModal, showAlert } = useTimeTracker();
@@ -155,8 +156,10 @@ function ManualTimeModal({ mode, onClose }) {
 
   return (
     <>
-      <ModalShell onClose={onClose} closeOnOverlay={false}>
-        <h2>{mode === 'checkIn' ? 'Manual Check In' : 'Manual Check Out'}</h2>
+      <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="manual-time-modal">
+        <div className="modal-header">
+          <h2>{mode === 'checkIn' ? 'Manual Check In' : 'Manual Check Out'}</h2>
+        </div>
         <div className="modal-body">
           <div className="form-group">
             <label className="form-label">Apply for</label>
@@ -196,9 +199,11 @@ function ManualTimeModal({ mode, onClose }) {
           </div>
         </div>
 
-        <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave}>Save</button>
+        <div className="modal-footer">
+          <div className="modal-actions">
+            <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleSave}>Save</button>
+          </div>
         </div>
       </ModalShell>
 

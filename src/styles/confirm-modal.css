@@ -1,16 +1,22 @@
-.confirm-modal {
+.modal-content.confirm-modal {
   max-width: 450px;
+  max-height: 90vh;
+  display: flex !important;
+  flex-direction: column !important;
   text-align: center;
-  padding: 1rem;
+  padding: 0 !important;
+  overflow: hidden !important;
 }
 
 /* ✅ NEW: Header container with icon + title side by side */
-.confirm-header {
+.modal-content.confirm-modal .confirm-header {
   display: flex;
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  margin-bottom: 1rem;
+  padding: 1rem;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-card-border-inner);
 }
 
 /* ✅ UPDATED: Icon styling */
@@ -45,17 +51,30 @@
   line-height: 1.2;
 }
 
-.confirm-message {
+.modal-content.confirm-modal .confirm-message {
   font-size: 1rem;
-
-  margin: 1rem 0 1.5rem;
+  padding: 1rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto !important;
+  margin: 0;
   line-height: 1.5;
   text-align: left; /* Left align for better readability */
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
 }
 
-.confirm-modal .modal-actions {
+.modal-content.confirm-modal .confirm-message::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+.modal-content.confirm-modal .modal-actions {
   gap: 1rem;
   justify-content: center;
+  padding: 1rem;
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-card-border-inner);
 }
 
 .btn-danger {
