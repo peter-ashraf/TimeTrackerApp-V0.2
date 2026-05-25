@@ -291,8 +291,20 @@ export const TimeEntryProvider = ({ children }) => {
                   const localTime = Date.parse(localEntry.lastModified || localEntry.updated_at || 0);
                   const remoteTime = Date.parse(remoteEntry.updated_at || remoteEntry.lastModified || 0);
 
+                  console.log('[Conflict Resolution]', {
+                    date,
+                    localLastModified: localEntry.lastModified,
+                    localUpdated_at: localEntry.updated_at,
+                    remoteUpdated_at: remoteEntry.updated_at,
+                    remoteLastModified: remoteEntry.lastModified,
+                    localTime,
+                    remoteTime,
+                    diff: localTime - remoteTime
+                  });
+
                   if (localTime > remoteTime + 2000) {
                     // Local is newer -> upload local to Supabase
+                    console.log('[Conflict Resolution] Local wins (by >2s), uploading to Supabase');
                     entriesToUpload.push({
                       ...localEntry,
                       id: remoteEntry.id // Keep remote ID
@@ -303,9 +315,11 @@ export const TimeEntryProvider = ({ children }) => {
                     });
                   } else if (remoteTime > localTime + 2000) {
                     // Remote is newer -> use remote
+                    console.log('[Conflict Resolution] Remote wins (by >2s)');
                     finalEntries.push(remoteEntry);
                   } else {
                     // Conflict! (within 2s threshold)
+                    console.log('[Conflict Resolution] CONFLICT (within 2s), remote wins');
                     conflicts.push({ date, local: localEntry, remote: remoteEntry });
                     finalEntries.push(remoteEntry);
                   }

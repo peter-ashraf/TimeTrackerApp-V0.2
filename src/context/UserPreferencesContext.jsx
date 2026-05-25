@@ -3,6 +3,7 @@ import { useSupabaseAuth } from './SupabaseAuthContext';
 import { supabaseData } from '../utils/supabaseData';
 import { setSimpleEncryptedItem, getSimpleEncryptedItem } from '../utils/simple-encryption';
 import { multiTabSync } from '../utils/multiTabSync';
+import cacheManager from '../utils/cacheManager';
 
 const UserPreferencesContext = createContext();
 
@@ -80,11 +81,26 @@ export const UserPreferencesProvider = ({ children }) => {
       const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
 
       let localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
-      const localLeaveSettings = getSimpleEncryptedItem(leaveSettingsKey, currentUser.username) || {
-        annualVacation: 10,
-        sickDays: 7,
-        personalDays: 2
-      };
+
+      // Try cacheManager first for instant loading
+      let localLeaveSettings = null;
+      try {
+        const cachedLeaveSettings = await cacheManager.getCachedData('leaveSettings', null);
+        if (cachedLeaveSettings) {
+          localLeaveSettings = cachedLeaveSettings;
+        }
+      } catch (cacheError) {
+        console.warn('CacheManager failed for leaveSettings, falling back to localStorage:', cacheError);
+      }
+
+      // Fallback to encrypted localStorage if cacheManager fails or returns empty
+      if (!localLeaveSettings) {
+        localLeaveSettings = getSimpleEncryptedItem(leaveSettingsKey, currentUser.username) || {
+          annualVacation: 10,
+          sickDays: 7,
+          personalDays: 2
+        };
+      }
 
       setEmployee(prev => ({
         ...prev,
@@ -214,6 +230,13 @@ export const UserPreferencesProvider = ({ children }) => {
       // Always save to localStorage immediately to keep local cache sync'd
       const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
       setSimpleEncryptedItem(leaveSettingsKey, leaveSettings, currentUser.username);
+
+      // Also save to cacheManager for offline access
+      try {
+        cacheManager.setCachedData('leaveSettings', leaveSettings);
+      } catch (cacheError) {
+        console.warn('Failed to save leaveSettings to cacheManager:', cacheError);
+      }
 
       try {
         await supabaseData.saveLeaveSettings(currentUser.id, {
