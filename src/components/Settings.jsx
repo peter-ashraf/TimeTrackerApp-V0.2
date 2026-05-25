@@ -168,8 +168,8 @@ function Settings() {
   const [workDaysPerWeek, setWorkDaysPerWeek] = useState(employee.workDaysPerWeek);
 
   // Leave settings form
-  const [annualVacation, setAnnualVacation] = useState(leaveSettings.annualVacation);
-  const [sickDays, setSickDays] = useState(leaveSettings.sickDays);
+  const [annualVacation, setAnnualVacation] = useState(leaveSettings.annualVacation || 10);
+  const [sickDays, setSickDays] = useState(leaveSettings.sickDays || 7);
 
   // Period management
   const [showAddPeriod, setShowAddPeriod] = useState(false);
