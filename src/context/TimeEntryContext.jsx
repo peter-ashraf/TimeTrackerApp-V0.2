@@ -552,8 +552,7 @@ export const TimeEntryProvider = ({ children }) => {
     pendingConflicts,
     conflictResolver,
     isConflictModalOpen,
-    closeConflictModal,
-    
+
     // Helper functions
     formatDate,
     formatTime,
