@@ -26,6 +26,7 @@ export const TimeEntryProvider = ({ children }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
   const [pendingConflicts, setPendingConflicts] = useState([]);
+  const [conflictResolver, setConflictResolver] = useState(null);
 
   // Refs to track state
   const isRefreshingRef = useRef(false);
@@ -288,41 +289,13 @@ export const TimeEntryProvider = ({ children }) => {
                   localDouble !== remoteDouble;
 
                 if (isDifferent) {
-                  const localTime = Date.parse(localEntry.lastModified || localEntry.updated_at || 0);
-                  const remoteTime = Date.parse(remoteEntry.updated_at || remoteEntry.lastModified || 0);
-
-                  console.log('[Conflict Resolution]', {
+                  // Always treat as conflict requiring user decision
+                  conflicts.push({
+                    entryId: remoteEntry.id || localEntry.id,
                     date,
-                    localLastModified: localEntry.lastModified,
-                    localUpdated_at: localEntry.updated_at,
-                    remoteUpdated_at: remoteEntry.updated_at,
-                    remoteLastModified: remoteEntry.lastModified,
-                    localTime,
-                    remoteTime,
-                    diff: localTime - remoteTime
+                    localEntry,
+                    remoteEntry
                   });
-
-                  if (localTime > remoteTime + 2000) {
-                    // Local is newer -> upload local to Supabase
-                    console.log('[Conflict Resolution] Local wins (by >2s), uploading to Supabase');
-                    entriesToUpload.push({
-                      ...localEntry,
-                      id: remoteEntry.id // Keep remote ID
-                    });
-                    finalEntries.push({
-                      ...localEntry,
-                      id: remoteEntry.id
-                    });
-                  } else if (remoteTime > localTime + 2000) {
-                    // Remote is newer -> use remote
-                    console.log('[Conflict Resolution] Remote wins (by >2s)');
-                    finalEntries.push(remoteEntry);
-                  } else {
-                    // Conflict! (within 2s threshold)
-                    console.log('[Conflict Resolution] CONFLICT (within 2s), remote wins');
-                    conflicts.push({ date, local: localEntry, remote: remoteEntry });
-                    finalEntries.push(remoteEntry);
-                  }
                 } else {
                   // Identical raw data -> keep local to preserve computed/derived math
                   finalEntries.push({
@@ -347,8 +320,63 @@ export const TimeEntryProvider = ({ children }) => {
               }
             }
 
-            // Update local state immediately with auto-reconciled list
-            setPendingConflicts(conflicts);
+            // If conflicts exist, pause sync and show modal
+            if (conflicts.length > 0) {
+              console.log(`[Sync] Found ${conflicts.length} conflicts, pausing sync for user resolution`);
+              setPendingConflicts(conflicts);
+              // Store non-conflicting entries for later merge
+              setConflictResolver(() => (resolutions) => {
+                // Apply user choices to finalEntries
+                const resolutionMap = new Map(resolutions.map(r => [r.entryId || r.date, r.chosenEntry]));
+                
+                // Merge resolved entries with non-conflicting finalEntries
+                const mergedEntries = [...finalEntries];
+                conflicts.forEach(conflict => {
+                  const chosen = resolutionMap.get(conflict.entryId || conflict.date);
+                  if (chosen) {
+                    const existingIndex = mergedEntries.findIndex(e => e.date === conflict.date);
+                    if (existingIndex >= 0) {
+                      mergedEntries[existingIndex] = chosen;
+                    } else {
+                      mergedEntries.push(chosen);
+                    }
+                  }
+                });
+
+                // Update entries state with merged data
+                setEntries(mergedEntries.sort((a, b) => b.date.localeCompare(a.date)));
+
+                // Upload local choices to Supabase
+                const toUpload = resolutions.filter(r => r.chosenEntry === r.localEntry);
+                if (toUpload.length > 0) {
+                  console.log(`[Sync] Uploading ${toUpload.length} user-chosen local entries to Supabase...`);
+                  Promise.all(
+                    toUpload.map(async (resolution) => {
+                      try {
+                        const saved = await supabaseData.saveTimeEntry(currentUser.id, resolution.chosenEntry);
+                        const returnedEntry = Array.isArray(saved) ? saved[0] : saved;
+                        if (returnedEntry?.id) {
+                          setEntries(prev => prev.map(e =>
+                            e.date === resolution.chosenEntry.date ? { ...e, id: returnedEntry.id } : e
+                          ));
+                        }
+                      } catch (err) {
+                        console.error(`[Sync] Failed to upload entry for ${resolution.chosenEntry.date}:`, err);
+                      }
+                    })
+                  ).catch(err => {
+                    console.error('[Sync] Error uploading user-chosen entries:', err);
+                  });
+                }
+
+                // Clear conflicts after resolution
+                setPendingConflicts([]);
+              });
+              return; // Don't proceed with sync yet
+            }
+
+            // No conflicts - proceed with normal sync
+            setPendingConflicts([]);
             setEntries(finalEntries.sort((a, b) => b.date.localeCompare(a.date)));
 
             // Trigger background upload for unsynced/newer local entries
@@ -495,6 +523,7 @@ export const TimeEntryProvider = ({ children }) => {
     isSaving,
     saveStatus,
     pendingConflicts,
+    conflictResolver,
 
     // Helper functions
     formatDate,

@@ -1,246 +1,182 @@
-import React, { useState, useEffect } from 'react';
-import '../styles/conflict-resolution.css';
+import React, { useState } from 'react';
+import '../styles/conflict-resolution-modal.css';
 
-const ConflictResolutionModal = ({ conflicts, onResolve, onResolveAll }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  useEffect(() => {
-    setCurrentIndex(prev => Math.min(prev, Math.max(0, conflicts.length - 1)));
-  }, [conflicts.length]);
+const ConflictResolutionModal = ({ conflicts, onResolve }) => {
+  const [resolutions, setResolutions] = useState({});
 
   if (!conflicts || conflicts.length === 0) return null;
 
-  const conflict = conflicts[currentIndex] || conflicts;
-  if (!conflict) return null;
-  const { date, local: localEntry, remote: remoteEntry } = conflict;
-
-  console.log('CONFLICT_DEBUG:', JSON.stringify(conflict));
-
-  const normalizeEntry = (entry) => {
-    // If the entry format uses a generic start/end instead of intervals, try to support it
-    const intervals = entry.intervals || [];
-    const checkIn = intervals[0]?.in || '--:--:--';
-    // For checkOut, sometimes the first interval holds the checkOut, occasionally the last one does.
-    // In our app, intervals[0] is typically the full duration check in / out.
-    const checkOut = intervals[0]?.out || '--:--:--';
-    const breaks = intervals.slice(1);
-
-    return {
-      ...entry,
-      checkIn,
-      checkOut,
-      breaks,
-      hours: entry.hoursWorked ?? entry.hours_worked ?? 0,
-    };
-  };
-
-  const localNorm = normalizeEntry(localEntry);
-  const remoteNorm = normalizeEntry(remoteEntry);
-
   const formatTime = (timeString) => {
-    if (!timeString) return '--:--:--';
+    if (!timeString) return '--:--';
     if (typeof timeString === 'string' && timeString.includes(':')) {
-      return timeString;
+      const [hours, minutes] = timeString.split(':').slice(0, 2);
+      const date = new Date();
+      date.setHours(parseInt(hours), parseInt(minutes));
+      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     }
     const date = new Date(timeString);
-    return date.toLocaleTimeString();
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
       weekday: 'short',
-      year: 'numeric',
       month: 'short',
       day: 'numeric'
     });
   };
 
-  const formatHours = (hours) => {
-    if (!hours) return '0.00';
-    return typeof hours === 'number' ? hours.toFixed(2) : hours;
+  const formatDuration = (entry) => {
+    if (entry.duration) return `${entry.duration}h`;
+    if (entry.hoursWorked) return `${entry.hoursWorked}h`;
+    return '--';
   };
 
-  const isFieldDifferent = (localValue, remoteValue) => {
-    if (localValue === remoteValue) return false;
-    if (!localValue || !remoteValue) return true;
-    return String(localValue) !== String(remoteValue);
+  const getEntryDetails = (entry) => {
+    const intervals = entry.intervals || [];
+    const checkIn = intervals[0]?.in || '--';
+    const checkOut = intervals[0]?.out || '--';
+    const notes = entry.notes || '';
+    return { checkIn, checkOut, notes };
   };
 
-  const FieldValue = ({ label, value, isDifferent }) => (
-    <div className="field-row">
-      <span className="field-label">{label}:</span>
-      <span className={`field-value ${isDifferent ? 'different' : ''}`}>
-        {value}
-      </span>
-    </div>
-  );
-
-  const formatBreaks = (breaks) => {
-    if (!breaks || breaks.length === 0) return 'No breaks';
-    return breaks.map((b, i) => `${formatTime(b.out)} - ${formatTime(b.in)}`).join(', ');
+  const handleChoice = (conflict, choice) => {
+    setResolutions(prev => ({
+      ...prev,
+      [conflict.date]: choice
+    }));
   };
 
-  const isBreakDifferent = (localBreaks, remoteBreaks) => {
-    if ((!localBreaks || localBreaks.length === 0) && (!remoteBreaks || remoteBreaks.length === 0)) return false;
-    return JSON.stringify(localBreaks) !== JSON.stringify(remoteBreaks);
+  const handleBatchChoice = (choice) => {
+    const newResolutions = {};
+    conflicts.forEach(conflict => {
+      newResolutions[conflict.date] = choice;
+    });
+    setResolutions(newResolutions);
+  };
+
+  const allResolved = conflicts.length > 0 && conflicts.every(c => resolutions[c.date]);
+
+  const handleApply = () => {
+    const resolutionArray = conflicts.map(conflict => ({
+      entryId: conflict.entryId || conflict.date,
+      chosenEntry: resolutions[conflict.date] === 'local' ? conflict.localEntry : conflict.remoteEntry
+    }));
+    onResolve(resolutionArray);
   };
 
   return (
     <div className="conflict-modal-overlay">
       <div className="conflict-modal">
         <div className="conflict-header">
-          <h2>Resolve Data Conflict</h2>
+          <h2>Sync Conflicts Found</h2>
+          <span className="conflict-count">{conflicts.length} conflict{conflicts.length > 1 ? 's' : ''}</span>
         </div>
 
-        {conflicts.length > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <button
-              onClick={() => setCurrentIndex(i => Math.max(0, i - 1))}
-              disabled={currentIndex === 0}
-              style={{ opacity: currentIndex === 0 ? 0.3 : 1 }}
-            >
-              ← Prev
-            </button>
-            <span>Conflict {currentIndex + 1} of {conflicts.length}</span>
-            <button
-              onClick={() => setCurrentIndex(i => Math.min(conflicts.length - 1, i + 1))}
-              disabled={currentIndex === conflicts.length - 1}
-              style={{ opacity: currentIndex === conflicts.length - 1 ? 0.3 : 1 }}
-            >
-              Next →
-            </button>
-          </div>
-        )}
-
-        <div className="conflict-date">
-          <strong>{formatDate(date)}</strong>
+        <div className="batch-actions">
+          <button
+            className="btn btn-secondary"
+            onClick={() => handleBatchChoice('local')}
+          >
+            Keep All Mine
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={() => handleBatchChoice('remote')}
+          >
+            Use All Online
+          </button>
         </div>
 
-        <div className="conflict-content">
-          <div className="conflict-card local-card">
-            <h3>Local Version</h3>
-            <div className="card-content">
-              <FieldValue
-                label="Check In"
-                value={formatTime(localNorm.checkIn)}
-                isDifferent={isFieldDifferent(
-                  localNorm.checkIn,
-                  remoteNorm.checkIn
-                )}
-              />
-              <FieldValue
-                label="Check Out"
-                value={formatTime(localNorm.checkOut)}
-                isDifferent={isFieldDifferent(
-                  localNorm.checkOut,
-                  remoteNorm.checkOut
-                )}
-              />
-              <FieldValue
-                label="Breaks"
-                value={formatBreaks(localNorm.breaks)}
-                isDifferent={isBreakDifferent(
-                  localNorm.breaks,
-                  remoteNorm.breaks
-                )}
-              />
-              <FieldValue
-                label="Hours"
-                value={formatHours(localNorm.hours)}
-                isDifferent={isFieldDifferent(
-                  localNorm.hours,
-                  remoteNorm.hours
-                )}
-              />
-            </div>
-          </div>
+        <div className="conflict-list">
+          {conflicts.map((conflict, index) => {
+            const { date, localEntry, remoteEntry } = conflict;
+            const localDetails = getEntryDetails(localEntry);
+            const remoteDetails = getEntryDetails(remoteEntry);
+            const choice = resolutions[date];
 
-          <div className="conflict-card remote-card">
-            <h3>Remote Version</h3>
-            <div className="card-content">
-              <FieldValue
-                label="Check In"
-                value={formatTime(remoteNorm.checkIn)}
-                isDifferent={isFieldDifferent(
-                  localNorm.checkIn,
-                  remoteNorm.checkIn
-                )}
-              />
-              <FieldValue
-                label="Check Out"
-                value={formatTime(remoteNorm.checkOut)}
-                isDifferent={isFieldDifferent(
-                  localNorm.checkOut,
-                  remoteNorm.checkOut
-                )}
-              />
-              <FieldValue
-                label="Breaks"
-                value={formatBreaks(remoteNorm.breaks)}
-                isDifferent={isBreakDifferent(
-                  localNorm.breaks,
-                  remoteNorm.breaks
-                )}
-              />
-              <FieldValue
-                label="Hours"
-                value={formatHours(remoteNorm.hours)}
-                isDifferent={isFieldDifferent(
-                  localNorm.hours,
-                  remoteNorm.hours
-                )}
-              />
-            </div>
-          </div>
+            return (
+              <div key={date} className="conflict-card">
+                <div className="conflict-card-header">
+                  <h3>{formatDate(date)}</h3>
+                  {choice && <span className="resolved-badge">Resolved</span>}
+                </div>
+
+                <div className="conflict-columns">
+                  <div className={`conflict-column ${choice === 'local' ? 'selected' : ''}`}>
+                    <div className="column-header">📱 Your Offline Edit</div>
+                    <div className="column-content">
+                      <div className="field-row">
+                        <span className="field-label">Check-in:</span>
+                        <span className="field-value">{formatTime(localDetails.checkIn)}</span>
+                      </div>
+                      <div className="field-row">
+                        <span className="field-label">Check-out:</span>
+                        <span className="field-value">{formatTime(localDetails.checkOut)}</span>
+                      </div>
+                      <div className="field-row">
+                        <span className="field-label">Duration:</span>
+                        <span className="field-value">{formatDuration(localEntry)}</span>
+                      </div>
+                      {localDetails.notes && (
+                        <div className="field-row">
+                          <span className="field-label">Notes:</span>
+                          <span className="field-value">{localDetails.notes}</span>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      className={`btn ${choice === 'local' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => handleChoice(conflict, 'local')}
+                    >
+                      Keep My Edit
+                    </button>
+                  </div>
+
+                  <div className={`conflict-column ${choice === 'remote' ? 'selected' : ''}`}>
+                    <div className="column-header">☁️ Online Version</div>
+                    <div className="column-content">
+                      <div className="field-row">
+                        <span className="field-label">Check-in:</span>
+                        <span className="field-value">{formatTime(remoteDetails.checkIn)}</span>
+                      </div>
+                      <div className="field-row">
+                        <span className="field-label">Check-out:</span>
+                        <span className="field-value">{formatTime(remoteDetails.checkOut)}</span>
+                      </div>
+                      <div className="field-row">
+                        <span className="field-label">Duration:</span>
+                        <span className="field-value">{formatDuration(remoteEntry)}</span>
+                      </div>
+                      {remoteDetails.notes && (
+                        <div className="field-row">
+                          <span className="field-label">Notes:</span>
+                          <span className="field-value">{remoteDetails.notes}</span>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      className={`btn ${choice === 'remote' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => handleChoice(conflict, 'remote')}
+                    >
+                      Use Online Version
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        <div className="conflict-actions">
-          <div className="individual-actions">
-            <button
-              className="btn btn-secondary"
-              onClick={() => {
-                onResolve(conflict.date, conflict.local);
-                // Adjust index if needed after resolving
-                if (currentIndex >= conflicts.length - 1) {
-                  setCurrentIndex(Math.max(0, currentIndex - 1));
-                }
-              }}
-            >
-              Keep Local
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                onResolve(conflict.date, conflict.remote);
-                // Adjust index if needed after resolving
-                if (currentIndex >= conflicts.length - 1) {
-                  setCurrentIndex(Math.max(0, currentIndex - 1));
-                }
-              }}
-            >
-              Use Remote
-            </button>
-          </div>
-
-          {conflicts.length > 1 && (
-            <div className="bulk-actions">
-              <button
-                className="btn"
-                style={{ backgroundColor: '#f59e0b', color: 'white', border: 'none' }}
-                onClick={() => onResolveAll('local')}
-              >
-                Keep All Local
-              </button>
-              <button
-                className="btn"
-                style={{ backgroundColor: '#14b8a6', color: 'white', border: 'none' }}
-                onClick={() => onResolveAll('remote')}
-              >
-                Use All Remote
-              </button>
-            </div>
-          )}
+        <div className="conflict-footer">
+          <button
+            className="btn btn-primary btn-large"
+            disabled={!allResolved}
+            onClick={handleApply}
+          >
+            Apply All
+          </button>
         </div>
       </div>
     </div>

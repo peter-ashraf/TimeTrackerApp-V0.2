@@ -76,7 +76,7 @@ function App() {
 
   const { currentUser, isAuthenticated, getUserData, saveUserData, isAppLoading, isLoading: authLoading } = useSupabaseAuth();
 
-  const { loadTimeEntriesData, pendingConflicts, resolveConflict } = useTimeEntry();
+  const { loadTimeEntriesData, pendingConflicts, conflictResolver } = useTimeEntry();
 
   const { data: instantData, cacheStatus, forceRefresh, isOnline } = useInstantData();
 
@@ -1209,11 +1209,12 @@ function App() {
 
               <ConflictResolutionModal
                 conflicts={pendingConflicts}
-                onResolve={resolveConflict}
-                onResolveAll={(choice) => {
-                  [...pendingConflicts].forEach(c => {
-                    resolveConflict(c.date, choice === 'local' ? c.local : c.remote);
-                  });
+                onResolve={(resolutions) => {
+                  if (conflictResolver) {
+                    conflictResolver(resolutions);
+                    setPendingConflicts([]);
+                    setConflictResolver(null);
+                  }
                 }}
               />
 
