@@ -608,173 +608,198 @@ export const TimeTrackerProvider = ({ children }) => {
   }, [timeEntryContext, ensureTimeSeconds, showAlert, recalculateEntryFields]);
 
   const deleteEntry = useCallback(async (date) => {
-    if (!date) return;
+        if (!date) return;
 
-    if (window._deletingEntry === date) {
-      console.warn('[Delete] Delete guard already active for:', date);
-      return;
-    }
+        if (window._deletingEntry === date) {
+          console.warn('[Delete] Delete guard already active for:', date);
+          return;
+        }
 
-    window._deletingEntry = date;
+        window._deletingEntry = date;
 
-    setConfirmModal({
-      isOpen: true,
-      title: '⚠️ Confirm Delete Entry',
-      message: `Are you sure you want to delete the entry for ${date}? This action cannot be undone and will remove the entry from the database.`,
-      type: 'warning',
-      confirmText: 'Delete Entry',
-      cancelText: 'Cancel',
-      showCancel: true,
-      onConfirm: async () => {
-        try {
-          const entryToDelete = timeEntryContext.entries.find(entry => entry.date === date);
-
-          if (!entryToDelete) {
-            console.error('[Delete] Entry not found in local state for date:', date);
-            showAlert('Entry not found', 'error');
-            return;
-          }
-
-          if (navigator.onLine && currentUser && !currentUser.isLocalOnly) {
+        setConfirmModal({
+          isOpen: true,
+          title: '⚠️ Confirm Delete Entry',
+          message: `Are you sure you want to delete the entry for ${date}? This action cannot be undone and will remove the entry from the database.`,
+          type: 'warning',
+          confirmText: 'Delete Entry',
+          cancelText: 'Cancel',
+          showCancel: true,
+          onConfirm: async () => {
             try {
-              let deleteSuccess = false;
-              let lastError = null;
+              const entryToDelete = timeEntryContext.entries.find(entry => entry.date === date);
 
-              for (let attempt = 1; attempt <= 2; attempt++) {
+              if (!entryToDelete) {
+                console.error('[Delete] Entry not found in local state for date:', date);
+                showAlert('Entry not found', 'error');
+                return;
+              }
+
+              if (navigator.onLine && currentUser && !currentUser.isLocalOnly) {
                 try {
-                  let entryId = entryToDelete?.id ?? null;
+                  let deleteSuccess = false;
+                  let lastError = null;
 
-                  if (!entryId && currentUser?.id && date) {
-                    console.warn('[Delete] Entry id missing locally, resolving from server for date:', date);
-
+                  for (let attempt = 1; attempt <= 2; attempt++) {
                     try {
-                      let resolveToken = null;
-                      for (let i = 0; i < localStorage.length; i++) {
-                        const k = localStorage.key(i);
-                        if (k && k.includes('auth-token')) {
-                          const raw = localStorage.getItem(k);
-                          const parsed = raw ? JSON.parse(raw) : null;
-                          if (parsed?.access_token) { resolveToken = parsed.access_token; break; }
+                      let entryId = entryToDelete?.id ?? null;
+
+                      if (!entryId && currentUser?.id && date) {
+                        console.warn('[Delete] Entry id missing locally, resolving from server for date:', date);
+
+                        try {
+                          let resolveToken = null;
+                          for (let i = 0; i < localStorage.length; i++) {
+                            const k = localStorage.key(i);
+                            if (k && k.includes('auth-token')) {
+                              const raw = localStorage.getItem(k);
+                              const parsed = raw ? JSON.parse(raw) : null;
+                              if (parsed?.access_token) {
+                                resolveToken = parsed.access_token;
+                                break;
+                              }
+                            }
+                          }
+
+                          if (resolveToken) {
+                            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+                            const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+                            const resolveRes = await fetch(
+                              `${supabaseUrl}/rest/v1/time_entries?user_id=eq.${currentUser.id}&date=eq.${date}&select=id`,
+                              {
+                                headers: {
+                                  apikey: supabaseKey,
+                                  Authorization: `Bearer ${resolveToken}`
+                                }
+                              }
+                            );
+                            const resolveData = await resolveRes.json();
+                            entryId = resolveData?.[0]?.id ?? null;
+                          }
+                        } catch (resolveError) {
+                          console.error('[Delete] Failed to resolve entry id before delete:', resolveError);
                         }
                       }
 
-                      if (resolveToken) {
-                        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-                        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-                        const resolveRes = await fetch(
-                          `${supabaseUrl}/rest/v1/time_entries?user_id=eq.${currentUser.id}&date=eq.${date}&select=id`,
-                          {
-                            headers: {
-                              'apikey': supabaseKey,
-                              'Authorization': `Bearer ${resolveToken}`
-                            }
-                          }
+                      const result = await supabaseData.deleteTimeEntry({
+                        id: entryId,
+                        userId: currentUser.id,
+                        date
+                      });
+
+                      if (result?.success) {
+                        timeEntryContext.setEntries(prev => prev.filter(e => e.date !== date));
+
+                        const entriesKey = `timeEntries_${currentUser.id}`;
+                        const currentEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
+                        setSimpleEncryptedItem(
+                          entriesKey,
+                          currentEntries.filter(e => e.date !== date),
+                          currentUser.username
                         );
-                        const resolveData = await resolveRes.json();
-                        entryId = resolveData?.[0]?.id ?? null;
+
+                        deleteSuccess = true;
+                        break;
+                      } else if (result?.reason === 'missing_id') {
+                        showAlert('Delete failed because this entry lost its database ID. Please refresh and try again.', 'error');
+                        break;
+                      } else if (result?.reason === 'no_auth_token') {
+                        showAlert('Delete failed: session expired. Please refresh the page and try again.', 'error');
+                        break;
+                      } else if (result?.reason === 'fetch_error') {
+                        if (attempt < 2) {
+                          console.warn('[Delete] Attempt', attempt, 'timed out, retrying...');
+                          showAlert('Delete failed. Retrying automatically...', 'warning');
+                          await new Promise(resolve => setTimeout(resolve, 4000));
+                        } else {
+                          showAlert('Delete failed after retry. Please try again.', 'error');
+                          break;
+                        }
+                      } else if (result?.reason === 'timeout_or_permission') {
+                        if (attempt < 2) {
+                          showAlert('Delete timed out after tab switch. Retrying automatically...', 'warning');
+                          console.warn('[Delete] Attempt', attempt, 'timed out, retrying...');
+                          await new Promise(resolve => setTimeout(resolve, 4000));
+                        } else {
+                          showAlert('Delete failed after retry. Please try again.', 'error');
+                          break;
+                        }
+                      } else {
+                        showAlert('Delete failed. Entry was not removed. Please try again.', 'error');
+                        break;
                       }
-                    } catch (resolveError) {
-                      console.error('[Delete] Failed to resolve entry id before delete:', resolveError);
+                    } catch (attemptError) {
+                      console.error('[Delete] Error:', attemptError);
+                      lastError = attemptError;
+
+                      if (
+                        attemptError.message?.includes('timeout') ||
+                        attemptError.message?.includes('not found') ||
+                        attemptError.code === 'PGRST116'
+                      ) {
+                        break;
+                      }
+
+                      if (attempt < 2) {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                      }
                     }
                   }
 
-                  const result = await supabaseData.deleteTimeEntry({
-                    id: entryId,
-                    userId: currentUser.id,
-                    date
-                  });
-
-                  if (result?.success) {
-                    timeEntryContext.setEntries(prev => prev.filter(e => e.date !== date));
-
-                    const entriesKey = `timeEntries_${currentUser.id}`;
-                    const currentEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
-                    setSimpleEncryptedItem(
-                      entriesKey,
-                      currentEntries.filter(e => e.date !== date),
-                      currentUser.username
-                    );
-
-                    deleteSuccess = true;
-                    break;
-                  } else if (result?.reason === 'missing_id') {
-                    showAlert('Delete failed because this entry lost its database ID. Please refresh and try again.', 'error');
-                    break;
-                  } else if (result?.reason === 'no_auth_token') {
-                    showAlert('Delete failed: session expired. Please refresh the page and try again.', 'error');
-                    break;
-                  } else if (result?.reason === 'fetch_error') {
-                    if (attempt < 2) {
-                      console.warn('[Delete] Attempt', attempt, 'timed out, retrying...');
-                      showAlert('Delete failed. Retrying automatically...', 'warning');
-                      await new Promise(resolve => setTimeout(resolve, 4000));
-                    } else {
-                      showAlert('Delete failed after retry. Please try again.', 'error');
-                      break;
-                    }
-                  } else if (result?.reason === 'timeout_or_permission') {
-                    if (attempt < 2) {
-                      showAlert('Delete timed out after tab switch. Retrying automatically...', 'warning');
-                      console.warn('[Delete] Attempt', attempt, 'timed out, retrying...');
-                      await new Promise(resolve => setTimeout(resolve, 4000));
-                    } else {
-                      showAlert(
-                        'Delete failed after retry. Please try again.',
-                        'error'
-                      );
-                      break;
-                    }
-                  } else {
-                    showAlert('Delete failed. Entry was not removed. Please try again.', 'error');
-                    break;
+                  if (deleteSuccess) {
+                    showAlert('Entry deleted successfully from database', 'success');
+                  } else if (lastError) {
+                    console.error('[Delete] Failed after all attempts for date:', date);
+                    showAlert('Delete failed. Entry was kept locally.', 'error');
                   }
-                } catch (attemptError) {
-                  console.error('[Delete] Error:', attemptError);
-                  lastError = attemptError;
+                } catch (supabaseError) {
+                  console.error('[Delete] Error:', supabaseError);
+                  showAlert('Delete failed. Entry was kept locally.', 'error');
+                }
+              } else {
+                console.warn('[Delete] Online delete unavailable, deleting locally only', {
+                  isOnline: navigator.onLine,
+                  hasCurrentUser: !!currentUser,
+                  isLocalOnly: currentUser?.isLocalOnly
+                });
 
-                  if (
-                    attemptError.message?.includes('timeout') ||
-                    attemptError.message?.includes('not found') ||
-                    attemptError.code === 'PGRST116'
-                  ) {
-                    break;
-                  }
+                timeEntryContext.setEntries(prev => prev.filter(e => e.date !== date));
 
-                  if (attempt < 2) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                  }
+                if (currentUser) {
+                  const entriesKey = `timeEntries_${currentUser.id}`;
+                  const currentEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
+                  setSimpleEncryptedItem(
+                    entriesKey,
+                    currentEntries.filter(e => e.date !== date),
+                    currentUser.username
+                  );
+                }
+
+                if (!currentUser) {
+                  showAlert('Entry deleted locally, but no active user session was available for cloud sync.', 'warning');
+                } else if (currentUser.isLocalOnly) {
+                  showAlert('Entry deleted locally in local-only mode.', 'success');
+                } else if (!navigator.onLine) {
+                  showAlert('Entry deleted locally while offline. It will sync when connection is restored.', 'success');
+                } else {
+                  showAlert('Entry deleted locally. Cloud delete was unavailable.', 'warning');
                 }
               }
 
-              if (deleteSuccess) {
-                showAlert('Entry deleted successfully from database', 'success');
-              } else if (lastError) {
-                console.error('[Delete] Failed after all attempts for date:', date);
-                showAlert('Delete failed. Entry was kept locally.', 'error');
-              }
-            } catch (supabaseError) {
-              console.error('[Delete] Error:', supabaseError);
-              showAlert('Delete failed. Entry was kept locally.', 'error');
+              setConfirmModal({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null });
+            } catch (error) {
+              console.error('[Delete] Error:', error);
+              showAlert('Failed to delete entry', 'error');
+              setConfirmModal({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null });
+            } finally {
+              delete window._deletingEntry;
             }
-          } else {
-            console.warn('[Delete] Offline — delete blocked');
-            showAlert('You are offline. Delete is disabled until connection is restored.', 'warning');
+          },
+          onCancel: () => {
+            setConfirmModal({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null });
+            delete window._deletingEntry;
           }
-
-          setConfirmModal({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null });
-        } catch (error) {
-          console.error('[Delete] Error:', error);
-          showAlert('Failed to delete entry', 'error');
-          setConfirmModal({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null });
-        } finally {
-          delete window._deletingEntry;
-        }
-      },
-      onCancel: () => {
-        setConfirmModal({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null });
-        delete window._deletingEntry;
-      }
-    });
+        });
   }, [timeEntryContext, currentUser, showAlert]);
 
   useEffect(() => {
