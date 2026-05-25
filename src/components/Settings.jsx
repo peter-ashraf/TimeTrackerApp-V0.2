@@ -4,6 +4,7 @@ import { useSupabaseAuth, supabase } from '../context/SupabaseAuthContext';
 import { usePayPeriod } from '../context/PayPeriodContext';
 import { supabaseData } from '../utils/supabaseData';
 import hapticFeedback from '../utils/hapticFeedback';
+import cacheManager from '../utils/cacheManager';
 const ExportModal = React.lazy(() => import('./ExportModal'));
 const ImportModal = React.lazy(() => import('./ImportModal'));
 import ModalShell from './ModalShell';
@@ -187,6 +188,10 @@ function Settings() {
   // Haptic feedback state
   const [hapticEnabled, setHapticEnabled] = useState(hapticFeedback.isEnabled());
 
+  // Diagnostics state
+  const [cacheStatus, setCacheStatus] = useState({});
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+
   const handleOpenExport = () => {
     setShowExportModal(true);
     // Mark that user is attempting to backup
@@ -202,6 +207,66 @@ function Settings() {
       hapticFeedback.success(); // Test vibration when enabling
     }
   };
+
+  // Read cache status (read-only, no modifications)
+  const readCacheStatus = async () => {
+    const cacheKeys = ['timeEntries', 'payPeriods', 'currentPeriod', 'userProfile'];
+    const status = {};
+
+    for (const key of cacheKeys) {
+      try {
+        const data = await cacheManager.getCachedData(key, null);
+        const cacheInfo = cacheManager.getCacheStatus()[key];
+
+        if (data && (Array.isArray(data) ? data.length > 0 : data !== null)) {
+          const entryCount = Array.isArray(data) ? data.length : '-';
+          const lastCached = cacheInfo?.lastCached
+            ? formatRelativeTime(new Date(cacheInfo.lastCached))
+            : 'Unknown';
+
+          status[key] = {
+            status: 'cached',
+            entryCount,
+            lastCached
+          };
+        } else {
+          status[key] = {
+            status: 'empty',
+            entryCount: '-',
+            lastCached: '-'
+          };
+        }
+      } catch (error) {
+        status[key] = {
+          status: 'empty',
+          entryCount: '-',
+          lastCached: '-'
+        };
+      }
+    }
+
+    setCacheStatus(status);
+  };
+
+  // Format relative time (e.g., "2 mins ago", "1 hour ago")
+  const formatRelativeTime = (date) => {
+    if (!date) return '-';
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  };
+
+  // Load cache status when Settings page opens
+  useEffect(() => {
+    readCacheStatus();
+  }, []);
 
   useEffect(() => {
     setName(employee.name);
@@ -1407,6 +1472,127 @@ function Settings() {
           <p className="help-text" style={{ marginTop: '20px', color: '#dc3545', fontWeight: 'bold' }}>
             ⚠️ PERMANENTLY delete your account "{currentUser?.username}" and ALL associated data. This cannot be undone!
           </p>
+        </div>
+      </section>
+
+      {/* Diagnostics Section */}
+      <section className="settings-section">
+        <h2>🔧 Diagnostics</h2>
+        <p className="settings-description">
+          Developer tools for troubleshooting and deployment verification.
+        </p>
+
+        {/* Cache Status Panel */}
+        <div className="diagnostics-panel">
+          <div className="diagnostics-panel-header">
+            <h3>Cache Status</h3>
+            <button
+              className="btn btn-sm btn-outline"
+              onClick={() => {
+                hapticFeedback.buttonClick();
+                readCacheStatus();
+              }}
+            >
+              🔄 Refresh
+            </button>
+          </div>
+          <table className="diagnostics-table">
+            <thead>
+              <tr>
+                <th>Cache Key</th>
+                <th>Status</th>
+                <th>Entry Count / Size</th>
+                <th>Last Cached</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>timeEntries</td>
+                <td>
+                  {cacheStatus.timeEntries?.status === 'cached' ? (
+                    <span style={{ color: '#28a745' }}>✅ Cached</span>
+                  ) : (
+                    <span style={{ color: '#dc3545' }}>❌ Empty</span>
+                  )}
+                </td>
+                <td>{cacheStatus.timeEntries?.entryCount || '-'}</td>
+                <td>{cacheStatus.timeEntries?.lastCached || '-'}</td>
+              </tr>
+              <tr>
+                <td>payPeriods</td>
+                <td>
+                  {cacheStatus.payPeriods?.status === 'cached' ? (
+                    <span style={{ color: '#28a745' }}>✅ Cached</span>
+                  ) : (
+                    <span style={{ color: '#dc3545' }}>❌ Empty</span>
+                  )}
+                </td>
+                <td>{cacheStatus.payPeriods?.entryCount || '-'}</td>
+                <td>{cacheStatus.payPeriods?.lastCached || '-'}</td>
+              </tr>
+              <tr>
+                <td>currentPeriod</td>
+                <td>
+                  {cacheStatus.currentPeriod?.status === 'cached' ? (
+                    <span style={{ color: '#28a745' }}>✅ Cached</span>
+                  ) : (
+                    <span style={{ color: '#dc3545' }}>❌ Empty</span>
+                  )}
+                </td>
+                <td>{cacheStatus.currentPeriod?.entryCount || '-'}</td>
+                <td>{cacheStatus.currentPeriod?.lastCached || '-'}</td>
+              </tr>
+              <tr>
+                <td>userProfile</td>
+                <td>
+                  {cacheStatus.userProfile?.status === 'cached' ? (
+                    <span style={{ color: '#28a745' }}>✅ Cached</span>
+                  ) : (
+                    <span style={{ color: '#dc3545' }}>❌ Empty</span>
+                  )}
+                </td>
+                <td>{cacheStatus.userProfile?.entryCount || '-'}</td>
+                <td>{cacheStatus.userProfile?.lastCached || '-'}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Build Info Panel */}
+        <div className="diagnostics-panel" style={{ marginTop: '20px' }}>
+          <div className="diagnostics-panel-header">
+            <h3>Build Info</h3>
+          </div>
+          <table className="diagnostics-table">
+            <tbody>
+              <tr>
+                <td><strong>App Version</strong></td>
+                <td>v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.1.0'}</td>
+              </tr>
+              <tr>
+                <td><strong>Built At</strong></td>
+                <td>
+                  {typeof __BUILD_TIME__ !== 'undefined'
+                    ? new Date(__BUILD_TIME__).toLocaleString('en-US', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })
+                    : 'Unknown'}
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Commit</strong></td>
+                <td>
+                  {typeof __GIT_COMMIT__ !== 'undefined'
+                    ? __GIT_COMMIT__.substring(0, 7)
+                    : 'local'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 

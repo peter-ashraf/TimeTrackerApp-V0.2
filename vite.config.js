@@ -7,6 +7,12 @@ export default defineConfig({
   base: '/TimeTrackerApp-V0.2/',
   publicDir: 'public',
   
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '0.1.0'),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    __GIT_COMMIT__: JSON.stringify(process.env.GITHUB_SHA || 'local'),
+  },
+  
   plugins: [
     react(),
     {

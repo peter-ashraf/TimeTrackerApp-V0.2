@@ -4,6 +4,56 @@
   animation: shake 0.3s;
 }
 
+/* Diagnostics Panel Styles */
+.diagnostics-panel {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.diagnostics-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.diagnostics-panel-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+.diagnostics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.diagnostics-table th,
+.diagnostics-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.diagnostics-table th {
+  font-weight: 600;
+  color: var(--text-secondary, #666);
+  background: var(--bg-secondary, #f5f5f5);
+}
+
+.diagnostics-table td {
+  color: var(--text-primary, #333);
+}
+
+.diagnostics-table tr:last-child td {
+  border-bottom: none;
+}
+
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-5px); }
