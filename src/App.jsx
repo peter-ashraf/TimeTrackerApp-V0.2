@@ -651,7 +651,9 @@ function App() {
         // Skip forceRefresh since it's timing out and go straight to TimeTrackerContext refresh
         await refreshEmployeeData();
 
-        setEntries(instantData.timeEntries || []);
+        // DO NOT set entries here - TimeEntryContext manages entries with conflict resolution
+        // useInstantData only updates cacheManager, not the entries state
+        // setEntries(instantData.timeEntries || []);
 
         setLastRefreshed(new Date().toISOString());
 
