@@ -256,6 +256,21 @@ export const PayPeriodProvider = ({ children }) => {
     }
   }, [currentUser, isAuthenticated, loadPayPeriodsData]);
 
+  // Trigger refresh when device comes online
+  useEffect(() => {
+    const handleOnline = () => {
+      if (currentUser && isAuthenticated) {
+        // Small delay to let connection stabilize
+        setTimeout(() => {
+          loadPayPeriodsData();
+        }, 2000);
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [currentUser, isAuthenticated, loadPayPeriodsData]);
+
   const contextValue = {
     // State
     periods,
