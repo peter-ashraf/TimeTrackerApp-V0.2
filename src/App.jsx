@@ -915,6 +915,22 @@ function App() {
 
   }, [setCurrentView]);
 
+  useEffect(() => {
+
+    const shouldNavigateToAddPeriod = localStorage.getItem('navigateToAddPeriod');
+
+    if (shouldNavigateToAddPeriod === 'true') {
+
+      localStorage.removeItem('navigateToAddPeriod');
+
+      localStorage.setItem('shouldOpenAddPeriod', 'true');
+
+      setCurrentView('settings');
+
+    }
+
+  }, [setCurrentView]);
+
 
 
   useEffect(() => {

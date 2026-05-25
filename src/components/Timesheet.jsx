@@ -532,7 +532,9 @@ function Timesheet() {
           {showManualOut && <ManualTimeModal mode="checkOut" onClose={() => setShowManualOut(false)} />}
           {showAddBreak && <AddBreakModal onClose={() => setShowAddBreak(false)} />}
           {editingEntry && <EditEntryModal entry={editingEntry} onClose={() => setEditingEntry(null)} />}
-          {showNoPeriodPrompt && <NoPeriodPrompt onOpenSettings={() => {/* TODO: Open settings */ }} onClose={() => setShowNoPeriodPrompt(false)} />}
+          {showNoPeriodPrompt && <NoPeriodPrompt onOpenSettings={() => {
+            localStorage.setItem('navigateToAddPeriod', 'true');
+          }} onClose={() => setShowNoPeriodPrompt(false)} />}
         </>
       )}
     </main>

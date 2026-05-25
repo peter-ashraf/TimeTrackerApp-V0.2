@@ -3,6 +3,7 @@ import { useSupabaseAuth } from './SupabaseAuthContext';
 import { supabaseData } from '../utils/supabaseData';
 import { setSimpleEncryptedItem, getSimpleEncryptedItem } from '../utils/simple-encryption';
 import { multiTabSync } from '../utils/multiTabSync';
+import { cacheManager } from '../utils/cacheManager';
 
 const PayPeriodContext = createContext();
 
@@ -29,20 +30,40 @@ export const PayPeriodProvider = ({ children }) => {
   // Load pay periods data
   const loadPayPeriodsData = useCallback(async () => {
     if (!currentUser || !isAuthenticated) return;
-    
+
     try {
-      // Load from local storage immediately
+      // Define keys for localStorage
       const periodsKey = `payPeriods_${currentUser.id}`;
       const currentPeriodIdKey = `currentPeriodId_${currentUser.id}`;
-      
-      const localPeriods = getSimpleEncryptedItem(periodsKey, currentUser.username) || [];
-      const localCurrentPeriodId = localStorage.getItem(currentPeriodIdKey);
-      
+
+      // Try cacheManager first for instant loading
+      let localPeriods = [];
+      let localCurrentPeriodId = null;
+
+      try {
+        const cachedPeriods = await cacheManager.getCachedData('payPeriods', null);
+        if (cachedPeriods && cachedPeriods.length > 0) {
+          localPeriods = cachedPeriods;
+        }
+        const cachedCurrentPeriodId = await cacheManager.getCachedData('currentPeriod', null);
+        if (cachedCurrentPeriodId) {
+          localCurrentPeriodId = cachedCurrentPeriodId;
+        }
+      } catch (cacheError) {
+        console.warn('CacheManager failed, falling back to localStorage:', cacheError);
+      }
+
+      // Fallback to encrypted localStorage if cacheManager fails or returns empty
+      if (localPeriods.length === 0) {
+        localPeriods = getSimpleEncryptedItem(periodsKey, currentUser.username) || [];
+        localCurrentPeriodId = localStorage.getItem(currentPeriodIdKey);
+      }
+
       setPeriods(localPeriods);
       if (localCurrentPeriodId && localCurrentPeriodId !== 'undefined' && localCurrentPeriodId !== 'null') {
         setCurrentPeriodId(localCurrentPeriodId);
       }
-      
+
       // Defer Supabase sync
       setTimeout(async () => {
         if (navigator.onLine && currentUser && !currentUser.isLocalOnly) {
@@ -63,7 +84,7 @@ export const PayPeriodProvider = ({ children }) => {
                 throw err;
               })
             ]);
-            
+
             if (periodsData && periodsData.length > 0) {
               setPeriods(periodsData);
               if (currentPeriodData) {
@@ -96,6 +117,16 @@ export const PayPeriodProvider = ({ children }) => {
         // Always save to localStorage first for offline access
         const periodsKey = `payPeriods_${currentUser.id}`;
         setSimpleEncryptedItem(periodsKey, periods, currentUser.username);
+
+        // Also save to cacheManager for offline access
+        try {
+          cacheManager.setCachedData('payPeriods', periods);
+          if (currentPeriodId) {
+            cacheManager.setCachedData('currentPeriod', currentPeriodId);
+          }
+        } catch (cacheError) {
+          console.warn('Failed to save to cacheManager:', cacheError);
+        }
 
         // Deduplicate periods by normalizing dates to avoid conflicts
         const uniquePeriods = [];
@@ -178,28 +209,36 @@ export const PayPeriodProvider = ({ children }) => {
   // Set current period
   const setCurrentPeriod = async (periodId) => {
     if (!currentUser || !periodId || isSettingCurrentRef.current) return;
-    
+
     isSettingCurrentRef.current = true;
-    
+
     try {
       await supabaseData.setCurrentPayPeriod(currentUser.id, periodId);
-      
+
       // Add delay to ensure database trigger completes
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Force refresh of pay periods data
       const periodsData = await supabaseData.getPayPeriods(currentUser.id);
       if (periodsData && periodsData.length > 0) {
         setPeriods(periodsData);
         setCurrentPeriodId(periodId);
-        
+
         const currentPeriodIdKey = `currentPeriodId_${currentUser.id}`;
         localStorage.setItem(currentPeriodIdKey, periodId);
+
+        // Also save to cacheManager
+        try {
+          cacheManager.setCachedData('currentPeriod', periodId);
+          cacheManager.setCachedData('payPeriods', periodsData);
+        } catch (cacheError) {
+          console.warn('Failed to save to cacheManager in setCurrentPeriod:', cacheError);
+        }
       }
-      
+
       // Increment refresh key to trigger component re-renders
       refreshKeyRef.current += 1;
-      
+
     } catch (error) {
       console.error('Failed to set current period:', error);
     } finally {

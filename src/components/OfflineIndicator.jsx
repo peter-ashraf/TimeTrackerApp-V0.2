@@ -7,27 +7,36 @@ import '../styles/offline-indicator.css';
 const OfflineIndicator = ({ onRefresh, isRefreshing }) => {
   const { isOnline, connectionType, isSlowConnection } = useNetworkStatus();
   const { queuedRequests, isSyncing, triggerSync, lastSyncTime } = useOfflineQueue();
-  
+
   const [showFullBanner, setShowFullBanner] = useState(false);
   const [wasOnline, setWasOnline] = useState(true);
+  const [showBackOnline, setShowBackOnline] = useState(false);
 
   // Handle offline state changes
   useEffect(() => {
     if (!isOnline && wasOnline) {
       // Just went offline - show full banner
       setShowFullBanner(true);
-      
+
       // Auto-dismiss after 5 seconds
       const timer = setTimeout(() => {
         setShowFullBanner(false);
       }, 5000);
-      
+
       return () => clearTimeout(timer);
     } else if (isOnline && !wasOnline) {
-      // Just came online - hide everything
+      // Just came online - show "Back Online" flash
+      setShowBackOnline(true);
       setShowFullBanner(false);
+
+      // Hide "Back Online" flash after 3 seconds
+      const timer = setTimeout(() => {
+        setShowBackOnline(false);
+      }, 3000);
+
+      return () => clearTimeout(timer);
     }
-    
+
     setWasOnline(isOnline);
   }, [isOnline, wasOnline]);
 
@@ -72,7 +81,7 @@ const OfflineIndicator = ({ onRefresh, isRefreshing }) => {
   return (
     <>
       {/* Header indicator - Always clickable */}
-      <div 
+      <div
         className={`offline-indicator ${getConnectionClass()} ${isRefreshing ? 'refreshing' : ''}`}
         onClick={handleRefreshClick}
         title="Tap to refresh data"
@@ -84,6 +93,19 @@ const OfflineIndicator = ({ onRefresh, isRefreshing }) => {
           <span className="queued-count">{queuedRequests}</span>
         )}
       </div>
+
+      {/* Back Online Flash */}
+      {showBackOnline && (
+        <div className="back-online-flash">
+          <div className="back-online-content">
+            <span className="back-online-icon">✅</span>
+            <div className="back-online-text">
+              <strong>Back Online</strong>
+              <p>Your data has been synced</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Full Offline Banner */}
       {!isOnline && showFullBanner && (

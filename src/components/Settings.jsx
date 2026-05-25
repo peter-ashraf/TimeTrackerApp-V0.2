@@ -217,6 +217,25 @@ function Settings() {
     setSickDays(leaveSettings.sickDays);
   }, [leaveSettings]);
 
+  // Check if we should open the Add Period modal (from Timesheet navigation)
+  useEffect(() => {
+    const shouldOpenAddPeriod = localStorage.getItem('shouldOpenAddPeriod');
+    if (shouldOpenAddPeriod === 'true') {
+      localStorage.removeItem('shouldOpenAddPeriod');
+      setEditingPeriodId(null);
+      setNewPeriodStart('');
+      setNewPeriodEnd('');
+      setShowAddPeriod(true);
+      // Scroll to the Pay Period Management section
+      setTimeout(() => {
+        const periodSection = document.querySelector('.settings-section h3');
+        if (periodSection) {
+          periodSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    }
+  }, []);
+
   // Auto-set full-time employee values when employee type changes
   useEffect(() => {
     if (employeeType === 'full-time') {

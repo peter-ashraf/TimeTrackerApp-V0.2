@@ -73,6 +73,46 @@
   animation: pulse 2s infinite;
 }
 
+/* Back Online Flash */
+.back-online-flash {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #059669, #10b981);
+  color: white;
+  z-index: 1001;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  animation: slideDown 0.3s ease-out;
+}
+
+.back-online-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.back-online-icon {
+  font-size: 18px;
+  animation: bounce 0.5s ease-out;
+}
+
+.back-online-text strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.back-online-text p {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
 /* Offline Banner */
 .offline-banner {
   position: fixed;

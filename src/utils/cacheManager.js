@@ -86,14 +86,17 @@ class CacheManager {
    */
   getMaxAge(key) {
     const ages = {
-      'timeEntries': 5 * 60 * 1000, // 5 minutes - fresh data
+      'timeEntries': 24 * 60 * 60 * 1000, // 24 hours - for offline access
       'userProfile': 30 * 60 * 1000, // 30 minutes
-      'payPeriods': 60 * 60 * 1000, // 1 hour
+      'payPeriods': 7 * 24 * 60 * 60 * 1000, // 7 days - for offline access
+      'currentPeriod': Number.MAX_SAFE_INTEGER, // Never expire - refresh only when online
+      'currentPeriodEntries': Number.MAX_SAFE_INTEGER, // Never expire - refresh only when online
+      'periodEntries': 60 * 60 * 1000, // 1 hour - for non-current period entries
       'leaveSettings': 60 * 60 * 1000, // 1 hour
       'dashboardStats': 5 * 60 * 1000, // 5 minutes
       'default': 24 * 60 * 60 * 1000 // 24 hours
     };
-    
+
     return ages[key] || ages.default;
   }
 

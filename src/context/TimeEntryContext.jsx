@@ -4,6 +4,7 @@ import { supabase } from './SupabaseAuthContext';
 import { supabaseData } from '../utils/supabaseData';
 import { setSimpleEncryptedItem, getSimpleEncryptedItem } from '../utils/simple-encryption';
 import { multiTabSync } from '../utils/multiTabSync';
+import { cacheManager } from '../utils/cacheManager';
 
 const TimeEntryContext = createContext();
 
@@ -69,9 +70,11 @@ export const TimeEntryProvider = ({ children }) => {
       try {
         // Always save to local storage first as backup
         const entriesKey = `timeEntries_${currentUser.id}`;
+        let finalEntries;
         if (Array.isArray(entriesToSave)) {
           setSimpleEncryptedItem(entriesKey, entriesToSave, currentUser.username);
           setEntries(entriesToSave);
+          finalEntries = entriesToSave;
         } else {
           // Use functional update to avoid stale closure issues and minimize dependency changes
           setEntries(prev => {
@@ -82,6 +85,16 @@ export const TimeEntryProvider = ({ children }) => {
             setSimpleEncryptedItem(entriesKey, updatedEntries, currentUser.username);
             return updatedEntries;
           });
+          // Get the updated entries for caching
+          finalEntries = [entriesToSave, ...entries.filter(e => e.date !== entriesToSave.date)];
+        }
+
+        // Also save to cacheManager for offline access
+        try {
+          const allEntries = Array.isArray(entriesToSave) ? entriesToSave : finalEntries;
+          cacheManager.setCachedData('timeEntries', allEntries);
+        } catch (cacheError) {
+          console.warn('Failed to save to cacheManager:', cacheError);
         }
 
         // Try to save to Supabase if online, authenticated, and not local-only
@@ -172,9 +185,23 @@ export const TimeEntryProvider = ({ children }) => {
     try {
       isLoadingRef.current = true;
 
-      // Load from local storage immediately
-      const entriesKey = `timeEntries_${currentUser.id}`;
-      const localEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
+      // Try cacheManager first for instant loading
+      let localEntries = [];
+      try {
+        const cachedEntries = await cacheManager.getCachedData('timeEntries', null);
+        if (cachedEntries && cachedEntries.length > 0) {
+          localEntries = cachedEntries;
+        }
+      } catch (cacheError) {
+        console.warn('CacheManager failed, falling back to localStorage:', cacheError);
+      }
+
+      // Fallback to encrypted localStorage if cacheManager fails or returns empty
+      if (localEntries.length === 0) {
+        const entriesKey = `timeEntries_${currentUser.id}`;
+        localEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
+      }
+
       setEntries(localEntries);
 
       // Immediate Supabase sync if online
@@ -357,6 +384,12 @@ export const TimeEntryProvider = ({ children }) => {
       const entriesKey = `timeEntries_${currentUser.id}`;
       setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
       multiTabSync.notifyDataChange('timeEntries', entries, currentUser.username);
+      // Also save to cacheManager
+      try {
+        cacheManager.setCachedData('timeEntries', entries);
+      } catch (cacheError) {
+        console.warn('Failed to save to cacheManager in useEffect:', cacheError);
+      }
       return;
     }
 
@@ -364,6 +397,12 @@ export const TimeEntryProvider = ({ children }) => {
     const entriesKey = `timeEntries_${currentUser.id}`;
     setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
     multiTabSync.notifyDataChange('timeEntries', entries, currentUser.username);
+    // Also save to cacheManager
+    try {
+      cacheManager.setCachedData('timeEntries', entries);
+    } catch (cacheError) {
+      console.warn('Failed to save to cacheManager in useEffect:', cacheError);
+    }
   }, [entries, currentUser]);
 
   // Load entries when user changes
