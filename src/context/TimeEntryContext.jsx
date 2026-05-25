@@ -495,6 +495,11 @@ export const TimeEntryProvider = ({ children }) => {
     return () => window.removeEventListener('online', handleOnline);
   }, [currentUser, isAuthenticated, loadTimeEntriesData]);
 
+  const clearConflicts = useCallback(() => {
+    setPendingConflicts([]);
+    setConflictResolver(null);
+  }, []);
+
   const resolveConflict = useCallback((date, chosenEntry) => {
     // 1. Update entries state
     setEntries(current => {
@@ -533,6 +538,7 @@ export const TimeEntryProvider = ({ children }) => {
     loadTimeEntriesData,
     saveTimeEntriesData,
     resolveConflict,
+    clearConflicts,
 
     // Ref management
     setRefreshing: (isRefreshing) => {

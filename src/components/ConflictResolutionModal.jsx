@@ -7,14 +7,9 @@ const ConflictResolutionModal = ({ conflicts, onResolve }) => {
   if (!conflicts || conflicts.length === 0) return null;
 
   const formatTime = (timeString) => {
-    if (!timeString) return '--:--';
-    if (typeof timeString === 'string' && timeString.includes(':')) {
-      const [hours, minutes] = timeString.split(':').slice(0, 2);
-      const date = new Date();
-      date.setHours(parseInt(hours), parseInt(minutes));
-      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    }
+    if (!timeString) return '—';
     const date = new Date(timeString);
+    if (isNaN(date.getTime())) return '—';
     return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   };
 
@@ -28,9 +23,17 @@ const ConflictResolutionModal = ({ conflicts, onResolve }) => {
   };
 
   const formatDuration = (entry) => {
-    if (entry.duration) return `${entry.duration}h`;
-    if (entry.hoursWorked) return `${entry.hoursWorked}h`;
-    return '--';
+    if (!entry?.intervals) return '—';
+    // Only sum intervals that have both in AND out times
+    const completedIntervals = entry.intervals.filter(i => i.in && i.out);
+    if (completedIntervals.length === 0) return '—';
+    // calculate total duration from completed intervals only
+    const totalMs = completedIntervals.reduce((sum, i) => {
+      return sum + (new Date(i.out) - new Date(i.in));
+    }, 0);
+    const hours = Math.floor(totalMs / 3600000);
+    const minutes = Math.floor((totalMs % 3600000) / 60000);
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
   };
 
   const getEntryDetails = (entry) => {
