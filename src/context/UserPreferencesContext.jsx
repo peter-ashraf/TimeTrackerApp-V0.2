@@ -80,7 +80,7 @@ export const UserPreferencesProvider = ({ children }) => {
       const salaryKey = `salary_${currentUser.id}`;
       const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
 
-      let localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) || 0;
+      let localSalary = getSimpleEncryptedItem(salaryKey, currentUser.username) ?? 0;
 
       // Try cacheManager first for instant loading
       let localLeaveSettings = null;
@@ -95,17 +95,20 @@ export const UserPreferencesProvider = ({ children }) => {
 
       // Fallback to encrypted localStorage if cacheManager fails or returns empty
       if (!localLeaveSettings) {
-        localLeaveSettings = getSimpleEncryptedItem(leaveSettingsKey, currentUser.username) || {
+        localLeaveSettings = getSimpleEncryptedItem(leaveSettingsKey, currentUser.username) ?? {
           annualVacation: 10,
           sickDays: 7,
-          personalDays: 2
+          personalDays: 2,
+          usedVacationDays: 0,
+          usedSickDays: 0,
+          usedPersonalDays: 0
         };
       }
 
       setEmployee(prev => ({
         ...prev,
-        name: localStorage.getItem('userDisplayName') || currentUser.fullName || currentUser.username || 'User',
-        salary: localSalary
+        name: localStorage.getItem('userDisplayName') ?? currentUser.fullName ?? currentUser.username ?? 'User',
+        salary: localSalary ?? 0
       }));
       setLeaveSettings(localLeaveSettings);
 
@@ -138,40 +141,43 @@ export const UserPreferencesProvider = ({ children }) => {
               setEmployee(prev => ({
                 ...prev,
                 // Don't overwrite local name if user just changed it
-                name: recentlyChanged ? prev.name : (profileData.full_name || prev.name),
-                employeeType: profileData.employee_type || 'full-time',
-                dailyHours: profileData.daily_hours || 9,
-                monthlyHours: profileData.monthly_hours || 187,
-                workDaysPerWeek: profileData.work_days_per_week || 5
+                name: recentlyChanged ? prev.name : (profileData.full_name ?? prev.name),
+                employeeType: profileData.employee_type ?? 'full-time',
+                dailyHours: profileData.daily_hours ?? 9,
+                monthlyHours: profileData.monthly_hours ?? 187,
+                workDaysPerWeek: profileData.work_days_per_week ?? 5
               }));
             }
 
             if (leaveSettingsData) {
               setLeaveSettings({
-                annualVacation: leaveSettingsData.annual_vacation || leaveSettingsData.annualVacation || 10,
-                sickDays: leaveSettingsData.sick_days || leaveSettingsData.sickDays || 7,
-                personalDays: leaveSettingsData.personal_days || leaveSettingsData.personalDays || 2,
-                usedVacationDays: leaveSettingsData.used_vacation_days || leaveSettingsData.usedVacationDays || 0,
-                usedSickDays: leaveSettingsData.used_sick_days || leaveSettingsData.usedSickDays || 0,
-                usedPersonalDays: leaveSettingsData.used_personal_days || leaveSettingsData.usedPersonalDays || 0
+                annualVacation: leaveSettingsData.annual_vacation ?? leaveSettingsData.annualVacation ?? 10,
+                sickDays: leaveSettingsData.sick_days ?? leaveSettingsData.sickDays ?? 7,
+                personalDays: leaveSettingsData.personal_days ?? leaveSettingsData.personalDays ?? 2,
+                usedVacationDays: leaveSettingsData.used_vacation_days ?? leaveSettingsData.usedVacationDays ?? 0,
+                usedSickDays: leaveSettingsData.used_sick_days ?? leaveSettingsData.usedSickDays ?? 0,
+                usedPersonalDays: leaveSettingsData.used_personal_days ?? leaveSettingsData.usedPersonalDays ?? 0
               });
             } else {
               // If no settings exist on Supabase, initialize the DB record with local/default data
               const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
-              const currentLocal = getSimpleEncryptedItem(leaveSettingsKey, currentUser.username) || {
+              const currentLocal = getSimpleEncryptedItem(leaveSettingsKey, currentUser.username) ?? {
                 annualVacation: 10,
                 sickDays: 7,
-                personalDays: 2
+                personalDays: 2,
+                usedVacationDays: 0,
+                usedSickDays: 0,
+                usedPersonalDays: 0
               };
               
               try {
                 await supabaseData.saveLeaveSettings(currentUser.id, {
-                  annual_vacation: currentLocal.annualVacation,
-                  sick_days: currentLocal.sickDays,
-                  personal_days: currentLocal.personalDays || 2,
-                  used_vacation_days: currentLocal.usedVacationDays || 0,
-                  used_sick_days: currentLocal.usedSickDays || 0,
-                  used_personal_days: currentLocal.usedPersonalDays || 0
+                  annual_vacation: currentLocal.annualVacation ?? 10,
+                  sick_days: currentLocal.sickDays ?? 7,
+                  personal_days: currentLocal.personalDays ?? 2,
+                  used_vacation_days: currentLocal.usedVacationDays ?? 0,
+                  used_sick_days: currentLocal.usedSickDays ?? 0,
+                  used_personal_days: currentLocal.usedPersonalDays ?? 0
                 });
               } catch (saveError) {
                 console.error('Failed to initialize leave settings on Supabase:', saveError);

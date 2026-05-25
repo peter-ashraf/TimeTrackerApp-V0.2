@@ -27,6 +27,7 @@ export const TimeEntryProvider = ({ children }) => {
   const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
   const [pendingConflicts, setPendingConflicts] = useState([]);
   const [conflictResolver, setConflictResolver] = useState(null);
+  const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
 
   // Refs to track state
   const isRefreshingRef = useRef(false);
@@ -324,6 +325,7 @@ export const TimeEntryProvider = ({ children }) => {
             if (conflicts.length > 0) {
               console.log(`[Sync] Found ${conflicts.length} conflicts, pausing sync for user resolution`);
               setPendingConflicts(conflicts);
+              setIsConflictModalOpen(true);
               // Store non-conflicting entries for later merge
               setConflictResolver(() => (resolutions) => {
                 // Apply user choices to finalEntries
@@ -371,12 +373,16 @@ export const TimeEntryProvider = ({ children }) => {
 
                 // Clear conflicts after resolution
                 setPendingConflicts([]);
+                setConflictResolver(null);
+                setIsConflictModalOpen(false);
               });
               return; // Don't proceed with sync yet
             }
 
             // No conflicts - proceed with normal sync
             setPendingConflicts([]);
+            setConflictResolver(null);
+            setIsConflictModalOpen(false);
             setEntries(finalEntries.sort((a, b) => b.date.localeCompare(a.date)));
 
             // Trigger background upload for unsynced/newer local entries
@@ -482,23 +488,39 @@ export const TimeEntryProvider = ({ children }) => {
 
   // Trigger conflict detection when device comes online
   useEffect(() => {
-    const handleOnline = () => {
-      if (currentUser && isAuthenticated) {
-        // Small delay to let connection stabilize
-        setTimeout(() => {
+      let onlineTimer = null;
+
+      const handleOnline = () => {
+        if (!currentUser || !isAuthenticated) return;
+
+        if (onlineTimer) {
+          clearTimeout(onlineTimer);
+        }
+
+        onlineTimer = setTimeout(() => {
           loadTimeEntriesData();
-        }, 2000);
-      }
-    };
+        }, 300);
+      };
 
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
-  }, [currentUser, isAuthenticated, loadTimeEntriesData]);
+      window.addEventListener('online', handleOnline);
 
-  const clearConflicts = useCallback(() => {
-    setPendingConflicts([]);
-    setConflictResolver(null);
-  }, []);
+      return () => {
+        window.removeEventListener('online', handleOnline);
+        if (onlineTimer) {
+          clearTimeout(onlineTimer);
+        }
+      };
+    }, [currentUser, isAuthenticated, loadTimeEntriesData]);
+
+    const closeConflictModal = useCallback(() => {
+      setIsConflictModalOpen(false);
+    }, []);
+
+    const clearConflicts = useCallback(() => {
+      setPendingConflicts([]);
+      setConflictResolver(null);
+      setIsConflictModalOpen(false);
+    }, []);
 
   const resolveConflict = useCallback((date, chosenEntry) => {
     // 1. Update entries state
@@ -529,7 +551,9 @@ export const TimeEntryProvider = ({ children }) => {
     saveStatus,
     pendingConflicts,
     conflictResolver,
-
+    isConflictModalOpen,
+    closeConflictModal,
+    
     // Helper functions
     formatDate,
     formatTime,
@@ -539,6 +563,7 @@ export const TimeEntryProvider = ({ children }) => {
     saveTimeEntriesData,
     resolveConflict,
     clearConflicts,
+    closeConflictModal,
 
     // Ref management
     setRefreshing: (isRefreshing) => {

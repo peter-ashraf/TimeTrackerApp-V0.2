@@ -160,17 +160,16 @@ function Settings() {
   const { currentUser, deleteUser } = useSupabaseAuth();
 
   // Employee form
-  const [name, setName] = useState(employee.name);
-  const [salary, setSalary] = useState(employee.salary);
-  const [employeeType, setEmployeeType] = useState(employee.employeeType);
-  const [dailyHours, setDailyHours] = useState(employee.dailyHours);
-  const [monthlyHours, setMonthlyHours] = useState(employee.monthlyHours);
-  const [workDaysPerWeek, setWorkDaysPerWeek] = useState(employee.workDaysPerWeek);
+  const [name, setName] = useState(employee.name ?? '');
+  const [salary, setSalary] = useState(employee.salary ?? 0);
+  const [employeeType, setEmployeeType] = useState(employee.employeeType ?? 'full-time');
+  const [dailyHours, setDailyHours] = useState(employee.dailyHours ?? 9);
+  const [monthlyHours, setMonthlyHours] = useState(employee.monthlyHours ?? 187);
+  const [workDaysPerWeek, setWorkDaysPerWeek] = useState(employee.workDaysPerWeek ?? 5);
 
   // Leave settings form
-  const [annualVacation, setAnnualVacation] = useState(leaveSettings.annualVacation || 10);
-  const [sickDays, setSickDays] = useState(leaveSettings.sickDays || 7);
-
+  const [annualVacation, setAnnualVacation] = useState(leaveSettings.annualVacation ?? 10);
+  const [sickDays, setSickDays] = useState(leaveSettings.sickDays ?? 7);
   // Period management
   const [showAddPeriod, setShowAddPeriod] = useState(false);
   const [editingPeriodId, setEditingPeriodId] = useState(null);
@@ -269,17 +268,17 @@ function Settings() {
   }, []);
 
   useEffect(() => {
-    setName(employee.name);
-    setSalary(employee.salary);
-    setEmployeeType(employee.employeeType);
-    setDailyHours(employee.dailyHours);
-    setMonthlyHours(employee.monthlyHours);
-    setWorkDaysPerWeek(employee.workDaysPerWeek);
+    setName(employee.name ?? '');
+    setSalary(employee.salary ?? 0);
+    setEmployeeType(employee.employeeType ?? 'full-time');
+    setDailyHours(employee.dailyHours ?? 9);
+    setMonthlyHours(employee.monthlyHours ?? 187);
+    setWorkDaysPerWeek(employee.workDaysPerWeek ?? 5);
   }, [employee]);
 
   useEffect(() => {
-    setAnnualVacation(leaveSettings.annualVacation);
-    setSickDays(leaveSettings.sickDays);
+    setAnnualVacation(leaveSettings.annualVacation ?? 10);
+    setSickDays(leaveSettings.sickDays ?? 7);
   }, [leaveSettings]);
 
   // Check if we should open the Add Period modal (from Timesheet navigation)
@@ -924,7 +923,7 @@ function Settings() {
             <input
               type="text"
               className="form-control"
-              value={name}
+              value={name ?? ''}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter your display name"
             />
@@ -940,7 +939,7 @@ function Settings() {
               <input
                 type="number"
                 className="form-control"
-                value={salary}
+                value={salary ?? 0}
                 onChange={(e) => setSalary(e.target.value)}
                 placeholder="Enter monthly salary"
                 min="0"
@@ -978,7 +977,7 @@ function Settings() {
             <CustomSelect
               id="employee-type-select"
               name="employeeType"
-              value={employeeType}
+              value={employeeType ?? 'full-time'}
               onChange={(e) => setEmployeeType(e.target.value)}
               options={[
                 { label: 'Full-Time', value: 'full-time' },
@@ -995,7 +994,7 @@ function Settings() {
                 <input
                   type="number"
                   className="form-control"
-                  value={dailyHours}
+                  value={dailyHours ?? 9}
                   onChange={(e) => setDailyHours(e.target.value)}
                   placeholder="Enter daily work hours"
                   min="6"
@@ -1012,7 +1011,7 @@ function Settings() {
                 <CustomSelect
                   id="work-days-per-week-select"
                   name="workDaysPerWeek"
-                  value={workDaysPerWeek}
+                  value={workDaysPerWeek ?? 5}
                   onChange={(e) => setWorkDaysPerWeek(e.target.value)}
                   options={[
                     { label: '3 days', value: '3' },
@@ -1033,10 +1032,7 @@ function Settings() {
             <input
               type="text"
               className="form-control"
-              value={employeeType === 'part-time'
-                ? 'Calculated based on actual hours worked'
-                : '187 (fixed)'
-              }
+              value={employeeType === 'part-time' ? 'Calculated based on actual hours worked' : (monthlyHours ?? 187)}
               disabled
               style={{
                 backgroundColor: 'transparent',
@@ -1060,7 +1056,7 @@ function Settings() {
             <input
               type="number"
               className="form-control"
-              value={annualVacation}
+              value={annualVacation ?? 10}
               onChange={(e) => setAnnualVacation(e.target.value)}
               placeholder="Enter annual vacation days"
               min="0"
@@ -1074,7 +1070,7 @@ function Settings() {
             <input
               type="number"
               className="form-control"
-              value={sickDays}
+              value={sickDays ?? 7}
               onChange={(e) => setSickDays(e.target.value)}
               placeholder="Enter sick days"
               min="0"
