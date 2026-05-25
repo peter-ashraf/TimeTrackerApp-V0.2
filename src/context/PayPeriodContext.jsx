@@ -118,14 +118,16 @@ export const PayPeriodProvider = ({ children }) => {
         const periodsKey = `payPeriods_${currentUser.id}`;
         setSimpleEncryptedItem(periodsKey, periods, currentUser.username);
 
-        // Also save to cacheManager for offline access
-        try {
-          cacheManager.setCachedData('payPeriods', periods);
-          if (currentPeriodId) {
-            cacheManager.setCachedData('currentPeriod', currentPeriodId);
+        // Also save to cacheManager for offline access, but only if data is not empty
+        if (periods.length > 0) {
+          try {
+            cacheManager.setCachedData('payPeriods', periods);
+            if (currentPeriodId) {
+              cacheManager.setCachedData('currentPeriod', currentPeriodId);
+            }
+          } catch (cacheError) {
+            console.warn('Failed to save to cacheManager:', cacheError);
           }
-        } catch (cacheError) {
-          console.warn('Failed to save to cacheManager:', cacheError);
         }
 
         // Deduplicate periods by normalizing dates to avoid conflicts

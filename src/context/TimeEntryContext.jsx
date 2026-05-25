@@ -384,11 +384,13 @@ export const TimeEntryProvider = ({ children }) => {
       const entriesKey = `timeEntries_${currentUser.id}`;
       setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
       multiTabSync.notifyDataChange('timeEntries', entries, currentUser.username);
-      // Also save to cacheManager
-      try {
-        cacheManager.setCachedData('timeEntries', entries);
-      } catch (cacheError) {
-        console.warn('Failed to save to cacheManager in useEffect:', cacheError);
+      // Also save to cacheManager, but only if data is not empty
+      if (entries.length > 0) {
+        try {
+          cacheManager.setCachedData('timeEntries', entries);
+        } catch (cacheError) {
+          console.warn('Failed to save to cacheManager in useEffect:', cacheError);
+        }
       }
       return;
     }
@@ -397,11 +399,13 @@ export const TimeEntryProvider = ({ children }) => {
     const entriesKey = `timeEntries_${currentUser.id}`;
     setSimpleEncryptedItem(entriesKey, entries, currentUser.username);
     multiTabSync.notifyDataChange('timeEntries', entries, currentUser.username);
-    // Also save to cacheManager
-    try {
-      cacheManager.setCachedData('timeEntries', entries);
-    } catch (cacheError) {
-      console.warn('Failed to save to cacheManager in useEffect:', cacheError);
+    // Also save to cacheManager, but only if data is not empty
+    if (entries.length > 0) {
+      try {
+        cacheManager.setCachedData('timeEntries', entries);
+      } catch (cacheError) {
+        console.warn('Failed to save to cacheManager in useEffect:', cacheError);
+      }
     }
   }, [entries, currentUser]);
 

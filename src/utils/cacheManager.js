@@ -73,7 +73,7 @@ class CacheManager {
         timestamp: Date.now(),
         version: this.cacheVersion
       };
-      
+
       localStorage.setItem(cacheKey, JSON.stringify(cacheData));
       this.lastCacheUpdate = Date.now();
     } catch (error) {

@@ -13,6 +13,13 @@
   margin-top: 16px;
 }
 
+@media (prefers-color-scheme: dark) {
+  .diagnostics-panel {
+    background: #2d2d2d;
+    border-color: #444;
+  }
+}
+
 .diagnostics-panel-header {
   display: flex;
   justify-content: space-between;
@@ -25,6 +32,12 @@
   font-size: 1rem;
   font-weight: 600;
   color: var(--text-primary, #333);
+}
+
+@media (prefers-color-scheme: dark) {
+  .diagnostics-panel-header h3 {
+    color: #ffffff;
+  }
 }
 
 .diagnostics-table {
@@ -46,12 +59,53 @@
   background: var(--bg-secondary, #f5f5f5);
 }
 
+@media (prefers-color-scheme: dark) {
+  .diagnostics-table th {
+    color: #b0b0b0;
+    background: #3a3a3a;
+    border-color: #444;
+  }
+}
+
 .diagnostics-table td {
   color: var(--text-primary, #333);
 }
 
+@media (prefers-color-scheme: dark) {
+  .diagnostics-table td {
+    color: #e0e0e0;
+    border-color: #444;
+  }
+}
+
 .diagnostics-table tr:last-child td {
   border-bottom: none;
+}
+
+/* Mobile responsive styles for diagnostics table */
+@media (max-width: 768px) {
+  .diagnostics-panel {
+    padding: 12px;
+  }
+
+  .diagnostics-table {
+    font-size: 0.8rem;
+  }
+
+  .diagnostics-table th,
+  .diagnostics-table td {
+    padding: 6px 8px;
+  }
+
+  /* Make table scrollable horizontally on mobile */
+  .diagnostics-panel {
+    overflow-x: auto;
+  }
+
+  .diagnostics-table {
+    min-width: 100%;
+    white-space: nowrap;
+  }
 }
 
 @keyframes shake {
