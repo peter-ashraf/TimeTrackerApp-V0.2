@@ -19,10 +19,10 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
       scope: '/TimeTrackerApp-V0.2/'
     })
       .then(registration => {
-        
+        console.log('Service Worker registered successfully:', registration);
       })
       .catch(registrationError => {
-        
+        console.error('Service Worker registration failed:', registrationError);
       });
   });
 }

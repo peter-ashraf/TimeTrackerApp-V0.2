@@ -207,6 +207,12 @@ function Settings() {
   const [reminderInterval, setReminderInterval] = useState(
     reminderSettings?.intervalMinutes ?? 15,
   );
+  const [customReminderCount, setCustomReminderCount] = useState(
+    reminderSettings?.reminderCount ?? 3,
+  );
+  const [customReminderInterval, setCustomReminderInterval] = useState(
+    reminderSettings?.intervalMinutes ?? 15,
+  );
   // Period management
   const [showAddPeriod, setShowAddPeriod] = useState(false);
   const [editingPeriodId, setEditingPeriodId] = useState(null);
@@ -227,6 +233,14 @@ function Settings() {
     isError: false,
     message: "",
   });
+
+  // Test notification modal state
+  const [showTestNotifModal, setShowTestNotifModal] = useState(false);
+  const [testPattern, setTestPattern] = useState("single");
+  const [testCount, setTestCount] = useState("1");
+  const [testInterval, setTestInterval] = useState("5");
+  const [customTestCount, setCustomTestCount] = useState("3");
+  const [customTestInterval, setCustomTestInterval] = useState("10");
 
   // Haptic feedback state
   const [hapticEnabled, setHapticEnabled] = useState(
@@ -250,6 +264,42 @@ function Settings() {
     hapticFeedback.setEnabled(newValue);
     if (newValue) {
       hapticFeedback.success(); // Test vibration when enabling
+    }
+  };
+
+  // Handle test notification
+  const handleTestNotification = async () => {
+    try {
+      let count, interval;
+
+      if (testPattern === "single") {
+        count = 1;
+        interval = 0;
+      } else if (testPattern === "repeating") {
+        count = parseInt(testCount, 10);
+        interval = parseInt(testInterval, 10);
+      } else if (testPattern === "custom") {
+        count = parseInt(customTestCount, 10);
+        interval = parseInt(customTestInterval, 10);
+      }
+
+      const result = await notificationManager.testNotification(testPattern, {
+        count,
+        interval,
+      });
+
+      setNotifModal({
+        isOpen: true,
+        isError: false,
+        message: result.message,
+      });
+      setShowTestNotifModal(false);
+    } catch (err) {
+      setNotifModal({
+        isOpen: true,
+        isError: true,
+        message: err.message,
+      });
     }
   };
 
@@ -600,12 +650,19 @@ function Settings() {
       reminderCountChanged ||
       reminderIntervalChanged
     ) {
+      const finalReminderCount = reminderCount === "custom" 
+        ? parseInt(customReminderCount, 10) 
+        : parseInt(reminderCount, 10);
+      const finalReminderInterval = reminderInterval === "custom" 
+        ? parseInt(customReminderInterval, 10) 
+        : parseInt(reminderInterval, 10);
+
       setReminderSettings((prev) => ({
         ...prev,
         enabled: remindersEnabled,
         startTime: reminderStartTime,
-        reminderCount: parseInt(reminderCount, 10),
-        intervalMinutes: parseInt(reminderInterval, 10),
+        reminderCount: finalReminderCount,
+        intervalMinutes: finalReminderInterval,
       }));
     }
 
@@ -1339,40 +1396,99 @@ function Settings() {
               </div>
               <div className="form-group">
                 <label className="form-label">Number of Reminders</label>
-                <CustomSelect
-                  id="reminder-count"
-                  name="reminderCount"
-                  value={reminderCount}
-                  onChange={(e) => setReminderCount(e.target.value)}
-                  options={[
-                    { label: "1 Reminder", value: "1" },
-                    { label: "2 Reminders", value: "2" },
-                    { label: "3 Reminders", value: "3" },
-                    { label: "4 Reminders", value: "4" },
-                    { label: "5 Reminders", value: "5" },
-                  ]}
-                />
+                {reminderCount === "custom" ? (
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={customReminderCount}
+                      onChange={(e) => setCustomReminderCount(e.target.value)}
+                      min="1"
+                      max="100"
+                      style={{
+                        flex: 1,
+                        padding: "10px",
+                        border: "1px solid #ddd",
+                        borderRadius: "4px",
+                        fontSize: "16px"
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setReminderCount("3")}
+                      style={{ padding: "10px 15px" }}
+                    >
+                      Reset
+                    </button>
+                  </div>
+                ) : (
+                  <CustomSelect
+                    id="reminder-count"
+                    name="reminderCount"
+                    value={reminderCount}
+                    onChange={(e) => setReminderCount(e.target.value)}
+                    options={[
+                      { label: "1 Reminder", value: "1" },
+                      { label: "2 Reminders", value: "2" },
+                      { label: "3 Reminders", value: "3" },
+                      { label: "4 Reminders", value: "4" },
+                      { label: "5 Reminders", value: "5" },
+                      { label: "Custom", value: "custom" },
+                    ]}
+                  />
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label">Interval between Reminders</label>
-                <CustomSelect
-                  id="reminder-interval"
-                  name="reminderInterval"
-                  value={reminderInterval}
-                  onChange={(e) => setReminderInterval(e.target.value)}
-                  options={[
-                    { label: "5 Minutes", value: "5" },
-                    { label: "10 Minutes", value: "10" },
-                    { label: "15 Minutes", value: "15" },
-                    { label: "30 Minutes", value: "30" },
-                  ]}
-                />
+                {reminderInterval === "custom" ? (
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={customReminderInterval}
+                      onChange={(e) => setCustomReminderInterval(e.target.value)}
+                      min="1"
+                      max="1440"
+                      style={{
+                        flex: 1,
+                        padding: "10px",
+                        border: "1px solid #ddd",
+                        borderRadius: "4px",
+                        fontSize: "16px"
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setReminderInterval("15")}
+                      style={{ padding: "10px 15px" }}
+                    >
+                      Reset
+                    </button>
+                  </div>
+                ) : (
+                  <CustomSelect
+                    id="reminder-interval"
+                    name="reminderInterval"
+                    value={reminderInterval}
+                    onChange={(e) => setReminderInterval(e.target.value)}
+                    options={[
+                      { label: "5 Minutes", value: "5" },
+                      { label: "10 Minutes", value: "10" },
+                      { label: "15 Minutes", value: "15" },
+                      { label: "30 Minutes", value: "30" },
+                      { label: "Custom", value: "custom" },
+                    ]}
+                  />
+                )}
               </div>
 
               <div style={{ marginTop: "15px", marginBottom: "20px" }}>
                 <button
                   type="button"
                   className="btn btn-outline"
+                  disabled={!import.meta.env.PROD}
                   onClick={async () => {
                     try {
                       if (!currentUser) throw new Error("Please log in first");
@@ -1398,10 +1514,26 @@ function Settings() {
                 >
                   🔔 Enable Push Notifications
                 </button>
+                {!import.meta.env.PROD && (
+                  <p className="help-text" style={{ marginTop: "8px", fontSize: "12px", color: "#666" }}>
+                    Push notifications are only available in production mode. Use the Test Notifications button below to test notifications in development.
+                  </p>
+                )}
                 <p className="help-text" style={{ marginTop: "8px" }}>
-                  Note: iOS requires this app to be added to the Home Screen to
-                  receive notifications.
+                  <strong>Notes:<br /></strong>- Notifications only work if your phone is
+                  connected to the internet and the app is added to your home
+                  screen. <br/>- iOS requires this app to be added to the Home Screen
+                  to receive notifications.
                 </p>
+
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ marginTop: "15px", width: "100%" }}
+                  onClick={() => setShowTestNotifModal(true)}
+                >
+                  🧪 Test Notifications
+                </button>
               </div>
 
               <button
@@ -1990,6 +2122,183 @@ function Settings() {
           <ImportModal onClose={() => setShowImportModal(false)} />
         )}
       </React.Suspense>
+
+      {/* Notification Feedback Modal */}
+      {notifModal.isOpen && (
+        <ModalShell onClose={() => setNotifModal({ ...notifModal, isOpen: false })}>
+          <div style={{ padding: "40px", textAlign: "center" }}>
+            <div style={{ fontSize: "48px", marginBottom: "20px" }}>
+              {notifModal.isError ? "❌" : "✅"}
+            </div>
+            <h2 style={{ marginBottom: "15px", color: notifModal.isError ? "#dc3545" : "#28a745" }}>
+              {notifModal.isError ? "Notification Error" : "Success"}
+            </h2>
+            <p style={{ fontSize: "16px", lineHeight: "1.5", color: "#666" }}>
+              {notifModal.message}
+            </p>
+            <button
+              className="btn btn-primary"
+              style={{ marginTop: "25px" }}
+              onClick={() => setNotifModal({ ...notifModal, isOpen: false })}
+            >
+              OK
+            </button>
+          </div>
+        </ModalShell>
+      )}
+
+      {/* Test Notification Modal */}
+      {showTestNotifModal && (
+        <ModalShell onClose={() => setShowTestNotifModal(false)}>
+          <div style={{ 
+            display: "flex", 
+            flexDirection: "column", 
+            maxHeight: "80vh",
+            maxWidth: "500px",
+            width: "100%"
+          }}>
+            {/* Fixed Header */}
+            <div style={{ padding: "20px", borderBottom: "1px solid #e0e0e0" }}>
+              <h2 style={{ marginBottom: "10px" }}>🧪 Test Notifications</h2>
+              <p className="help-text" style={{ marginBottom: "0" }}>
+                Test different notification patterns to verify they work correctly
+                on your device.
+              </p>
+              {!import.meta.env.PROD && (
+                <p className="help-text" style={{ marginTop: "10px", fontSize: "12px", color: "#f57c00" }}>
+                  ⚠️ Note: Browser notifications may be blocked in development mode (localhost).
+                  Notifications will work properly in production (HTTPS).
+                </p>
+              )}
+            </div>
+
+            {/* Scrollable Content */}
+            <div style={{
+              padding: "20px",
+              flex: 1,
+              overflow: "visible"
+            }}>
+              <div className="form-group" style={{ marginBottom: "20px" }}>
+                <label className="form-label">Test Pattern</label>
+                <CustomSelect
+                  value={testPattern}
+                  onChange={(e) => setTestPattern(e.target.value)}
+                  options={[
+                    { label: "Single Notification", value: "single" },
+                    { label: "Repeating Notifications", value: "repeating" },
+                    { label: "Custom Pattern", value: "custom" },
+                  ]}
+                />
+              </div>
+
+              {testPattern === "repeating" && (
+                <>
+                  <div className="form-group" style={{ marginBottom: "20px" }}>
+                    <label className="form-label">Number of Notifications</label>
+                    <CustomSelect
+                      value={testCount}
+                      onChange={(e) => setTestCount(e.target.value)}
+                      options={[
+                        { label: "1", value: "1" },
+                        { label: "2", value: "2" },
+                        { label: "3", value: "3" },
+                        { label: "5", value: "5" },
+                        { label: "10", value: "10" },
+                      ]}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: "20px" }}>
+                    <label className="form-label">Interval (minutes)</label>
+                    <CustomSelect
+                      value={testInterval}
+                      onChange={(e) => setTestInterval(e.target.value)}
+                      options={[
+                        { label: "1 minute", value: "1" },
+                        { label: "5 minutes", value: "5" },
+                        { label: "10 minutes", value: "10" },
+                        { label: "15 minutes", value: "15" },
+                        { label: "30 minutes", value: "30" },
+                      ]}
+                    />
+                  </div>
+                </>
+              )}
+
+              {testPattern === "custom" && (
+                <>
+                  <div className="form-group" style={{ marginBottom: "20px" }}>
+                    <label className="form-label">Number of Notifications</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={customTestCount}
+                      onChange={(e) => setCustomTestCount(e.target.value)}
+                      min="1"
+                      max="100"
+                      style={{
+                        width: "100%",
+                        padding: "10px",
+                        border: "1px solid #ddd",
+                        borderRadius: "4px",
+                        fontSize: "16px"
+                      }}
+                    />
+                    <p className="help-text" style={{ marginTop: "5px", fontSize: "12px" }}>
+                      Enter the number of notifications to send (1-100)
+                    </p>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: "20px" }}>
+                    <label className="form-label">Interval (minutes)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={customTestInterval}
+                      onChange={(e) => setCustomTestInterval(e.target.value)}
+                      min="1"
+                      max="1440"
+                      style={{
+                        width: "100%",
+                        padding: "10px",
+                        border: "1px solid #ddd",
+                        borderRadius: "4px",
+                        fontSize: "16px"
+                      }}
+                    />
+                    <p className="help-text" style={{ marginTop: "5px", fontSize: "12px" }}>
+                      Enter the interval between notifications in minutes (1-1440)
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Fixed Footer */}
+            <div style={{ 
+              padding: "20px", 
+              borderTop: "1px solid #e0e0e0",
+              display: "flex", 
+              gap: "10px" 
+            }}>
+              <button
+                className="btn btn-primary"
+                onClick={handleTestNotification}
+                style={{ flex: 1 }}
+              >
+                Send Test
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowTestNotifModal(false)}
+                style={{ flex: 1 }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </ModalShell>
+      )}
     </main>
   );
 }
