@@ -258,6 +258,82 @@ export const supabaseData = {
     }
   },
 
+  async suppressDailyReminder(userId, dateStr) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('reminder_logs')
+        .upsert({
+          user_id: userId,
+          date: dateStr,
+          suppressed: true
+        }, {
+          onConflict: 'user_id, date'
+        });
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error suppressing daily reminder:', error);
+      return false;
+    }
+  },
+
+  async getReminderPreferences(userId) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    try {
+      const { data, error } = await supabaseClient
+        .from('reminder_preferences')
+        .select('*')
+        .eq('user_id', userId)
+        .single()
+        .abortSignal(controller.signal);
+
+      if (error) {
+        if (error.code === 'PGRST116' || error.code === '406' || error.code === '404') {
+          return null;
+        }
+        if (error.code === '401' || error.status === 401) {
+          throw new Error('Unauthorized - session expired');
+        }
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  },
+
+  async saveReminderPreferences(userId, prefs) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('reminder_preferences')
+        .upsert({
+          user_id: userId,
+          ...prefs,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error saving reminder preferences:', error);
+      if (error.code === 'PGRST205' || error.code === '23505') {
+        return null;
+      }
+      throw error;
+    }
+  },
+
   async getPayPeriods(userId) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);

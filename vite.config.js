@@ -48,8 +48,9 @@ export default defineConfig({
     },
     VitePWA({
       registerType: 'autoUpdate',
-      strategies: 'CacheFirst',
-      // Let Vite PWA generate the service worker
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: 'TimeTracker App',
@@ -74,36 +75,8 @@ export default defineConfig({
           }
         ]
       },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 4,
-                maxAgeSeconds: 365 * 24 * 60 * 60 // 365 days
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/api\./i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'api-cache',
-
-              cacheableResponse: {
-                statuses: [0, 200]
-              },
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 5 * 60 // 5 minutes
-              }
-            }
-          }
-        ]
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
       }
     })
   ],

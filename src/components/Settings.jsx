@@ -1,79 +1,90 @@
-import React, { useState, useEffect } from 'react';
-import { useTimeTracker } from '../context/TimeTrackerContext';
-import { useSupabaseAuth, supabase } from '../context/SupabaseAuthContext';
-import { usePayPeriod } from '../context/PayPeriodContext';
-import { supabaseData } from '../utils/supabaseData';
-import hapticFeedback from '../utils/hapticFeedback';
-import cacheManager from '../utils/cacheManager';
-const ExportModal = React.lazy(() => import('./ExportModal'));
-const ImportModal = React.lazy(() => import('./ImportModal'));
-import ModalShell from './ModalShell';
-import { setSimpleEncryptedItem } from '../utils/simple-encryption';
-import CustomSelect from './CustomSelect';
-import '../styles/settings.css';
+import React, { useState, useEffect } from "react";
+import { useTimeTracker } from "../context/TimeTrackerContext";
+import { useSupabaseAuth, supabase } from "../context/SupabaseAuthContext";
+import { usePayPeriod } from "../context/PayPeriodContext";
+import { supabaseData } from "../utils/supabaseData";
+import hapticFeedback from "../utils/hapticFeedback";
+import cacheManager from "../utils/cacheManager";
+const ExportModal = React.lazy(() => import("./ExportModal"));
+const ImportModal = React.lazy(() => import("./ImportModal"));
+import ModalShell from "./ModalShell";
+import { setSimpleEncryptedItem } from "../utils/simple-encryption";
+import { useUserPreferences } from "../context/UserPreferencesContext";
+import { notificationManager } from "../utils/notificationManager";
+import CustomSelect from "./CustomSelect";
+import "../styles/settings.css";
 
 // Validation helper
-const validateEmployeeData = (name, salary, annualVacation, sickDays, employeeType, dailyHours, workDaysPerWeek, monthlyHours) => {
+const validateEmployeeData = (
+  name,
+  salary,
+  annualVacation,
+  sickDays,
+  employeeType,
+  dailyHours,
+  workDaysPerWeek,
+  monthlyHours,
+) => {
   const errors = [];
 
   // Validate name
   if (!name || name.trim().length === 0) {
-    errors.push('Employee name is required');
+    errors.push("Employee name is required");
   } else if (name.trim().length < 2) {
-    errors.push('Employee name must be at least 2 characters');
+    errors.push("Employee name must be at least 2 characters");
   }
 
   // Validate salary
   if (isNaN(salary)) {
-    errors.push('Salary must be a valid number');
+    errors.push("Salary must be a valid number");
   } else if (salary < 0) {
-    errors.push('Salary cannot be negative');
+    errors.push("Salary cannot be negative");
   } else if (salary > 10000000) {
-    errors.push('Salary seems unrealistically high (max 10,000,000)');
+    errors.push("Salary seems unrealistically high (max 10,000,000)");
   }
 
   // Validate annual vacation
   if (isNaN(annualVacation)) {
-    errors.push('Annual vacation days must be a valid number');
+    errors.push("Annual vacation days must be a valid number");
   } else if (annualVacation < 0) {
-    errors.push('Annual vacation days cannot be negative');
+    errors.push("Annual vacation days cannot be negative");
   } else if (annualVacation > 365) {
-    errors.push('Annual vacation days cannot exceed 365');
+    errors.push("Annual vacation days cannot exceed 365");
   }
 
   // Validate sick days
   if (isNaN(sickDays)) {
-    errors.push('Sick days must be a valid number');
+    errors.push("Sick days must be a valid number");
   } else if (sickDays < 0) {
-    errors.push('Sick days cannot be negative');
+    errors.push("Sick days cannot be negative");
   } else if (sickDays > 365) {
-    errors.push('Sick days cannot exceed 365');
+    errors.push("Sick days cannot exceed 365");
   }
 
   // Validate employee type
-  if (!employeeType || !['full-time', 'part-time'].includes(employeeType)) {
-    errors.push('Employee type must be either full-time or part-time');
+  if (!employeeType || !["full-time", "part-time"].includes(employeeType)) {
+    errors.push("Employee type must be either full-time or part-time");
   }
 
   // Validate daily hours
-  if (employeeType === 'part-time') {
+  if (employeeType === "part-time") {
     if (!dailyHours || dailyHours < 6 || dailyHours > 9) {
-      errors.push('Part-time daily hours must be between 6 and 9');
+      errors.push("Part-time daily hours must be between 6 and 9");
     }
   } else {
     if (dailyHours && dailyHours !== 9) {
-      errors.push('Full-time daily hours must be 9');
+      errors.push("Full-time daily hours must be 9");
     }
   }
 
   // Validate work days per week
-  if (employeeType === 'part-time') {
+  if (employeeType === "part-time") {
     if (!workDaysPerWeek || workDaysPerWeek < 3 || workDaysPerWeek > 5) {
-      errors.push('Part-time work days must be between 3 and 5');
+      errors.push("Part-time work days must be between 3 and 5");
     }
   } else {
     if (workDaysPerWeek && workDaysPerWeek !== 5) {
-      errors.push('Full-time work days must be 5');
+      errors.push("Full-time work days must be 5");
     }
   }
 
@@ -87,7 +98,7 @@ const validatePeriodDates = (start, end, existingPeriods, editingId = null) => {
 
   // Check if dates are provided
   if (!start || !end) {
-    errors.push('Both start and end dates are required');
+    errors.push("Both start and end dates are required");
     return errors;
   }
 
@@ -96,19 +107,22 @@ const validatePeriodDates = (start, end, existingPeriods, editingId = null) => {
 
   // Check if start is before end
   if (startDate >= endDate) {
-    errors.push('End date must be after start date');
+    errors.push("End date must be after start date");
     return errors; // Stop here if dates are reversed
   }
 
   // FIXED: Calculate duration in days (corrected calculation)
-  const durationDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+  const durationDays =
+    Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
 
   // FIXED: Check for reasonable duration (1 to 35 days)
   if (durationDays < 1) {
-    errors.push('Period must be at least 1 day long');
+    errors.push("Period must be at least 1 day long");
   }
   if (durationDays > 35) {
-    errors.push(`Period cannot exceed 35 days (currently ${durationDays} days)`);
+    errors.push(
+      `Period cannot exceed 35 days (currently ${durationDays} days)`,
+    );
   }
 
   // Only check overlaps if duration is valid (to avoid confusing error messages)
@@ -117,7 +131,7 @@ const validatePeriodDates = (start, end, existingPeriods, editingId = null) => {
   }
 
   // FIXED: Now check for overlaps AFTER duration validation
-  const periodsToCheck = existingPeriods.filter(p => p.id !== editingId);
+  const periodsToCheck = existingPeriods.filter((p) => p.id !== editingId);
 
   for (const period of periodsToCheck) {
     const periodStart = new Date(period.start_date || period.start);
@@ -151,30 +165,53 @@ function Settings() {
     setCurrentPeriod,
     setEntries,
     validateEmployeeType,
-    calculateMonthlyHours
+    calculateMonthlyHours,
   } = useTimeTracker();
 
   const { setPeriods } = usePayPeriod();
+  const { reminderSettings, setReminderSettings } = useUserPreferences();
 
   // ✅ ADDED: Get auth functions
   const { currentUser, deleteUser } = useSupabaseAuth();
 
   // Employee form
-  const [name, setName] = useState(employee.name ?? '');
+  const [name, setName] = useState(employee.name ?? "");
   const [salary, setSalary] = useState(employee.salary ?? 0);
-  const [employeeType, setEmployeeType] = useState(employee.employeeType ?? 'full-time');
+  const [employeeType, setEmployeeType] = useState(
+    employee.employeeType ?? "full-time",
+  );
   const [dailyHours, setDailyHours] = useState(employee.dailyHours ?? 9);
-  const [monthlyHours, setMonthlyHours] = useState(employee.monthlyHours ?? 187);
-  const [workDaysPerWeek, setWorkDaysPerWeek] = useState(employee.workDaysPerWeek ?? 5);
+  const [monthlyHours, setMonthlyHours] = useState(
+    employee.monthlyHours ?? 187,
+  );
+  const [workDaysPerWeek, setWorkDaysPerWeek] = useState(
+    employee.workDaysPerWeek ?? 5,
+  );
 
   // Leave settings form
-  const [annualVacation, setAnnualVacation] = useState(leaveSettings.annualVacation ?? 10);
+  const [annualVacation, setAnnualVacation] = useState(
+    leaveSettings.annualVacation ?? 10,
+  );
   const [sickDays, setSickDays] = useState(leaveSettings.sickDays ?? 7);
+
+  // Reminder settings form
+  const [remindersEnabled, setRemindersEnabled] = useState(
+    reminderSettings?.enabled ?? false,
+  );
+  const [reminderStartTime, setReminderStartTime] = useState(
+    reminderSettings?.startTime ?? "09:00",
+  );
+  const [reminderCount, setReminderCount] = useState(
+    reminderSettings?.reminderCount ?? 3,
+  );
+  const [reminderInterval, setReminderInterval] = useState(
+    reminderSettings?.intervalMinutes ?? 15,
+  );
   // Period management
   const [showAddPeriod, setShowAddPeriod] = useState(false);
   const [editingPeriodId, setEditingPeriodId] = useState(null);
-  const [newPeriodStart, setNewPeriodStart] = useState('');
-  const [newPeriodEnd, setNewPeriodEnd] = useState('');
+  const [newPeriodStart, setNewPeriodStart] = useState("");
+  const [newPeriodEnd, setNewPeriodEnd] = useState("");
 
   // Accordion states
   const [showUpcoming, setShowUpcoming] = useState(false);
@@ -184,8 +221,17 @@ function Settings() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
 
+  // Notification feedback modal
+  const [notifModal, setNotifModal] = useState({
+    isOpen: false,
+    isError: false,
+    message: "",
+  });
+
   // Haptic feedback state
-  const [hapticEnabled, setHapticEnabled] = useState(hapticFeedback.isEnabled());
+  const [hapticEnabled, setHapticEnabled] = useState(
+    hapticFeedback.isEnabled(),
+  );
 
   // Diagnostics state
   const [cacheStatus, setCacheStatus] = useState({});
@@ -194,7 +240,7 @@ function Settings() {
   const handleOpenExport = () => {
     setShowExportModal(true);
     // Mark that user is attempting to backup
-    localStorage.setItem('lastBackupDate', new Date().toISOString());
+    localStorage.setItem("lastBackupDate", new Date().toISOString());
   };
 
   // Handle haptic feedback toggle
@@ -209,7 +255,12 @@ function Settings() {
 
   // Read cache status (read-only, no modifications)
   const readCacheStatus = async () => {
-    const cacheKeys = ['timeEntries', 'payPeriods', 'currentPeriod', 'userProfile'];
+    const cacheKeys = [
+      "timeEntries",
+      "payPeriods",
+      "currentPeriod",
+      "userProfile",
+    ];
     const status = {};
 
     for (const key of cacheKeys) {
@@ -218,28 +269,28 @@ function Settings() {
         const cacheInfo = cacheManager.getCacheStatus()[key];
 
         if (data && (Array.isArray(data) ? data.length > 0 : data !== null)) {
-          const entryCount = Array.isArray(data) ? data.length : '-';
+          const entryCount = Array.isArray(data) ? data.length : "-";
           const lastCached = cacheInfo?.lastCached
             ? formatRelativeTime(new Date(cacheInfo.lastCached))
-            : 'Unknown';
+            : "Unknown";
 
           status[key] = {
-            status: 'cached',
+            status: "cached",
             entryCount,
-            lastCached
+            lastCached,
           };
         } else {
           status[key] = {
-            status: 'empty',
-            entryCount: '-',
-            lastCached: '-'
+            status: "empty",
+            entryCount: "-",
+            lastCached: "-",
           };
         }
       } catch (error) {
         status[key] = {
-          status: 'empty',
-          entryCount: '-',
-          lastCached: '-'
+          status: "empty",
+          entryCount: "-",
+          lastCached: "-",
         };
       }
     }
@@ -249,17 +300,18 @@ function Settings() {
 
   // Format relative time (e.g., "2 mins ago", "1 hour ago")
   const formatRelativeTime = (date) => {
-    if (!date) return '-';
+    if (!date) return "-";
     const now = new Date();
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? "s" : ""} ago`;
+    if (diffHours < 24)
+      return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
   };
 
   // Load cache status when Settings page opens
@@ -268,9 +320,9 @@ function Settings() {
   }, []);
 
   useEffect(() => {
-    setName(employee.name ?? '');
+    setName(employee.name ?? "");
     setSalary(employee.salary ?? 0);
-    setEmployeeType(employee.employeeType ?? 'full-time');
+    setEmployeeType(employee.employeeType ?? "full-time");
     setDailyHours(employee.dailyHours ?? 9);
     setMonthlyHours(employee.monthlyHours ?? 187);
     setWorkDaysPerWeek(employee.workDaysPerWeek ?? 5);
@@ -281,20 +333,29 @@ function Settings() {
     setSickDays(leaveSettings.sickDays ?? 7);
   }, [leaveSettings]);
 
+  useEffect(() => {
+    if (reminderSettings) {
+      setRemindersEnabled(reminderSettings.enabled ?? false);
+      setReminderStartTime(reminderSettings.startTime ?? "09:00");
+      setReminderCount(reminderSettings.reminderCount ?? 3);
+      setReminderInterval(reminderSettings.intervalMinutes ?? 15);
+    }
+  }, [reminderSettings]);
+
   // Check if we should open the Add Period modal (from Timesheet navigation)
   useEffect(() => {
-    const shouldOpenAddPeriod = localStorage.getItem('shouldOpenAddPeriod');
-    if (shouldOpenAddPeriod === 'true') {
-      localStorage.removeItem('shouldOpenAddPeriod');
+    const shouldOpenAddPeriod = localStorage.getItem("shouldOpenAddPeriod");
+    if (shouldOpenAddPeriod === "true") {
+      localStorage.removeItem("shouldOpenAddPeriod");
       setEditingPeriodId(null);
-      setNewPeriodStart('');
-      setNewPeriodEnd('');
+      setNewPeriodStart("");
+      setNewPeriodEnd("");
       setShowAddPeriod(true);
       // Scroll to the Pay Period Management section
       setTimeout(() => {
-        const periodSection = document.querySelector('.settings-section h3');
+        const periodSection = document.querySelector(".settings-section h3");
         if (periodSection) {
-          periodSection.scrollIntoView({ behavior: 'smooth' });
+          periodSection.scrollIntoView({ behavior: "smooth" });
         }
       }, 100);
     }
@@ -302,7 +363,7 @@ function Settings() {
 
   // Auto-set full-time employee values when employee type changes
   useEffect(() => {
-    if (employeeType === 'full-time') {
+    if (employeeType === "full-time") {
       setDailyHours(9);
       setWorkDaysPerWeek(5);
       setMonthlyHours(187);
@@ -329,19 +390,19 @@ function Settings() {
       employeeType,
       parsedDailyHours,
       parsedWorkDaysPerWeek,
-      parsedMonthlyHours
+      parsedMonthlyHours,
     );
 
     // If validation fails, show errors
     if (errors.length > 0) {
       setConfirmModal({
         isOpen: true,
-        title: '⚠️ Validation Error',
-        message: `Please fix the following errors:\n\n${errors.join('\n')}`,
-        type: 'danger',
-        confirmText: 'OK',
+        title: "⚠️ Validation Error",
+        message: `Please fix the following errors:\n\n${errors.join("\n")}`,
+        type: "danger",
+        confirmText: "OK",
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
       });
       return; // Stop - don't save
     }
@@ -355,23 +416,43 @@ function Settings() {
     const sickDaysChanged = parsedSickDays !== leaveSettings.sickDays;
     const employeeTypeChanged = employeeType !== employee.employeeType;
     const dailyHoursChanged = parsedDailyHours !== employee.dailyHours;
-    const workDaysPerWeekChanged = parsedWorkDaysPerWeek !== employee.workDaysPerWeek;
+    const workDaysPerWeekChanged =
+      parsedWorkDaysPerWeek !== employee.workDaysPerWeek;
     const monthlyHoursChanged = parsedMonthlyHours !== employee.monthlyHours;
 
-    const anyChanges = nameChanged || salaryChanged || vacationChanged || sickDaysChanged ||
-      employeeTypeChanged || dailyHoursChanged || workDaysPerWeekChanged || monthlyHoursChanged;
+    const remindersEnabledChanged =
+      remindersEnabled !== reminderSettings.enabled;
+    const reminderStartTimeChanged =
+      reminderStartTime !== reminderSettings.startTime;
+    const reminderCountChanged =
+      reminderCount !== reminderSettings.reminderCount;
+    const reminderIntervalChanged =
+      reminderInterval !== reminderSettings.intervalMinutes;
+
+    const anyChanges =
+      nameChanged ||
+      salaryChanged ||
+      vacationChanged ||
+      sickDaysChanged ||
+      employeeTypeChanged ||
+      dailyHoursChanged ||
+      workDaysPerWeekChanged ||
+      monthlyHoursChanged ||
+      remindersEnabledChanged ||
+      reminderStartTimeChanged ||
+      reminderCountChanged ||
+      reminderIntervalChanged;
 
     // If nothing changed, alert user
     if (!anyChanges) {
-
       setConfirmModal({
         isOpen: true,
-        title: 'No Changes Detected',
-        message: 'You haven\'t made any changes to save.',
-        type: 'info',
-        confirmText: 'OK',
+        title: "No Changes Detected",
+        message: "You haven't made any changes to save.",
+        type: "info",
+        confirmText: "OK",
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
       });
       return;
     }
@@ -379,13 +460,40 @@ function Settings() {
     // Build list of what changed (exclude salary if hidden)
     const changedItems = [];
     if (nameChanged) changedItems.push(`• Name: ${employee.name} → ${name}`);
-    if (salaryChanged) changedItems.push(`• Salary: ${employee.salary} → ${parsedSalary}`);
-    if (employeeTypeChanged) changedItems.push(`• Employee Type: ${employee.employeeType} → ${employeeType}`);
-    if (dailyHoursChanged) changedItems.push(`• Daily Hours: ${employee.dailyHours} → ${parsedDailyHours}`);
-    if (workDaysPerWeekChanged) changedItems.push(`• Work Days/Week: ${employee.workDaysPerWeek} → ${parsedWorkDaysPerWeek}`);
-    if (monthlyHoursChanged) changedItems.push(`• Monthly Hours: ${employee.monthlyHours} → ${parsedMonthlyHours}`);
-    if (vacationChanged) changedItems.push(`• Vacation Days: ${leaveSettings.annualVacation} → ${parsedVacation}`);
-    if (sickDaysChanged) changedItems.push(`• Sick Days: ${leaveSettings.sickDays} → ${parsedSickDays}`);
+    if (salaryChanged)
+      changedItems.push(`• Salary: ${employee.salary} → ${parsedSalary}`);
+    if (employeeTypeChanged)
+      changedItems.push(
+        `• Employee Type: ${employee.employeeType} → ${employeeType}`,
+      );
+    if (dailyHoursChanged)
+      changedItems.push(
+        `• Daily Hours: ${employee.dailyHours} → ${parsedDailyHours}`,
+      );
+    if (workDaysPerWeekChanged)
+      changedItems.push(
+        `• Work Days/Week: ${employee.workDaysPerWeek} → ${parsedWorkDaysPerWeek}`,
+      );
+    if (monthlyHoursChanged)
+      changedItems.push(
+        `• Monthly Hours: ${employee.monthlyHours} → ${parsedMonthlyHours}`,
+      );
+    if (vacationChanged)
+      changedItems.push(
+        `• Vacation Days: ${leaveSettings.annualVacation} → ${parsedVacation}`,
+      );
+    if (sickDaysChanged)
+      changedItems.push(
+        `• Sick Days: ${leaveSettings.sickDays} → ${parsedSickDays}`,
+      );
+    if (remindersEnabledChanged)
+      changedItems.push(
+        `• Check-in Reminders: ${reminderSettings.enabled ? "On" : "Off"} → ${remindersEnabled ? "On" : "Off"}`,
+      );
+    if (reminderStartTimeChanged)
+      changedItems.push(
+        `• Reminder Start Time: ${reminderSettings.startTime} → ${reminderStartTime}`,
+      );
 
     // Save all data (preserves unchanged values automatically, excludes salary if hidden)
     const employeeData = {
@@ -393,7 +501,7 @@ function Settings() {
       employeeType: employeeType,
       dailyHours: parsedDailyHours,
       monthlyHours: parsedMonthlyHours,
-      workDaysPerWeek: parsedWorkDaysPerWeek
+      workDaysPerWeek: parsedWorkDaysPerWeek,
     };
     if (!hideSalary) {
       employeeData.salary = parsedSalary;
@@ -402,76 +510,104 @@ function Settings() {
     // IMPORTANT: Save to database FIRST before updating local state
     // This prevents conflicts with TimeTrackerContext's auto-save useEffect
     // Set flag to prevent auto-save during manual name changes
-    localStorage.setItem('manualNameChange', 'true');
+    localStorage.setItem("manualNameChange", "true");
 
     // NEW: Save display name to localStorage and DB when name changes
     if (nameChanged && name.trim()) {
-      localStorage.setItem('userDisplayName', name.trim());
-      localStorage.setItem('userDisplayNameTimestamp', Date.now().toString());
-
+      localStorage.setItem("userDisplayName", name.trim());
+      localStorage.setItem("userDisplayNameTimestamp", Date.now().toString());
 
       // Also save full_name to database when user explicitly changes it in Settings
       if (currentUser) {
         try {
-
           // Use direct Supabase client to bypass any potential wrapper issues
           const { error } = await supabase
-            .from('profiles')
+            .from("profiles")
             .update({
               full_name: name.trim(),
               employee_type: employeeType,
               daily_hours: parsedDailyHours,
               monthly_hours: parsedMonthlyHours,
               work_days_per_week: parsedWorkDaysPerWeek,
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
             })
-            .eq('id', currentUser.id);
-
-
+            .eq("id", currentUser.id);
 
           if (error) {
-            console.error('[Settings] Failed to save display name to database:', error.message);
+            console.error(
+              "[Settings] Failed to save display name to database:",
+              error.message,
+            );
           } else {
-
-            setEmployee(prev => ({ ...prev, name: name.trim() }));
+            setEmployee((prev) => ({ ...prev, name: name.trim() }));
 
             // Set flag to disable background sync permanently (until page refresh)
-            localStorage.setItem('disableBackgroundSync', 'true');
+            localStorage.setItem("disableBackgroundSync", "true");
             // Don't auto-remove - let user refresh page to reset
 
             // Clear manual name change flag after save is complete
             setTimeout(() => {
-              localStorage.removeItem('manualNameChange');
+              localStorage.removeItem("manualNameChange");
             }, 1000);
           }
-
         } catch (error) {
-          console.error('[Settings] Failed to save display name to database:', error.message);
+          console.error(
+            "[Settings] Failed to save display name to database:",
+            error.message,
+          );
         }
       } else {
-        console.warn('[Settings] No currentUser, skipping DB save');
+        console.warn("[Settings] No currentUser, skipping DB save");
       }
     } else {
       // Only save employee type fields if name didn't change but other fields did
-      if (employeeTypeChanged || dailyHoursChanged || workDaysPerWeekChanged || monthlyHoursChanged) {
+      if (
+        employeeTypeChanged ||
+        dailyHoursChanged ||
+        workDaysPerWeekChanged ||
+        monthlyHoursChanged
+      ) {
         if (currentUser) {
           try {
             const result = await supabaseData.saveUserProfile(currentUser.id, {
               employee_type: employeeType,
               daily_hours: parsedDailyHours,
               monthly_hours: parsedMonthlyHours,
-              work_days_per_week: parsedWorkDaysPerWeek
+              work_days_per_week: parsedWorkDaysPerWeek,
             });
           } catch (error) {
-            console.error('[Settings] Failed to save employee settings to database:', error);
+            console.error(
+              "[Settings] Failed to save employee settings to database:",
+              error,
+            );
           }
         }
       }
     }
 
     // NOW update local state after database save (or queue)
-    setEmployee(prev => ({ ...prev, ...employeeData }));
-    setLeaveSettings(prev => ({ ...prev, annualVacation: parsedVacation, sickDays: parsedSickDays }));
+    setEmployee((prev) => ({ ...prev, ...employeeData }));
+    setLeaveSettings((prev) => ({
+      ...prev,
+      annualVacation: parsedVacation,
+      sickDays: parsedSickDays,
+    }));
+
+    // Update reminder settings
+    if (
+      remindersEnabledChanged ||
+      reminderStartTimeChanged ||
+      reminderCountChanged ||
+      reminderIntervalChanged
+    ) {
+      setReminderSettings((prev) => ({
+        ...prev,
+        enabled: remindersEnabled,
+        startTime: reminderStartTime,
+        reminderCount: parseInt(reminderCount, 10),
+        intervalMinutes: parseInt(reminderInterval, 10),
+      }));
+    }
 
     // ✅ IMMEDIATE SAVE: Force immediate salary save to localStorage
     if (salaryChanged && !hideSalary && currentUser) {
@@ -484,49 +620,56 @@ function Settings() {
     let summaryMessage;
     if (changedItems.length === 1) {
       // Single change - simple message
-      const item = changedItems[0].replace('• ', '');
+      const item = changedItems[0].replace("• ", "");
       summaryMessage = item;
     } else {
       // Multiple changes - formatted list
-      summaryMessage = `${changedItems.length} settings updated:\n\n${changedItems.join('\n')}`;
+      summaryMessage = `${changedItems.length} settings updated:\n\n${changedItems.join("\n")}`;
     }
 
     // Check if there are queued database saves to add warning
-    const queue = JSON.parse(localStorage.getItem('dbSaveQueue') || '[]');
+    const queue = JSON.parse(localStorage.getItem("dbSaveQueue") || "[]");
     if (queue.length > 0) {
-      summaryMessage += '\n\n⚠️ Note: Database connectivity issues detected. Changes will sync when connection is restored.';
+      summaryMessage +=
+        "\n\n⚠️ Note: Database connectivity issues detected. Changes will sync when connection is restored.";
     }
 
     setConfirmModal({
       isOpen: true,
-      title: '✓ Settings Saved',
+      title: "✓ Settings Saved",
       message: summaryMessage,
-      type: queue.length > 0 ? 'warning' : 'success',
-      confirmText: 'OK',
+      type: queue.length > 0 ? "warning" : "success",
+      confirmText: "OK",
       showCancel: false,
-      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
     });
   };
 
   const categorizePeriods = () => {
     // First try to find current period using is_current flag
-    let current = periods.find(p => p.is_current === true);
+    let current = periods.find((p) => p.is_current === true);
 
     // Fallback to currentPeriodId if no is_current flag found
     if (!current) {
-      current = periods.find(p => String(p.id) === String(currentPeriodId));
+      current = periods.find((p) => String(p.id) === String(currentPeriodId));
     }
 
-    const otherPeriods = periods.filter(p => String(p.id) !== String(current?.id));
+    const otherPeriods = periods.filter(
+      (p) => String(p.id) !== String(current?.id),
+    );
 
     if (!current) {
       return { current, upcoming: [], previous: otherPeriods };
     }
 
-    const currentStart = current.start_date || current.start || '';
+    const currentStart = current.start_date || current.start || "";
 
-    const upcoming = otherPeriods.filter(p => (p.start_date || p.start || '') > currentStart);
-    const previous = otherPeriods.filter(p => (p.start_date || p.start || '') <= currentStart);
+    const upcoming = otherPeriods.filter(
+      (p) => (p.start_date || p.start || "") > currentStart,
+    );
+    const previous = otherPeriods.filter(
+      (p) => (p.start_date || p.start || "") <= currentStart,
+    );
 
     return { current, upcoming, previous };
   };
@@ -540,12 +683,12 @@ function Settings() {
     if (!newPeriodStart || !newPeriodEnd) {
       setConfirmModal({
         isOpen: true,
-        title: 'Missing Dates',
-        message: 'Please fill in both start and end dates',
-        type: 'warning',
-        confirmText: 'OK',
+        title: "Missing Dates",
+        message: "Please fill in both start and end dates",
+        type: "warning",
+        confirmText: "OK",
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
       });
       return;
     }
@@ -555,19 +698,19 @@ function Settings() {
       newPeriodStart,
       newPeriodEnd,
       periods,
-      editingPeriodId // Pass editingPeriodId to exclude from overlap check
+      editingPeriodId, // Pass editingPeriodId to exclude from overlap check
     );
 
     // If validation fails, show errors
     if (errors.length > 0) {
       setConfirmModal({
         isOpen: true,
-        title: 'Invalid Period',
-        message: `Cannot add period:\n\n${errors.join('\n')}`,
-        type: 'danger',
-        confirmText: 'OK',
+        title: "Invalid Period",
+        message: `Cannot add period:\n\n${errors.join("\n")}`,
+        type: "danger",
+        confirmText: "OK",
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
       });
       return;
     }
@@ -578,7 +721,7 @@ function Settings() {
 
     const formatDate = (date) => {
       const day = date.getDate();
-      const month = date.toLocaleString('en-US', { month: 'short' });
+      const month = date.toLocaleString("en-US", { month: "short" });
       return `${day} ${month}`;
     };
 
@@ -586,36 +729,43 @@ function Settings() {
 
     if (editingPeriodId) {
       // Edit existing period
-      setPeriods(periods.map(p =>
-        p.id === editingPeriodId
-          ? { ...p, label: autoLabel, start_date: newPeriodStart, end_date: newPeriodEnd }
-          : p
-      ));
+      setPeriods(
+        periods.map((p) =>
+          p.id === editingPeriodId
+            ? {
+                ...p,
+                label: autoLabel,
+                start_date: newPeriodStart,
+                end_date: newPeriodEnd,
+              }
+            : p,
+        ),
+      );
     } else {
       // Add new period
       const newPeriod = {
         id: `period-${Date.now()}`,
         label: autoLabel,
         start_date: newPeriodStart,
-        end_date: newPeriodEnd
+        end_date: newPeriodEnd,
       };
       setPeriods([...periods, newPeriod]);
     }
 
     setShowAddPeriod(false);
     setEditingPeriodId(null);
-    setNewPeriodStart('');
-    setNewPeriodEnd('');
+    setNewPeriodStart("");
+    setNewPeriodEnd("");
 
     // Show success modal
     setConfirmModal({
       isOpen: true,
-      title: editingPeriodId ? '✓ Period Updated' : '✓ Period Added',
-      message: `Period "${autoLabel}" ${editingPeriodId ? 'updated' : 'added'} successfully!`,
-      type: 'success',
-      confirmText: 'OK',
+      title: editingPeriodId ? "✓ Period Updated" : "✓ Period Added",
+      message: `Period "${autoLabel}" ${editingPeriodId ? "updated" : "added"} successfully!`,
+      type: "success",
+      confirmText: "OK",
       showCancel: false,
-      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
     });
   };
 
@@ -624,37 +774,37 @@ function Settings() {
     if (periods.length === 1) {
       setConfirmModal({
         isOpen: true,
-        title: 'Cannot Delete',
-        message: 'Cannot delete the last period! You must have at least one pay period.',
-        type: 'warning',
-        confirmText: 'OK',
+        title: "Cannot Delete",
+        message:
+          "Cannot delete the last period! You must have at least one pay period.",
+        type: "warning",
+        confirmText: "OK",
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
       });
       return;
     }
 
-    const periodToDelete = periods.find(p => p.id === periodId);
+    const periodToDelete = periods.find((p) => p.id === periodId);
 
     // Ask for confirmation
     setConfirmModal({
       isOpen: true,
-      title: 'Delete Period',
+      title: "Delete Period",
       message: `Are you sure you want to delete "${periodToDelete.label}"? This cannot be undone.`,
-      type: 'danger',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
+      type: "danger",
+      confirmText: "Delete",
+      cancelText: "Cancel",
       showCancel: true,
       onConfirm: async () => {
         try {
           // Delete from Supabase first
           if (currentUser) {
             await supabaseData.deletePayPeriod(currentUser.id, periodId);
-
           }
 
           // Update local state
-          const newPeriods = periods.filter(p => p.id !== periodId);
+          const newPeriods = periods.filter((p) => p.id !== periodId);
           setPeriods(newPeriods);
 
           // If deleting current period, switch to first available
@@ -665,18 +815,17 @@ function Settings() {
           // Show success
           setConfirmModal({
             isOpen: true,
-            title: '✓ Period Deleted',
+            title: "✓ Period Deleted",
             message: `Period "${periodToDelete.label}" has been deleted.`,
-            type: 'success',
-            confirmText: 'OK',
+            type: "success",
+            confirmText: "OK",
             showCancel: false,
-            onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+            onConfirm: () =>
+              setConfirmModal({ ...confirmModal, isOpen: false }),
           });
         } catch (error) {
-
-
           // Still delete from local state even if Supabase fails
-          const newPeriods = periods.filter(p => p.id !== periodId);
+          const newPeriods = periods.filter((p) => p.id !== periodId);
           setPeriods(newPeriods);
 
           // If deleting current period, switch to first available
@@ -687,12 +836,13 @@ function Settings() {
           // Show warning
           setConfirmModal({
             isOpen: true,
-            title: '⚠️ Period Deleted (Local Only)',
+            title: "⚠️ Period Deleted (Local Only)",
             message: `Period "${periodToDelete.label}" deleted locally but there was an error deleting from the cloud. Your local data is safe.`,
-            type: 'warning',
-            confirmText: 'OK',
+            type: "warning",
+            confirmText: "OK",
             showCancel: false,
-            onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+            onConfirm: () =>
+              setConfirmModal({ ...confirmModal, isOpen: false }),
           });
         }
       },
@@ -700,98 +850,104 @@ function Settings() {
   };
 
   const handleClearCurrentDay = () => {
-    const today = new Date().toISOString().split('T')[0];
-    const todayEntry = entries.find(e => e.date === today);
+    const today = new Date().toISOString().split("T")[0];
+    const todayEntry = entries.find((e) => e.date === today);
 
     if (!todayEntry) {
       setConfirmModal({
         isOpen: true,
-        title: 'No Data Found',
+        title: "No Data Found",
         message: `No data found for today (${today}).`,
-        type: 'info',
-        confirmText: 'OK',
+        type: "info",
+        confirmText: "OK",
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
       });
       return;
     }
 
     setConfirmModal({
       isOpen: true,
-      title: 'Clear Today\'s Data?',
+      title: "Clear Today's Data?",
       message:
         `Are you sure you want to clear all data for today?\n\n` +
         `• ${today}\n` +
         `• ${todayEntry.type}\n\n` +
         `⛔ This action cannot be undone.\n\n` +
         `💡 Tip: Consider exporting your data first.`,
-      type: 'danger',
-      confirmText: 'Clear Today',
-      cancelText: 'Cancel',
+      type: "danger",
+      confirmText: "Clear Today",
+      cancelText: "Cancel",
       showCancel: true,
       onConfirm: () => {
         clearCurrentDay();
         setConfirmModal({
           isOpen: true,
-          title: '✓ Data Cleared',
-          message: 'Today\'s data has been cleared.',
-          type: 'success',
-          confirmText: 'OK',
+          title: "✓ Data Cleared",
+          message: "Today's data has been cleared.",
+          type: "success",
+          confirmText: "OK",
           showCancel: false,
-          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
         });
-      }
+      },
     });
   };
 
   const handleClearCurrentPeriod = () => {
-    const currentPeriod = periods.find(p => String(p.id) === String(currentPeriodId));
-    const periodEntries = entries.filter(e =>
-      e.date >= (currentPeriod.start_date || currentPeriod.start) && e.date <= (currentPeriod.end_date || currentPeriod.end)
+    const currentPeriod = periods.find(
+      (p) => String(p.id) === String(currentPeriodId),
+    );
+    const periodEntries = entries.filter(
+      (e) =>
+        e.date >= (currentPeriod.start_date || currentPeriod.start) &&
+        e.date <= (currentPeriod.end_date || currentPeriod.end),
     );
 
     if (periodEntries.length === 0) {
       setConfirmModal({
         isOpen: true,
-        title: 'No Data Found',
+        title: "No Data Found",
         message: `No data found for the current period (${currentPeriod.label}).`,
-        type: 'info',
-        confirmText: 'OK',
+        type: "info",
+        confirmText: "OK",
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
       });
       return;
     }
 
     setConfirmModal({
       isOpen: true,
-      title: 'Clear Period Data?',
+      title: "Clear Period Data?",
       message:
         `Are you sure you want to clear all data for this period?\n\n` +
         `• ${currentPeriod.label}\n` +
         `• ${periodEntries.length} entries\n\n` +
         `⛔ This action cannot be undone.\n\n` +
         `🔒 Recommended: Export this period first to avoid data loss.`,
-      type: 'danger',
-      confirmText: 'Clear Period',
-      cancelText: 'Cancel',
+      type: "danger",
+      confirmText: "Clear Period",
+      cancelText: "Cancel",
       showCancel: true,
       onConfirm: () => {
         // Clear the data directly
         const pStart = currentPeriod.start_date || currentPeriod.start;
         const pEnd = currentPeriod.end_date || currentPeriod.end;
-        const newEntries = entries.filter(e => e.date < pStart || e.date > pEnd);
+        const newEntries = entries.filter(
+          (e) => e.date < pStart || e.date > pEnd,
+        );
         setEntries(newEntries);
         setConfirmModal({
           isOpen: true,
-          title: '✓ Period Cleared',
+          title: "✓ Period Cleared",
           message: `All data for ${currentPeriod.label} has been cleared.`,
-          type: 'success',
-          confirmText: 'OK',
+          type: "success",
+          confirmText: "OK",
           showCancel: false,
-          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
         });
-      }
+      },
     });
   };
 
@@ -801,45 +957,49 @@ function Settings() {
 
     setConfirmModal({
       isOpen: true,
-      title: '⚠️ DELETE ALL DATA?',
+      title: "⚠️ DELETE ALL DATA?",
       message:
         `You are about to delete ALL your timesheet data!\n\n` +
         `• ${totalEntries} entries\n` +
         `• ${periods.length} periods\n\n` +
         `⛔ THIS ACTION CANNOT BE UNDONE!\n\n` +
         `🔒 STRONGLY RECOMMENDED: Export your data first!`,
-      type: 'danger',
-      confirmText: 'I understand, Delete All',
-      cancelText: 'Cancel',
+      type: "danger",
+      confirmText: "I understand, Delete All",
+      cancelText: "Cancel",
       showCancel: true,
       onConfirm: () => {
-        const confirmation = window.prompt('Type DELETE to confirm (all caps):');
+        const confirmation = window.prompt(
+          "Type DELETE to confirm (all caps):",
+        );
 
-        if (confirmation === 'DELETE') {
+        if (confirmation === "DELETE") {
           clearAllData();
 
           setConfirmModal({
             isOpen: true,
-            title: '✓ All Data Deleted',
-            message: 'All your timesheet data has been permanently deleted.',
-            type: 'success',
-            confirmText: 'OK',
+            title: "✓ All Data Deleted",
+            message: "All your timesheet data has been permanently deleted.",
+            type: "success",
+            confirmText: "OK",
             showCancel: false,
-            onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+            onConfirm: () =>
+              setConfirmModal({ ...confirmModal, isOpen: false }),
           });
         } else {
           setConfirmModal({
             isOpen: true,
-            title: 'Deletion Cancelled',
-            message: 'No data was deleted.',
-            type: 'info',
-            confirmText: 'OK',
+            title: "Deletion Cancelled",
+            message: "No data was deleted.",
+            type: "info",
+            confirmText: "OK",
             showCancel: false,
-            onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+            onConfirm: () =>
+              setConfirmModal({ ...confirmModal, isOpen: false }),
           });
         }
       },
-      onCancel: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      onCancel: () => setConfirmModal({ ...confirmModal, isOpen: false }),
     });
   };
 
@@ -849,7 +1009,7 @@ function Settings() {
 
     setConfirmModal({
       isOpen: true,
-      title: '🗑️ DELETE ACCOUNT?',
+      title: "🗑️ DELETE ACCOUNT?",
       message:
         `⚠️ WARNING: This will permanently delete your account "${currentUser.username}" and ALL your data!\n\n` +
         `This includes:\n` +
@@ -858,12 +1018,14 @@ function Settings() {
         `• All employee settings\n\n` +
         `⛔ THIS ACTION CANNOT BE UNDONE!\n\n` +
         `🔒 STRONGLY RECOMMENDED: Export your data first!`,
-      type: 'danger',
-      confirmText: 'Delete My Account',
-      cancelText: 'Cancel',
+      type: "danger",
+      confirmText: "Delete My Account",
+      cancelText: "Cancel",
       showCancel: true,
       onConfirm: () => {
-        const typedUsername = window.prompt(`Type your username "${currentUser.username}" to confirm deletion (case-sensitive):`);
+        const typedUsername = window.prompt(
+          `Type your username "${currentUser.username}" to confirm deletion (case-sensitive):`,
+        );
 
         if (typedUsername === currentUser.username) {
           try {
@@ -871,40 +1033,43 @@ function Settings() {
 
             setConfirmModal({
               isOpen: true,
-              title: '✓ Account Deleted',
-              message: 'Your account has been permanently deleted. You will now be logged out.',
-              type: 'success',
-              confirmText: 'OK',
+              title: "✓ Account Deleted",
+              message:
+                "Your account has been permanently deleted. You will now be logged out.",
+              type: "success",
+              confirmText: "OK",
               showCancel: false,
               onConfirm: () => {
                 setConfirmModal({ ...confirmModal, isOpen: false });
                 window.location.reload();
-              }
+              },
             });
           } catch (error) {
             setConfirmModal({
               isOpen: true,
-              title: 'Error',
+              title: "Error",
               message: `Failed to delete account: ${error.message}`,
-              type: 'danger',
-              confirmText: 'OK',
+              type: "danger",
+              confirmText: "OK",
               showCancel: false,
-              onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+              onConfirm: () =>
+                setConfirmModal({ ...confirmModal, isOpen: false }),
             });
           }
         } else {
           setConfirmModal({
             isOpen: true,
-            title: 'Deletion Cancelled',
-            message: 'Username does not match. Your account was not deleted.',
-            type: 'info',
-            confirmText: 'OK',
+            title: "Deletion Cancelled",
+            message: "Username does not match. Your account was not deleted.",
+            type: "info",
+            confirmText: "OK",
             showCancel: false,
-            onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+            onConfirm: () =>
+              setConfirmModal({ ...confirmModal, isOpen: false }),
           });
         }
       },
-      onCancel: () => setConfirmModal({ ...confirmModal, isOpen: false })
+      onCancel: () => setConfirmModal({ ...confirmModal, isOpen: false }),
     });
   };
 
@@ -923,12 +1088,14 @@ function Settings() {
             <input
               type="text"
               className="form-control"
-              value={name ?? ''}
+              value={name ?? ""}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter your display name"
             />
             <small className="form-help">
-              This is how your name appears throughout the app. Your login username (<strong>{currentUser?.username}</strong>) remains unchanged.
+              This is how your name appears throughout the app. Your login
+              username (<strong>{currentUser?.username}</strong>) remains
+              unchanged.
             </small>
           </div>
 
@@ -957,16 +1124,24 @@ function Settings() {
                 value="******"
                 disabled
                 style={{
-                  backgroundColor: 'transparent',
-                  color: '#6c757d',
-                  cursor: 'not-allowed',
-                  filter: 'blur(4px)',
-                  userSelect: 'none'
+                  backgroundColor: "transparent",
+                  color: "#6c757d",
+                  cursor: "not-allowed",
+                  filter: "blur(4px)",
+                  userSelect: "none",
                 }}
                 readOnly
               />
-              <p className="help-text" style={{ color: '#6c757d', marginTop: '8px', fontSize: '0.875rem' }}>
-                💡 Salary is hidden for privacy. Toggle visibility in Dashboard to edit.
+              <p
+                className="help-text"
+                style={{
+                  color: "#6c757d",
+                  marginTop: "8px",
+                  fontSize: "0.875rem",
+                }}
+              >
+                💡 Salary is hidden for privacy. Toggle visibility in Dashboard
+                to edit.
               </p>
             </div>
           )}
@@ -977,17 +1152,17 @@ function Settings() {
             <CustomSelect
               id="employee-type-select"
               name="employeeType"
-              value={employeeType ?? 'full-time'}
+              value={employeeType ?? "full-time"}
               onChange={(e) => setEmployeeType(e.target.value)}
               options={[
-                { label: 'Full-Time', value: 'full-time' },
-                { label: 'Part-Time', value: 'part-time' }
+                { label: "Full-Time", value: "full-time" },
+                { label: "Part-Time", value: "part-time" },
               ]}
             />
           </div>
 
           {/* Conditional fields for part-time employees */}
-          {employeeType === 'part-time' && (
+          {employeeType === "part-time" && (
             <>
               <div className="form-group">
                 <label className="form-label">Daily Hours</label>
@@ -1001,7 +1176,14 @@ function Settings() {
                   max="9"
                   step="0.5"
                 />
-                <p className="help-text" style={{ color: '#6c757d', marginTop: '8px', fontSize: '0.875rem' }}>
+                <p
+                  className="help-text"
+                  style={{
+                    color: "#6c757d",
+                    marginTop: "8px",
+                    fontSize: "0.875rem",
+                  }}
+                >
                   💡 Part-time employees work between 6-9 hours per day
                 </p>
               </div>
@@ -1014,12 +1196,19 @@ function Settings() {
                   value={workDaysPerWeek ?? 5}
                   onChange={(e) => setWorkDaysPerWeek(e.target.value)}
                   options={[
-                    { label: '3 days', value: '3' },
-                    { label: '4 days', value: '4' },
-                    { label: '5 days', value: '5' }
+                    { label: "3 days", value: "3" },
+                    { label: "4 days", value: "4" },
+                    { label: "5 days", value: "5" },
                   ]}
                 />
-                <p className="help-text" style={{ color: '#6c757d', marginTop: '8px', fontSize: '0.875rem' }}>
+                <p
+                  className="help-text"
+                  style={{
+                    color: "#6c757d",
+                    marginTop: "8px",
+                    fontSize: "0.875rem",
+                  }}
+                >
                   💡 Part-time employees work between 3-5 days per week
                 </p>
               </div>
@@ -1032,21 +1221,32 @@ function Settings() {
             <input
               type="text"
               className="form-control"
-              value={employeeType === 'part-time' ? 'Calculated based on actual hours worked' : (monthlyHours ?? 187)}
+              value={
+                employeeType === "part-time"
+                  ? "Calculated based on actual hours worked"
+                  : (monthlyHours ?? 187)
+              }
               disabled
               style={{
-                backgroundColor: 'transparent',
-                color: '#6c757d',
-                cursor: 'not-allowed',
-                userSelect: 'none'
+                backgroundColor: "transparent",
+                color: "#6c757d",
+                cursor: "not-allowed",
+                userSelect: "none",
               }}
               readOnly
             />
-            <p className="help-text" style={{ color: '#6c757d', marginTop: '8px', fontSize: '0.875rem' }}>
-              💡 {employeeType === 'part-time'
+            <p
+              className="help-text"
+              style={{
+                color: "#6c757d",
+                marginTop: "8px",
+                fontSize: "0.875rem",
+              }}
+            >
+              💡{" "}
+              {employeeType === "part-time"
                 ? `Monthly hours will be calculated based on actual hours worked during each pay period. This ensures accurate hourly rates for overtime calculations.`
-                : 'Fixed at 187 hours for full-time employees'
-              }
+                : "Fixed at 187 hours for full-time employees"}
             </p>
           </div>
 
@@ -1079,22 +1279,156 @@ function Settings() {
           </div>
 
           {/* Single Save Button */}
-          <button type="submit" className="btn btn-primary" onClick={() => hapticFeedback.buttonClick()}>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            onClick={() => hapticFeedback.buttonClick()}
+          >
             💾 Save All Settings
           </button>
         </form>
       </div>
 
+      {/* Check-in Reminders Settings */}
+      <section className="settings-section">
+        <h2>⏰ Check-in Reminders</h2>
+        <p className="settings-description">
+          Configure daily check-in reminders so you never forget to log your
+          time.
+        </p>
+
+        <form onSubmit={handleSaveAll}>
+          <div className="form-group">
+            <div className="haptic-feedback-toggle">
+              <label htmlFor="reminders-toggle" className="form-label">
+                Enable Reminders
+              </label>
+              <div className="toggle-wrapper">
+                <div className="haptic-toggle-switch">
+                  <input
+                    type="checkbox"
+                    id="reminders-toggle"
+                    checked={remindersEnabled}
+                    onChange={(e) => setRemindersEnabled(e.target.checked)}
+                  />
+                  <label
+                    htmlFor="reminders-toggle"
+                    className="haptic-toggle-label"
+                  >
+                    <span className="haptic-toggle-slider"></span>
+                  </label>
+                </div>
+                <span className="haptic-toggle-status-text">
+                  {remindersEnabled ? "Enabled" : "Disabled"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {remindersEnabled && (
+            <>
+              <div className="form-group">
+                <label className="form-label">Start Time</label>
+                <input
+                  type="time"
+                  className="form-control"
+                  value={reminderStartTime}
+                  onChange={(e) => setReminderStartTime(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Number of Reminders</label>
+                <CustomSelect
+                  id="reminder-count"
+                  name="reminderCount"
+                  value={reminderCount}
+                  onChange={(e) => setReminderCount(e.target.value)}
+                  options={[
+                    { label: "1 Reminder", value: "1" },
+                    { label: "2 Reminders", value: "2" },
+                    { label: "3 Reminders", value: "3" },
+                    { label: "4 Reminders", value: "4" },
+                    { label: "5 Reminders", value: "5" },
+                  ]}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Interval between Reminders</label>
+                <CustomSelect
+                  id="reminder-interval"
+                  name="reminderInterval"
+                  value={reminderInterval}
+                  onChange={(e) => setReminderInterval(e.target.value)}
+                  options={[
+                    { label: "5 Minutes", value: "5" },
+                    { label: "10 Minutes", value: "10" },
+                    { label: "15 Minutes", value: "15" },
+                    { label: "30 Minutes", value: "30" },
+                  ]}
+                />
+              </div>
+
+              <div style={{ marginTop: "15px", marginBottom: "20px" }}>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={async () => {
+                    try {
+                      if (!currentUser) throw new Error("Please log in first");
+                      const sub = await notificationManager.subscribeUser(
+                        currentUser.id,
+                      );
+                      if (sub) {
+                        setNotifModal({
+                          isOpen: true,
+                          isError: false,
+                          message:
+                            "Push notifications enabled successfully! You'll receive check-in reminders as configured.",
+                        });
+                      }
+                    } catch (err) {
+                      setNotifModal({
+                        isOpen: true,
+                        isError: true,
+                        message: err.message,
+                      });
+                    }
+                  }}
+                >
+                  🔔 Enable Push Notifications
+                </button>
+                <p className="help-text" style={{ marginTop: "8px" }}>
+                  Note: iOS requires this app to be added to the Home Screen to
+                  receive notifications.
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary"
+                onClick={() => hapticFeedback.buttonClick()}
+              >
+                💾 Save Reminder Settings
+              </button>
+            </>
+          )}
+        </form>
+      </section>
+
       {/* Haptic Feedback Settings */}
       <section className="settings-section">
         <h2>📳 Haptic Feedback</h2>
         <p className="settings-description">
-          Control vibration feedback for button interactions and other UI actions.
+          Control vibration feedback for button interactions and other UI
+          actions.
         </p>
 
         <div className="form-group">
           <div className="haptic-feedback-toggle">
-            <label htmlFor="haptic-toggle" className="form-label">Enable Haptic Feedback</label>
+            <label htmlFor="haptic-toggle" className="form-label">
+              Enable Haptic Feedback
+            </label>
             <div className="toggle-wrapper">
               <div className="haptic-toggle-switch">
                 <input
@@ -1112,18 +1446,25 @@ function Settings() {
                 </label>
               </div>
               <span className="haptic-toggle-status-text">
-                {hapticEnabled ? 'Enabled' : 'Disabled'}
+                {hapticEnabled ? "Enabled" : "Disabled"}
               </span>
             </div>
           </div>
           {!hapticFeedback.isSupported() && (
-            <p className="help-text" style={{ color: '#6c757d', marginTop: '8px' }}>
+            <p
+              className="help-text"
+              style={{ color: "#6c757d", marginTop: "8px" }}
+            >
               ⚠️ Haptic feedback is not supported on this device/browser.
             </p>
           )}
           {hapticFeedback.isSupported() && (
-            <p className="help-text" style={{ color: '#6c757d', marginTop: '8px' }}>
-              💡 Provides vibration feedback for button clicks, check-in/out actions, and other interactions.
+            <p
+              className="help-text"
+              style={{ color: "#6c757d", marginTop: "8px" }}
+            >
+              💡 Provides vibration feedback for button clicks, check-in/out
+              actions, and other interactions.
             </p>
           )}
         </div>
@@ -1139,7 +1480,7 @@ function Settings() {
             >
               🎯 Test All Vibration Patterns
             </button>
-            <p className="help-text" style={{ marginTop: '8px' }}>
+            <p className="help-text" style={{ marginTop: "8px" }}>
               Test different vibration patterns used throughout the app.
             </p>
           </div>
@@ -1150,7 +1491,8 @@ function Settings() {
       <section className="settings-section">
         <h3>📅 Pay Period Management</h3>
         <p className="settings-description">
-          Define custom pay periods for your timesheet. Periods must be continuous with no gaps or overlaps.
+          Define custom pay periods for your timesheet. Periods must be
+          continuous with no gaps or overlaps.
         </p>
 
         <div className="periods-list">
@@ -1161,7 +1503,9 @@ function Settings() {
                 className="period-accordion-header"
                 onClick={() => setShowPrevious(!showPrevious)}
               >
-                <span className="accordion-icon">{showPrevious ? '▼' : '▶'}</span>
+                <span className="accordion-icon">
+                  {showPrevious ? "▼" : "▶"}
+                </span>
                 <span className="period-section-header-text">
                   PREVIOUS PERIODS ({previous.length})
                 </span>
@@ -1169,7 +1513,7 @@ function Settings() {
 
               {showPrevious && (
                 <div className="period-section-content accordion-content">
-                  {previous.map(period => (
+                  {previous.map((period) => (
                     <div key={period.id} className="period-item">
                       <div className="period-info">
                         <span className="period-label">{period.label}</span>
@@ -1178,15 +1522,19 @@ function Settings() {
                         <button
                           className="btn btn-sm btn-outline"
                           onClick={() => setCurrentPeriod(period.id)}
-                          disabled={period.id.startsWith('period-')}
+                          disabled={period.id.startsWith("period-")}
                         >
-                          {period.id.startsWith('period-') ? 'Saving...' : 'Set as Current'}
+                          {period.id.startsWith("period-")
+                            ? "Saving..."
+                            : "Set as Current"}
                         </button>
                         <button
                           className="btn btn-sm btn-outline"
                           onClick={() => {
                             setEditingPeriodId(period.id);
-                            setNewPeriodStart(period.start_date || period.start);
+                            setNewPeriodStart(
+                              period.start_date || period.start,
+                            );
                             setNewPeriodEnd(period.end_date || period.end);
                             setShowAddPeriod(true);
                           }}
@@ -1251,7 +1599,9 @@ function Settings() {
                 className="period-accordion-header"
                 onClick={() => setShowUpcoming(!showUpcoming)}
               >
-                <span className="accordion-icon">{showUpcoming ? '▼' : '▶'}</span>
+                <span className="accordion-icon">
+                  {showUpcoming ? "▼" : "▶"}
+                </span>
                 <span className="period-section-header-text">
                   UPCOMING PERIODS ({upcoming.length})
                 </span>
@@ -1259,7 +1609,7 @@ function Settings() {
 
               {showUpcoming && (
                 <div className="period-section-content accordion-content">
-                  {upcoming.map(period => (
+                  {upcoming.map((period) => (
                     <div key={period.id} className="period-item">
                       <div className="period-info">
                         <span className="period-label">{period.label}</span>
@@ -1268,15 +1618,19 @@ function Settings() {
                         <button
                           className="btn btn-sm btn-outline"
                           onClick={() => setCurrentPeriod(period.id)}
-                          disabled={period.id.startsWith('period-')}
+                          disabled={period.id.startsWith("period-")}
                         >
-                          {period.id.startsWith('period-') ? 'Saving...' : 'Set as Current'}
+                          {period.id.startsWith("period-")
+                            ? "Saving..."
+                            : "Set as Current"}
                         </button>
                         <button
                           className="btn btn-sm btn-outline"
                           onClick={() => {
                             setEditingPeriodId(period.id);
-                            setNewPeriodStart(period.start_date || period.start);
+                            setNewPeriodStart(
+                              period.start_date || period.start,
+                            );
                             setNewPeriodEnd(period.end_date || period.end);
                             setShowAddPeriod(true);
                           }}
@@ -1303,8 +1657,8 @@ function Settings() {
             className="btn btn-primary"
             onClick={() => {
               setEditingPeriodId(null);
-              setNewPeriodStart('');
-              setNewPeriodEnd('');
+              setNewPeriodStart("");
+              setNewPeriodEnd("");
               setShowAddPeriod(true);
             }}
           >
@@ -1314,9 +1668,14 @@ function Settings() {
 
         {/* Add Period Modal */}
         {showAddPeriod && (
-          <ModalShell onClose={() => setShowAddPeriod(false)} closeOnOverlay={false}>
+          <ModalShell
+            onClose={() => setShowAddPeriod(false)}
+            closeOnOverlay={false}
+          >
             <form onSubmit={handleAddPeriod}>
-              <h3>{editingPeriodId ? 'Edit Pay Period' : 'Add New Pay Period'}</h3>
+              <h3>
+                {editingPeriodId ? "Edit Pay Period" : "Add New Pay Period"}
+              </h3>
               <p className="settings-description">
                 Period label will be automatically generated from the dates
               </p>
@@ -1354,7 +1713,9 @@ function Settings() {
                       const endDate = new Date(newPeriodEnd);
                       const formatDate = (date) => {
                         const day = date.getDate();
-                        const month = date.toLocaleString('en-US', { month: 'short' });
+                        const month = date.toLocaleString("en-US", {
+                          month: "short",
+                        });
                         return `${day} ${month}`;
                       };
                       return `${formatDate(startDate)} - ${formatDate(endDate)} ${endDate.getFullYear()}`;
@@ -1365,7 +1726,7 @@ function Settings() {
 
               <div className="form-actions">
                 <button type="submit" className="btn btn-primary">
-                  {editingPeriodId ? 'Update Period' : 'Add Period'}
+                  {editingPeriodId ? "Update Period" : "Add Period"}
                 </button>
                 <button
                   type="button"
@@ -1373,8 +1734,8 @@ function Settings() {
                   onClick={() => {
                     setShowAddPeriod(false);
                     setEditingPeriodId(null);
-                    setNewPeriodStart('');
-                    setNewPeriodEnd('');
+                    setNewPeriodStart("");
+                    setNewPeriodEnd("");
                   }}
                 >
                   Cancel
@@ -1389,7 +1750,8 @@ function Settings() {
       <section className="settings-section">
         <h2>📊 Data Management</h2>
         <p className="settings-description">
-          Export your timesheet data to Excel or import data from a previous backup.
+          Export your timesheet data to Excel or import data from a previous
+          backup.
         </p>
 
         <div className="data-management-actions">
@@ -1441,7 +1803,9 @@ function Settings() {
           >
             🗑️ Clear Current Period Data
           </button>
-          <p className="help-text">Delete all entries in the current pay period.</p>
+          <p className="help-text">
+            Delete all entries in the current pay period.
+          </p>
 
           <button
             className="btn btn-danger"
@@ -1452,7 +1816,9 @@ function Settings() {
           >
             🗑️ Delete All Data
           </button>
-          <p className="help-text">Delete all your timesheet data (entries, periods, settings).</p>
+          <p className="help-text">
+            Delete all your timesheet data (entries, periods, settings).
+          </p>
 
           {/* ✅ NEW: Delete Account */}
           <button
@@ -1461,12 +1827,20 @@ function Settings() {
               hapticFeedback.error();
               handleDeleteAccount();
             }}
-            style={{ marginTop: '20px', borderTop: '2px solid #dc3545', paddingTop: '20px' }}
+            style={{
+              marginTop: "20px",
+              borderTop: "2px solid #dc3545",
+              paddingTop: "20px",
+            }}
           >
             ☠️ Delete Account
           </button>
-          <p className="help-text" style={{ marginTop: '20px', color: '#dc3545', fontWeight: 'bold' }}>
-            ⚠️ PERMANENTLY delete your account "{currentUser?.username}" and ALL associated data. This cannot be undone!
+          <p
+            className="help-text"
+            style={{ marginTop: "20px", color: "#dc3545", fontWeight: "bold" }}
+          >
+            ⚠️ PERMANENTLY delete your account "{currentUser?.username}" and ALL
+            associated data. This cannot be undone!
           </p>
         </div>
       </section>
@@ -1505,86 +1879,97 @@ function Settings() {
               <tr>
                 <td>timeEntries</td>
                 <td>
-                  {cacheStatus.timeEntries?.status === 'cached' ? (
-                    <span style={{ color: '#28a745' }}>✅ Cached</span>
+                  {cacheStatus.timeEntries?.status === "cached" ? (
+                    <span style={{ color: "#28a745" }}>✅ Cached</span>
                   ) : (
-                    <span style={{ color: '#dc3545' }}>❌ Empty</span>
+                    <span style={{ color: "#dc3545" }}>❌ Empty</span>
                   )}
                 </td>
-                <td>{cacheStatus.timeEntries?.entryCount || '-'}</td>
-                <td>{cacheStatus.timeEntries?.lastCached || '-'}</td>
+                <td>{cacheStatus.timeEntries?.entryCount || "-"}</td>
+                <td>{cacheStatus.timeEntries?.lastCached || "-"}</td>
               </tr>
               <tr>
                 <td>payPeriods</td>
                 <td>
-                  {cacheStatus.payPeriods?.status === 'cached' ? (
-                    <span style={{ color: '#28a745' }}>✅ Cached</span>
+                  {cacheStatus.payPeriods?.status === "cached" ? (
+                    <span style={{ color: "#28a745" }}>✅ Cached</span>
                   ) : (
-                    <span style={{ color: '#dc3545' }}>❌ Empty</span>
+                    <span style={{ color: "#dc3545" }}>❌ Empty</span>
                   )}
                 </td>
-                <td>{cacheStatus.payPeriods?.entryCount || '-'}</td>
-                <td>{cacheStatus.payPeriods?.lastCached || '-'}</td>
+                <td>{cacheStatus.payPeriods?.entryCount || "-"}</td>
+                <td>{cacheStatus.payPeriods?.lastCached || "-"}</td>
               </tr>
               <tr>
                 <td>currentPeriod</td>
                 <td>
-                  {cacheStatus.currentPeriod?.status === 'cached' ? (
-                    <span style={{ color: '#28a745' }}>✅ Cached</span>
+                  {cacheStatus.currentPeriod?.status === "cached" ? (
+                    <span style={{ color: "#28a745" }}>✅ Cached</span>
                   ) : (
-                    <span style={{ color: '#dc3545' }}>❌ Empty</span>
+                    <span style={{ color: "#dc3545" }}>❌ Empty</span>
                   )}
                 </td>
-                <td>{cacheStatus.currentPeriod?.entryCount || '-'}</td>
-                <td>{cacheStatus.currentPeriod?.lastCached || '-'}</td>
+                <td>{cacheStatus.currentPeriod?.entryCount || "-"}</td>
+                <td>{cacheStatus.currentPeriod?.lastCached || "-"}</td>
               </tr>
               <tr>
                 <td>userProfile</td>
                 <td>
-                  {cacheStatus.userProfile?.status === 'cached' ? (
-                    <span style={{ color: '#28a745' }}>✅ Cached</span>
+                  {cacheStatus.userProfile?.status === "cached" ? (
+                    <span style={{ color: "#28a745" }}>✅ Cached</span>
                   ) : (
-                    <span style={{ color: '#dc3545' }}>❌ Empty</span>
+                    <span style={{ color: "#dc3545" }}>❌ Empty</span>
                   )}
                 </td>
-                <td>{cacheStatus.userProfile?.entryCount || '-'}</td>
-                <td>{cacheStatus.userProfile?.lastCached || '-'}</td>
+                <td>{cacheStatus.userProfile?.entryCount || "-"}</td>
+                <td>{cacheStatus.userProfile?.lastCached || "-"}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         {/* Build Info Panel */}
-        <div className="diagnostics-panel" style={{ marginTop: '20px' }}>
+        <div className="diagnostics-panel" style={{ marginTop: "20px" }}>
           <div className="diagnostics-panel-header">
             <h3>Build Info</h3>
           </div>
           <table className="diagnostics-table">
             <tbody>
               <tr>
-                <td><strong>App Version</strong></td>
-                <td>v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.1.0'}</td>
-              </tr>
-              <tr>
-                <td><strong>Built At</strong></td>
                 <td>
-                  {typeof __BUILD_TIME__ !== 'undefined'
-                    ? new Date(__BUILD_TIME__).toLocaleString('en-US', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })
-                    : 'Unknown'}
+                  <strong>App Version</strong>
+                </td>
+                <td>
+                  v
+                  {typeof __APP_VERSION__ !== "undefined"
+                    ? __APP_VERSION__
+                    : "0.1.0"}
                 </td>
               </tr>
               <tr>
-                <td><strong>Commit</strong></td>
                 <td>
-                  {typeof __GIT_COMMIT__ !== 'undefined'
+                  <strong>Built At</strong>
+                </td>
+                <td>
+                  {typeof __BUILD_TIME__ !== "undefined"
+                    ? new Date(__BUILD_TIME__).toLocaleString("en-US", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "Unknown"}
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong>Commit</strong>
+                </td>
+                <td>
+                  {typeof __GIT_COMMIT__ !== "undefined"
                     ? __GIT_COMMIT__.substring(0, 7)
-                    : 'local'}
+                    : "local"}
                 </td>
               </tr>
             </tbody>
@@ -1593,7 +1978,9 @@ function Settings() {
       </section>
 
       {/* Export Modal */}
-      <React.Suspense fallback={<div className="modal-loading-overlay">Loading...</div>}>
+      <React.Suspense
+        fallback={<div className="modal-loading-overlay">Loading...</div>}
+      >
         {showExportModal && (
           <ExportModal onClose={() => setShowExportModal(false)} />
         )}
