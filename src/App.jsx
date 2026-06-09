@@ -240,7 +240,7 @@ function App() {
     if (!currentUser || !isAuthenticated) return;
     try {
       const refreshWithTimeout = Promise.race([
-        loadTimeEntriesData(),
+        loadTimeEntriesData({ forceConflictCheck: true }),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error("Refresh timed out")), 10000),
         ),

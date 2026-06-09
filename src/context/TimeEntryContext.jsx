@@ -34,6 +34,11 @@ export const TimeEntryProvider = ({ children }) => {
   const isLoadingRef = useRef(false);
   const isInitialSyncRef = useRef(true);
   const initialSyncTimeoutRef = useRef(null);
+  const entriesRef = useRef(entries);
+
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
 
   // Helper functions
   const formatDate = useCallback((date) => {
@@ -48,6 +53,73 @@ export const TimeEntryProvider = ({ children }) => {
     const seconds = String(d.getSeconds()).padStart(2, '0');
     return `${hours}:${minutes}:${seconds}`;
   }, []);
+
+  const normalizeDateKey = useCallback((date) => {
+    if (!date) return '';
+    return String(date).split('T')[0].trim();
+  }, []);
+
+  const normalizeTimeValue = useCallback((value) => {
+    if (!value) return '';
+    const text = String(value).trim();
+    if (!text) return '';
+
+    if (text.includes('T') || text.includes('Z')) {
+      const parsed = new Date(text);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toTimeString().split(' ')[0];
+      }
+    }
+
+    const parts = text.split(':');
+    if (parts.length === 2) return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:00`;
+    if (parts.length >= 3) return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:${parts[2].padStart(2, '0')}`;
+    return text;
+  }, []);
+
+  const normalizeIntervals = useCallback((intervals) => {
+    let parsedIntervals = intervals;
+
+    if (typeof parsedIntervals === 'string') {
+      try {
+        parsedIntervals = JSON.parse(parsedIntervals);
+      } catch (error) {
+        parsedIntervals = [];
+      }
+    }
+
+    if (!Array.isArray(parsedIntervals)) return [];
+
+    return parsedIntervals.map((interval) => ({
+      in: normalizeTimeValue(interval?.in),
+      out: normalizeTimeValue(interval?.out)
+    }));
+  }, [normalizeTimeValue]);
+
+  const entriesAreDifferent = useCallback((localEntry, remoteEntry) => {
+    const localType = localEntry?.type || 'Regular';
+    const remoteType = remoteEntry?.type || 'Regular';
+
+    const localIntervals = JSON.stringify(normalizeIntervals(localEntry?.intervals));
+    const remoteIntervals = JSON.stringify(normalizeIntervals(remoteEntry?.intervals));
+
+    const localNotes = (localEntry?.notes || '').trim();
+    const remoteNotes = (remoteEntry?.notes || '').trim();
+
+    const localDuration = localEntry?.duration || 1;
+    const remoteDuration = remoteEntry?.duration || 1;
+
+    const localDouble = !!(localEntry?.doubleHours || localEntry?.double_hours);
+    const remoteDouble = !!(remoteEntry?.doubleHours || remoteEntry?.double_hours);
+
+    return (
+      localType !== remoteType ||
+      localIntervals !== remoteIntervals ||
+      localNotes !== remoteNotes ||
+      localDuration !== remoteDuration ||
+      localDouble !== remoteDouble
+    );
+  }, [normalizeIntervals]);
 
   // Update entries function
   const updateEntries = useCallback((newEntries) => {
@@ -176,7 +248,9 @@ export const TimeEntryProvider = ({ children }) => {
   }, [currentUser, isAuthenticated]);
 
   // Load time entries data
-  const loadTimeEntriesData = useCallback(async () => {
+  const loadTimeEntriesData = useCallback(async (options = {}) => {
+    const forceConflictCheck = options?.forceConflictCheck === true;
+
     if (!currentUser || !isAuthenticated) {
       return;
     }
@@ -187,24 +261,29 @@ export const TimeEntryProvider = ({ children }) => {
     try {
       isLoadingRef.current = true;
 
-      // Try cacheManager first for instant loading
       let localEntries = [];
-      try {
-        const cachedEntries = await cacheManager.getCachedData('timeEntries', null);
-        if (cachedEntries && cachedEntries.length > 0) {
-          localEntries = cachedEntries;
+
+      if (forceConflictCheck) {
+        localEntries = entriesRef.current || [];
+      } else {
+        // Try cacheManager first for instant loading
+        try {
+          const cachedEntries = await cacheManager.getCachedData('timeEntries', null);
+          if (cachedEntries && cachedEntries.length > 0) {
+            localEntries = cachedEntries;
+          }
+        } catch (cacheError) {
+          console.warn('CacheManager failed, falling back to localStorage:', cacheError);
         }
-      } catch (cacheError) {
-        console.warn('CacheManager failed, falling back to localStorage:', cacheError);
-      }
 
-      // Fallback to encrypted localStorage if cacheManager fails or returns empty
-      if (localEntries.length === 0) {
-        const entriesKey = `timeEntries_${currentUser.id}`;
-        localEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
-      }
+        // Fallback to encrypted localStorage if cacheManager fails or returns empty
+        if (localEntries.length === 0) {
+          const entriesKey = `timeEntries_${currentUser.id}`;
+          localEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
+        }
 
-      setEntries(localEntries);
+        setEntries(localEntries);
+      }
 
       // Immediate Supabase sync if online
       if (navigator.onLine && currentUser) {
@@ -225,7 +304,9 @@ export const TimeEntryProvider = ({ children }) => {
 
           // If online and Supabase returned empty, check if we have offline-created entries
           if (navigator.onLine && entriesData && entriesData.length === 0) {
-            const unsyncedLocal = localEntries.filter(e => !e.id);
+            const unsyncedLocal = forceConflictCheck
+              ? localEntries
+              : localEntries.filter(e => !e.id);
             if (unsyncedLocal.length > 0) {
               setEntries(unsyncedLocal.sort((a, b) => b.date.localeCompare(a.date)));
               console.log(`[Sync] Supabase returned empty, but uploading ${unsyncedLocal.length} offline-created entries...`);
@@ -251,8 +332,8 @@ export const TimeEntryProvider = ({ children }) => {
           }
 
           if (entriesData && entriesData.length > 0) {
-            const localMap = new Map(localEntries.map(e => [e.date, e]));
-            const remoteMap = new Map(entriesData.map(e => [e.date, e]));
+            const localMap = new Map(localEntries.map(e => [normalizeDateKey(e.date), e]));
+            const remoteMap = new Map(entriesData.map(e => [normalizeDateKey(e.date), e]));
 
             const entriesToUpload = [];
             const finalEntries = [];
@@ -266,30 +347,7 @@ export const TimeEntryProvider = ({ children }) => {
                 // Only on remote -> pull remote
                 finalEntries.push(remoteEntry);
               } else {
-                // On both -> compare fields
-                const localType = localEntry.type || 'Regular';
-                const remoteType = remoteEntry.type || 'Regular';
-
-                const localIntervals = JSON.stringify(localEntry.intervals || []);
-                const remoteIntervals = JSON.stringify(remoteEntry.intervals || []);
-
-                const localNotes = (localEntry.notes || '').trim();
-                const remoteNotes = (remoteEntry.notes || '').trim();
-
-                const localDuration = localEntry.duration || 1;
-                const remoteDuration = remoteEntry.duration || 1;
-
-                const localDouble = !!(localEntry.doubleHours || localEntry.double_hours);
-                const remoteDouble = !!(remoteEntry.doubleHours || remoteEntry.double_hours);
-
-                const isDifferent =
-                  localType !== remoteType ||
-                  localIntervals !== remoteIntervals ||
-                  localNotes !== remoteNotes ||
-                  localDuration !== remoteDuration ||
-                  localDouble !== remoteDouble;
-
-                if (isDifferent) {
+                if (entriesAreDifferent(localEntry, remoteEntry)) {
                   // Always treat as conflict requiring user decision
                   conflicts.push({
                     entryId: remoteEntry.id || localEntry.id,
@@ -310,7 +368,7 @@ export const TimeEntryProvider = ({ children }) => {
             // 2. Process local-only entries
             for (const [date, localEntry] of localMap) {
               if (!remoteMap.has(date)) {
-                if (!localEntry.id) {
+                if (forceConflictCheck || !localEntry.id) {
                   // Created offline -> upload to Supabase
                   entriesToUpload.push(localEntry);
                   finalEntries.push(localEntry);
@@ -417,7 +475,7 @@ export const TimeEntryProvider = ({ children }) => {
     } finally {
       isLoadingRef.current = false;
     }
-  }, [currentUser, isAuthenticated]);
+  }, [currentUser, isAuthenticated, entriesAreDifferent, normalizeDateKey]);
 
   // Only save local storage heavily on array change.
   // We remove the cloud save from here to prevent loops on 100 items.
