@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import Calendar from 'react-calendar';
+import 'react-calendar/dist/Calendar.css';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import { useTimeEntry } from '../context/TimeEntryContext';
 import ModalShell from './ModalShell';
@@ -7,14 +9,17 @@ import CustomSelect from './CustomSelect';
 import '../styles/add-day-modal.css';
 
 function AddDayModal({ onClose }) {
-  const { entries, formatDate, showAlert } = useTimeTracker();
+  const { entries, showAlert } = useTimeTracker();
   const timeEntryContext = useTimeEntry();
   const [dayType, setDayType] = useState('Vacation Full Day');
-  const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
-  const [dayCount, setDayCount] = useState(1);
+  const [selectedDates, setSelectedDates] = useState([]);
   const [dayNotes, setDayNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', type: 'info' });
+
+  const existingDates = useMemo(() => {
+    return new Set(entries.filter(entry => entry?.date).map(entry => entry.date));
+  }, [entries]);
 
   const parseSpecialDayLabel = (label) => {
     if (label.includes('Half')) {
@@ -33,46 +38,68 @@ function AddDayModal({ onClose }) {
     return `${year}-${month}-${day}`;
   };
 
-  const getTargetDates = (startDate, count) => {
-    const parsedCount = Number(count);
-    const safeCount = Number.isInteger(parsedCount) ? parsedCount : 0;
-    const start = new Date(`${startDate}T00:00:00`);
+  const sortDates = (dates) => {
+    return [...dates].sort((a, b) => a.localeCompare(b));
+  };
 
-    if (Number.isNaN(start.getTime()) || safeCount < 1 || safeCount > 31) {
-      return [];
+  const handleDateToggle = (date) => {
+    const dateString = formatLocalDate(date);
+
+    if (existingDates.has(dateString)) {
+      showAlert(`An entry already exists for ${dateString}`, 'warning');
+      return;
     }
 
-    return Array.from({ length: safeCount }, (_, index) => {
-      const date = new Date(start);
-      date.setDate(start.getDate() + index);
-      return formatLocalDate(date);
+    setSelectedDates((currentDates) => {
+      if (currentDates.includes(dateString)) {
+        return currentDates.filter((selectedDate) => selectedDate !== dateString);
+      }
+
+      return sortDates([...currentDates, dateString]);
     });
+  };
+
+  const tileClassName = ({ date, view }) => {
+    if (view !== 'month') return null;
+
+    const dateString = formatLocalDate(date);
+    const classes = [];
+
+    if (selectedDates.includes(dateString)) {
+      classes.push('add-day-calendar-selected');
+    }
+
+    if (existingDates.has(dateString)) {
+      classes.push('add-day-calendar-existing');
+    }
+
+    return classes.length > 0 ? classes.join(' ') : null;
+  };
+
+  const tileDisabled = ({ date, view }) => {
+    if (view !== 'month') return false;
+    return existingDates.has(formatLocalDate(date));
   };
 
   const handleSave = async () => {
     if (isSaving) return;
 
-    if (!dayType || !selectedDate) {
-      showAlert('Please select day type and start date', 'warning');
+    if (!dayType || selectedDates.length === 0) {
+      showAlert('Please select day type and at least one date', 'warning');
       return;
     }
 
-    const targetDates = getTargetDates(selectedDate, dayCount);
-
-    if (targetDates.length === 0) {
-      showAlert('Please enter a number of days between 1 and 31', 'warning');
-      return;
-    }
+    const targetDates = sortDates(selectedDates);
 
     const { type, duration } = parseSpecialDayLabel(dayType);
 
-    // Check for duplicates
+    // Check for duplicates again in case entries changed while the modal was open.
     const duplicateDates = targetDates.filter(date =>
-      entries.some(e => e.date === date && e.type === type && e.duration === duration)
+      entries.some(e => e.date === date)
     );
 
     if (duplicateDates.length > 0) {
-      showAlert(`This day type already exists for: ${duplicateDates.join(', ')}`, 'warning');
+      showAlert(`Entries already exist for: ${duplicateDates.join(', ')}`, 'warning');
       return;
     }
 
@@ -103,7 +130,7 @@ function AddDayModal({ onClose }) {
       return;
     }
 
-    const dayLabel = targetDates.length === 1 ? targetDates[0] : `${targetDates[0]} through ${targetDates[targetDates.length - 1]}`;
+    const dayLabel = targetDates.length === 1 ? targetDates[0] : targetDates.join(', ');
     showAlert(`${dayType} added for ${targetDates.length} day${targetDates.length > 1 ? 's' : ''}: ${dayLabel}`, 'success');
     setTimeout(() => {
       onClose();
@@ -137,26 +164,30 @@ function AddDayModal({ onClose }) {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Start Date</label>
-            <input
-              type="date"
-              className="form-control"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+            <label className="form-label">Dates</label>
+            <Calendar
+              className="add-day-calendar"
+              onClickDay={handleDateToggle}
+              tileClassName={tileClassName}
+              tileDisabled={tileDisabled}
             />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Number of Days</label>
-            <input
-              type="number"
-              className="form-control"
-              min="1"
-              max="31"
-              step="1"
-              value={dayCount}
-              onChange={(e) => setDayCount(e.target.value)}
-            />
+            <div className="selected-dates-summary">
+              {selectedDates.length > 0 ? (
+                selectedDates.map((date) => (
+                  <button
+                    type="button"
+                    key={date}
+                    className="selected-date-chip"
+                    onClick={() => setSelectedDates((currentDates) => currentDates.filter((selectedDate) => selectedDate !== date))}
+                    title={`Remove ${date}`}
+                  >
+                    {date}
+                  </button>
+                ))
+              ) : (
+                <span className="selected-dates-empty">No dates selected</span>
+              )}
+            </div>
           </div>
 
           <div className="form-group">
@@ -175,7 +206,7 @@ function AddDayModal({ onClose }) {
           <div className="modal-actions">
             <button className="btn btn-secondary" onClick={onClose} disabled={isSaving}>Cancel</button>
             <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? 'Adding...' : `Add ${Number(dayCount) === 1 ? 'Day' : 'Days'}`}
+              {isSaving ? 'Adding...' : `Add ${selectedDates.length === 1 ? 'Day' : 'Days'}`}
             </button>
           </div>
         </div>
