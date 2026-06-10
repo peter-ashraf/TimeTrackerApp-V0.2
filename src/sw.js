@@ -4,6 +4,16 @@ import { precacheAndRoute } from 'workbox-precaching';
 // self.__WB_MANIFEST is injected by the VitePWA plugin during build
 precacheAndRoute(self.__WB_MANIFEST || []);
 
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 // Listen for push notifications
 self.addEventListener('push', function(event) {
   console.log('[Service Worker] Push Received.', event.data ? event.data.text() : 'No data payload');

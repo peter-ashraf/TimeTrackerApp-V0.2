@@ -12,6 +12,14 @@ import LoadingScreen from './components/LoadingScreen.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import './styles/loading-screen.css';
 
+const notifyAppUpdateAvailable = (registration) => {
+  window.dispatchEvent(
+    new CustomEvent('app-update-available', {
+      detail: { registration },
+    }),
+  );
+};
+
 // Register Service Worker for offline support
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
@@ -20,6 +28,24 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     })
       .then(registration => {
         console.log('Service Worker registered successfully:', registration);
+
+        if (registration.waiting && navigator.serviceWorker.controller) {
+          notifyAppUpdateAvailable(registration);
+        }
+
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (!newWorker) return;
+
+          newWorker.addEventListener('statechange', () => {
+            if (
+              newWorker.state === 'installed' &&
+              navigator.serviceWorker.controller
+            ) {
+              notifyAppUpdateAvailable(registration);
+            }
+          });
+        });
       })
       .catch(registrationError => {
         console.error('Service Worker registration failed:', registrationError);

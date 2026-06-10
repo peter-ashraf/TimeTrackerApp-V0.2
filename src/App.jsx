@@ -32,6 +32,8 @@ import NetworkStatus from "./components/NetworkStatus";
 
 import ConflictResolutionModal from "./components/ConflictResolutionModal";
 
+import AppUpdatePrompt from "./components/AppUpdatePrompt";
+
 import "./styles/app-transitions.css";
 
 import "./styles/fixed-header.css";
@@ -953,6 +955,7 @@ function App() {
 
                 <RefreshIndicator lastRefreshed={lastRefreshed} />
                 <NetworkStatus onRefresh={forceRefresh} />
+                <AppUpdatePrompt />
 
                 {/* Scroll to Top Button - Completely outside all containers */}
 
