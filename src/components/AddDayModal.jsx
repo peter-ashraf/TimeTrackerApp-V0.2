@@ -7,11 +7,13 @@ import CustomSelect from './CustomSelect';
 import '../styles/add-day-modal.css';
 
 function AddDayModal({ onClose }) {
-  const { setEntries, entries, formatDate, showAlert } = useTimeTracker();
+  const { entries, formatDate, showAlert } = useTimeTracker();
   const timeEntryContext = useTimeEntry();
   const [dayType, setDayType] = useState('Vacation Full Day');
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
+  const [dayCount, setDayCount] = useState(1);
   const [dayNotes, setDayNotes] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', type: 'info' });
 
   const parseSpecialDayLabel = (label) => {
@@ -24,49 +26,85 @@ function AddDayModal({ onClose }) {
     }
   };
 
+  const formatLocalDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getTargetDates = (startDate, count) => {
+    const parsedCount = Number(count);
+    const safeCount = Number.isInteger(parsedCount) ? parsedCount : 0;
+    const start = new Date(`${startDate}T00:00:00`);
+
+    if (Number.isNaN(start.getTime()) || safeCount < 1 || safeCount > 31) {
+      return [];
+    }
+
+    return Array.from({ length: safeCount }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      return formatLocalDate(date);
+    });
+  };
+
   const handleSave = async () => {
+    if (isSaving) return;
+
     if (!dayType || !selectedDate) {
-      showAlert('Please select day type and date', 'warning');
+      showAlert('Please select day type and start date', 'warning');
+      return;
+    }
+
+    const targetDates = getTargetDates(selectedDate, dayCount);
+
+    if (targetDates.length === 0) {
+      showAlert('Please enter a number of days between 1 and 31', 'warning');
       return;
     }
 
     const { type, duration } = parseSpecialDayLabel(dayType);
 
     // Check for duplicates
-    const exists = entries.some(e =>
-      e.date === selectedDate && e.type === type && e.duration === duration
+    const duplicateDates = targetDates.filter(date =>
+      entries.some(e => e.date === date && e.type === type && e.duration === duration)
     );
 
-    if (exists) {
-      showAlert('This day type already exists for the selected date', 'warning');
+    if (duplicateDates.length > 0) {
+      showAlert(`This day type already exists for: ${duplicateDates.join(', ')}`, 'warning');
       return;
     }
 
-    const newEntry = {
-      date: selectedDate,
+    const timestamp = new Date().toISOString();
+    const newEntries = targetDates.map(date => ({
+      date,
       type: type,
       duration: duration,
       intervals: [],
       notes: dayNotes,
-      lastModified: new Date().toISOString(),
+      lastModified: timestamp,
       hoursWorked: 0,
       extraHours: 0,
       extraHoursWithFactor: 0,
       hoursSpentOutside: 0
-    };
+    }));
 
     // Save using unified save mechanism
     try {
-      console.log('[Save] Saving entry...');
-      // Create a simple update operation that will trigger the unified save
-      await timeEntryContext.saveTimeEntriesData(newEntry, showAlert);
-      console.log('[Save] Entry saved successfully');
+      setIsSaving(true);
+      for (const entry of newEntries) {
+        await timeEntryContext.saveTimeEntriesData(entry, showAlert);
+      }
     } catch (saveError) {
       console.error('[Save] Failed to save special day:', saveError);
-      showAlert('Special day added locally only. Will sync when online.', 'warning');
+      showAlert('Some special days may have been saved locally only. Please refresh when online.', 'warning');
+      setIsSaving(false);
+      return;
     }
 
-    showAlert(`${dayType} added for ${selectedDate}`, 'success');
+    const dayLabel = targetDates.length === 1 ? targetDates[0] : `${targetDates[0]} through ${targetDates[targetDates.length - 1]}`;
+    showAlert(`${dayType} added for ${targetDates.length} day${targetDates.length > 1 ? 's' : ''}: ${dayLabel}`, 'success');
     setTimeout(() => {
       onClose();
     }, 1500);
@@ -99,12 +137,25 @@ function AddDayModal({ onClose }) {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Date</label>
+            <label className="form-label">Start Date</label>
             <input
               type="date"
               className="form-control"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Number of Days</label>
+            <input
+              type="number"
+              className="form-control"
+              min="1"
+              max="31"
+              step="1"
+              value={dayCount}
+              onChange={(e) => setDayCount(e.target.value)}
             />
           </div>
 
@@ -122,8 +173,10 @@ function AddDayModal({ onClose }) {
 
         <div className="modal-footer">
           <div className="modal-actions">
-            <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleSave}>Add Day</button>
+            <button className="btn btn-secondary" onClick={onClose} disabled={isSaving}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? 'Adding...' : `Add ${Number(dayCount) === 1 ? 'Day' : 'Days'}`}
+            </button>
           </div>
         </div>
       </ModalShell>
