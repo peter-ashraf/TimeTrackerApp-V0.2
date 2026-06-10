@@ -162,6 +162,13 @@
   font-size: 13px;
 }
 
+.conflict-preview-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 180px);
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .input-error {
   border: 2px solid #ff4444 !important;
   background-color: rgba(255, 68, 68, 0.05);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { useSupabaseAuth, supabase } from "../context/SupabaseAuthContext";
 import { usePayPeriod } from "../context/PayPeriodContext";
@@ -81,6 +81,38 @@ const DEV_SAMPLE_CONFLICTS = [
     },
   },
 ];
+
+const getDevSampleConflicts = (count) => {
+  const safeCount = Math.max(1, Math.min(20, count || 1));
+  const startDate = new Date("2026-06-08T00:00:00");
+
+  return Array.from({ length: safeCount }, (_, index) => {
+    const source = DEV_SAMPLE_CONFLICTS[index % DEV_SAMPLE_CONFLICTS.length];
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + index);
+    const dateString = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, "0"),
+      String(date.getDate()).padStart(2, "0"),
+    ].join("-");
+
+    return {
+      ...source,
+      entryId: `dev-conflict-${dateString}`,
+      date: dateString,
+      localEntry: {
+        ...source.localEntry,
+        id: `local-dev-${dateString}`,
+        date: dateString,
+      },
+      remoteEntry: {
+        ...source.remoteEntry,
+        id: `remote-dev-${dateString}`,
+        date: dateString,
+      },
+    };
+  });
+};
 
 const getStoredQueueLength = (key) => {
   try {
@@ -339,6 +371,7 @@ function Settings() {
   // Test notification modal state
   const [showTestNotifModal, setShowTestNotifModal] = useState(false);
   const [showConflictPreview, setShowConflictPreview] = useState(false);
+  const [conflictPreviewCount, setConflictPreviewCount] = useState("3");
   const [testPattern, setTestPattern] = useState("single");
   const [testCount, setTestCount] = useState("1");
   const [testInterval, setTestInterval] = useState("5");
@@ -355,6 +388,14 @@ function Settings() {
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState("profile");
   const [syncStatus, setSyncStatus] = useState(() => getSyncStatusSnapshot());
+  const previewConflictCount = Math.max(
+    1,
+    Math.min(20, parseInt(conflictPreviewCount, 10) || 1),
+  );
+  const previewConflicts = useMemo(
+    () => getDevSampleConflicts(previewConflictCount),
+    [previewConflictCount],
+  );
 
   const refreshSyncStatus = useCallback(() => {
     setSyncStatus(getSyncStatusSnapshot());
@@ -2357,9 +2398,23 @@ function Settings() {
                 Open Preview
               </button>
             </div>
+            <div className="conflict-preview-controls">
+              <label className="form-label" htmlFor="conflict-preview-count">
+                Number of conflicts
+              </label>
+              <input
+                id="conflict-preview-count"
+                type="number"
+                className="form-control"
+                min="1"
+                max="20"
+                value={conflictPreviewCount}
+                onChange={(event) => setConflictPreviewCount(event.target.value)}
+              />
+            </div>
             <p className="settings-description">
-              Development-only sample conflicts for testing modal layout and
-              resolution choices.
+              Development-only sample conflicts for testing modal layout,
+              navigation, and resolution choices.
             </p>
           </div>
         )}
@@ -2430,7 +2485,7 @@ function Settings() {
 
       {import.meta.env.DEV && showConflictPreview && (
         <ConflictResolutionModal
-          conflicts={DEV_SAMPLE_CONFLICTS}
+          conflicts={previewConflicts}
           onResolve={handleConflictPreviewResolve}
           onClose={() => setShowConflictPreview(false)}
         />

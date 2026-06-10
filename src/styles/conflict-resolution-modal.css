@@ -25,19 +25,19 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
 }
 
 .conflict-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem 2rem;
+  align-items: flex-start;
+  padding: 1.5rem 10rem 1.5rem 2rem;
   border-bottom: 1px solid var(--color-border, #e5e7eb);
   flex-shrink: 0;
+  position: relative;
 }
 
 .conflict-header h2 {
@@ -64,7 +64,17 @@
   font-weight: 500;
 }
 
+.conflict-progress,
+.conflict-position {
+  color: var(--color-text-secondary, #6b7280);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
 .conflict-close-btn {
+  position: absolute;
+  top: 1.5rem;
+  right: 2rem;
   width: 2.25rem;
   height: 2.25rem;
   min-width: 2.25rem;
@@ -85,22 +95,45 @@
   background: var(--color-background, #f9fafb);
 }
 
-.batch-actions {
+.conflict-bulk-toggle {
+  position: absolute;
+  top: 4rem;
+  right: 2rem;
+  border: none;
+  background: transparent;
+  color: var(--color-primary, #3b82f6);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 0;
+  text-align: right;
+}
+
+.conflict-bulk-toggle:hover {
+  color: var(--color-primary-hover, #2563eb);
+  text-decoration: underline;
+}
+
+.conflict-bulk-actions {
   display: flex;
   gap: 1rem;
   padding: 1rem 2rem;
   border-bottom: 1px solid var(--color-border, #e5e7eb);
   flex-shrink: 0;
+  background: var(--color-surface, #ffffff);
 }
 
 .conflict-list {
-  flex: 0 0 auto;
-  min-height: auto;
-  overflow: visible;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 1.5rem 2rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .conflict-card {
@@ -125,6 +158,13 @@
   color: var(--color-text, #111827);
   font-size: 1.125rem;
   font-weight: 600;
+}
+
+.conflict-card-header > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .resolved-badge {
@@ -176,7 +216,8 @@
 .field-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 0.75rem;
   padding: 0.25rem 0;
 }
 
@@ -184,6 +225,11 @@
   color: var(--color-text-secondary, #6b7280);
   font-size: 0.875rem;
   font-weight: 500;
+  display: inline-flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .field-value {
@@ -191,15 +237,49 @@
   font-size: 0.875rem;
   font-weight: 600;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.field-row.is-different {
+  border-radius: 6px;
+  background: rgba(var(--color-warning-rgb, 168, 75, 47), 0.08);
+  margin: 0 -0.35rem;
+  padding: 0.35rem;
+}
+
+.difference-badge {
+  border: 1px solid rgba(var(--color-warning-rgb, 168, 75, 47), 0.45);
+  border-radius: 9999px;
+  color: var(--color-warning, #f59e0b);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.18rem 0.4rem;
 }
 
 .conflict-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 1rem;
   padding: 1.5rem 2rem;
   border-top: 1px solid var(--color-border, #e5e7eb);
   flex-shrink: 0;
+  background: var(--color-surface, #ffffff);
+}
+
+.conflict-navigation,
+.conflict-resolve-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.conflict-modal .conflict-nav-btn {
+  min-width: 92px;
+  gap: 0.35rem;
 }
 
 .conflict-modal .btn {
@@ -274,7 +354,7 @@
 
   .conflict-header {
     align-items: flex-start;
-    padding: 1rem 3.25rem 1rem 1rem;
+    padding: 1rem 8.5rem 1rem 1rem;
     gap: 0.75rem;
     position: relative;
   }
@@ -291,8 +371,12 @@
     line-height: 1;
   }
 
+  .conflict-progress,
+  .conflict-position {
+    font-size: 0.75rem;
+  }
+
   .conflict-close-btn {
-    position: absolute;
     top: 0.75rem;
     right: 0.75rem;
     width: 2rem;
@@ -301,13 +385,20 @@
     font-size: 1.1rem;
   }
 
-  .batch-actions {
+  .conflict-bulk-toggle {
+    top: 3.05rem;
+    right: 0.75rem;
+    max-width: 7rem;
+    font-size: 0.72rem;
+  }
+
+  .conflict-bulk-actions {
     gap: 0.75rem;
     padding: 0.75rem 1rem;
   }
 
   .conflict-list {
-    padding: 1rem;
+    padding: 0.75rem 1rem;
     gap: 1rem;
   }
 
@@ -320,9 +411,10 @@
   }
 
   .conflict-column {
-    padding: 1rem;
+    padding: 0.75rem 1rem;
     border-right: none;
     border-bottom: 1px solid var(--color-border, #e5e7eb);
+    gap: 0.75rem;
   }
 
   .conflict-column:last-child {
@@ -337,22 +429,33 @@
 
   .field-value {
     max-width: 100%;
+    text-align: left;
     overflow-wrap: anywhere;
   }
 
   .conflict-footer {
-    padding: 0.75rem 1rem;
-    flex-direction: column-reverse;
-    gap: 0.75rem;
+    padding: 0.65rem 1rem;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .conflict-navigation,
+  .conflict-resolve-actions {
+    width: 100%;
+    gap: 0.55rem;
   }
 
   .conflict-modal .btn {
     width: 100%;
     min-width: 0;
+    min-height: 2.35rem;
+    padding: 0.55rem 0.75rem;
   }
 
   .conflict-modal .btn-large {
     min-width: 0;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.875rem;
   }
 }
 
@@ -386,7 +489,7 @@
   }
 
   .conflict-header {
-    padding: 0.5rem 3rem 0.5rem 0.75rem;
+    padding: 0.5rem 8rem 0.5rem 0.75rem;
   }
 
   .conflict-header > div {
@@ -402,6 +505,11 @@
     font-size: 0.7rem;
   }
 
+  .conflict-progress,
+  .conflict-position {
+    font-size: 0.7rem;
+  }
+
   .conflict-close-btn {
     top: 0.4rem;
     right: 0.6rem;
@@ -410,14 +518,21 @@
     min-width: 2rem;
   }
 
-  .batch-actions {
+  .conflict-bulk-toggle {
+    top: 2.55rem;
+    right: 0.6rem;
+    max-width: 7rem;
+    font-size: 0.68rem;
+  }
+
+  .conflict-bulk-actions {
     flex-direction: row;
     gap: 0.5rem;
     padding: 0.5rem 0.75rem;
   }
 
   .conflict-list {
-    padding: 0.75rem;
+    padding: 0.5rem 0.75rem;
     gap: 0.75rem;
   }
 
@@ -430,8 +545,8 @@
   }
 
   .conflict-column {
-    padding: 0.75rem;
-    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    gap: 0.45rem;
   }
 
   .column-header {
@@ -448,7 +563,14 @@
 
   .conflict-footer {
     flex-direction: row;
-    padding: 0.5rem 0.75rem;
+    align-items: stretch;
+    padding: 0.45rem 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .conflict-navigation,
+  .conflict-resolve-actions {
+    flex: 1 1 0;
     gap: 0.5rem;
   }
 
