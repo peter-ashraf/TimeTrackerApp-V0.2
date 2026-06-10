@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Configuration - replace with your actual Supabase credentials
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'your-supabase-url';
-const SUPABASE_KEY = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 'your-service-role-key';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'your-service-role-key';
 
 class DatabaseMigrationVerifier {
   constructor() {

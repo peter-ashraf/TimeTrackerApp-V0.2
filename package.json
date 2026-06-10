@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "node --test tests/*.test.mjs",
     "preview": "vite preview",
     "predeploy": "npm run build && copy 404.html dist\\404.html",
     "deploy": "gh-pages -d dist -b gh-pages",

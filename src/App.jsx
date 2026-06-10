@@ -357,7 +357,25 @@ function App() {
     [swipeDirection, isMobile],
   );
 
-  const handleTouchEnd = useEffect(() => {
+  const handleTouchEnd = useCallback(() => {
+    if (!isMobile()) return;
+
+    if (swipeTimeoutRef.current) {
+      clearTimeout(swipeTimeoutRef.current);
+      swipeTimeoutRef.current = null;
+    }
+
+    if (swipeDirection === "horizontal" && Math.abs(swipeOffset) > 70) {
+      const nextView = getNextView(swipeOffset < 0 ? "left" : "right");
+      handleViewChange(nextView);
+    }
+
+    setIsSwiping(false);
+    setSwipeOffset(0);
+    setSwipeDirection(null);
+  }, [getNextView, handleViewChange, isMobile, swipeDirection, swipeOffset]);
+
+  useEffect(() => {
     const handleResize = () => {
       // IMPORTANT: Don't reset authentication during resize
 

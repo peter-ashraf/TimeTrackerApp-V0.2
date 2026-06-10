@@ -73,9 +73,10 @@ src/
 ```env
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
-VITE_SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 VITE_SUPABASE_DISABLED=false
 ```
+
+Service role keys must not use the `VITE_` prefix or be exposed to browser builds. Use them only in trusted server-side or local CLI environments.
 
 ### PWA Configuration
 - **Caching Strategy**: `StaleWhileRevalidate` for instant UI loading
