@@ -10,6 +10,7 @@ import { offlineQueue } from "../utils/offlineQueue";
 const ExportModal = React.lazy(() => import("./ExportModal"));
 const ImportModal = React.lazy(() => import("./ImportModal"));
 import ModalShell from "./ModalShell";
+import ConflictResolutionModal from "./ConflictResolutionModal";
 import { setSimpleEncryptedItem } from "../utils/simple-encryption";
 import { useUserPreferences } from "../context/UserPreferencesContext";
 import { notificationManager } from "../utils/notificationManager";
@@ -22,6 +23,63 @@ const SETTINGS_TABS = [
   { id: "periods", label: "Periods", icon: "fa-calendar-days" },
   { id: "data", label: "Data", icon: "fa-database" },
   { id: "advanced", label: "Advanced", icon: "fa-screwdriver-wrench" },
+];
+
+const DEV_SAMPLE_CONFLICTS = [
+  {
+    entryId: "dev-conflict-2026-06-08",
+    date: "2026-06-08",
+    localEntry: {
+      id: "local-dev-2026-06-08",
+      date: "2026-06-08",
+      intervals: [{ in: "09:51:37", out: "" }],
+      notes: "Checked in offline from the phone.",
+    },
+    remoteEntry: {
+      id: "remote-dev-2026-06-08",
+      date: "2026-06-08",
+      intervals: [{ in: "09:51:37", out: "19:02:09" }],
+      notes: "Online entry has checkout from another device.",
+    },
+  },
+  {
+    entryId: "dev-conflict-2026-06-09",
+    date: "2026-06-09",
+    localEntry: {
+      id: "local-dev-2026-06-09",
+      date: "2026-06-09",
+      intervals: [
+        { in: "09:03:00", out: "13:05:00" },
+        { in: "13:54:00", out: "18:20:00" },
+      ],
+      notes: "Local edit includes a longer lunch break.",
+    },
+    remoteEntry: {
+      id: "remote-dev-2026-06-09",
+      date: "2026-06-09",
+      intervals: [
+        { in: "09:00:00", out: "13:10:00" },
+        { in: "13:40:00", out: "18:10:00" },
+      ],
+      notes: "Online edit came from desktop.",
+    },
+  },
+  {
+    entryId: "dev-conflict-2026-06-10",
+    date: "2026-06-10",
+    localEntry: {
+      id: "local-dev-2026-06-10",
+      date: "2026-06-10",
+      intervals: [{ in: "10:15:00", out: "16:45:00" }],
+      notes: "Marked as sick leave locally.",
+    },
+    remoteEntry: {
+      id: "remote-dev-2026-06-10",
+      date: "2026-06-10",
+      intervals: [{ in: "09:30:00", out: "18:30:00" }],
+      notes: "Online version has a normal work day.",
+    },
+  },
 ];
 
 const getStoredQueueLength = (key) => {
@@ -280,6 +338,7 @@ function Settings() {
 
   // Test notification modal state
   const [showTestNotifModal, setShowTestNotifModal] = useState(false);
+  const [showConflictPreview, setShowConflictPreview] = useState(false);
   const [testPattern, setTestPattern] = useState("single");
   const [testCount, setTestCount] = useState("1");
   const [testInterval, setTestInterval] = useState("5");
@@ -351,6 +410,22 @@ function Settings() {
         message: err.message,
       });
     }
+  };
+
+  const handleConflictPreviewResolve = (resolutions) => {
+    const localCount = resolutions.filter(
+      (resolution) => resolution.choice === "local",
+    ).length;
+    const remoteCount = resolutions.filter(
+      (resolution) => resolution.choice === "remote",
+    ).length;
+
+    setShowConflictPreview(false);
+    setNotifModal({
+      isOpen: true,
+      isError: false,
+      message: `Preview only: ${localCount} local and ${remoteCount} online choices resolved. No data was saved.`,
+    });
   };
 
   // Read cache status (read-only, no modifications)
@@ -2267,6 +2342,28 @@ function Settings() {
           </table>
         </div>
 
+        {import.meta.env.DEV && (
+          <div className="diagnostics-panel" style={{ marginTop: "20px" }}>
+            <div className="diagnostics-panel-header">
+              <h3>Conflict Modal Preview</h3>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={() => {
+                  hapticFeedback.buttonClick();
+                  setShowConflictPreview(true);
+                }}
+              >
+                Open Preview
+              </button>
+            </div>
+            <p className="settings-description">
+              Development-only sample conflicts for testing modal layout and
+              resolution choices.
+            </p>
+          </div>
+        )}
+
         {/* Build Info Panel */}
         <div className="diagnostics-panel" style={{ marginTop: "20px" }}>
           <div className="diagnostics-panel-header">
@@ -2330,6 +2427,14 @@ function Settings() {
           <ImportModal onClose={() => setShowImportModal(false)} />
         )}
       </React.Suspense>
+
+      {import.meta.env.DEV && showConflictPreview && (
+        <ConflictResolutionModal
+          conflicts={DEV_SAMPLE_CONFLICTS}
+          onResolve={handleConflictPreviewResolve}
+          onClose={() => setShowConflictPreview(false)}
+        />
+      )}
 
       {/* Notification Feedback Modal */}
       {notifModal.isOpen && (
