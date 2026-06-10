@@ -2304,6 +2304,16 @@ h1 {
   margin-bottom: var(--space-20);
 }
 
+.manual-time-actions .add-break-btn {
+  width: auto;
+  min-height: 40px;
+  height: 40px;
+  margin: 0;
+  padding: var(--space-8) var(--space-10);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 /* Show manual buttons in mobile */
 @media (max-width: 600px) {
   .manual-time-actions {
@@ -2313,7 +2323,11 @@ h1 {
   }
 
   .manual-time-actions .btn {
+    min-height: 40px;
+    height: 40px;
+    padding: var(--space-8) var(--space-6);
     font-size: 12px;
+    line-height: 1.2;
   }
 }
 
@@ -3630,6 +3644,14 @@ body.salary-blur .overtime-money-amount {
   .btn {
     padding: var(--space-10) var(--space-16);
     font-size: var(--font-size-base);
+  }
+
+  .manual-time-actions .btn {
+    min-height: 40px;
+    height: 40px;
+    padding: var(--space-8) var(--space-6);
+    font-size: 12px;
+    line-height: 1.2;
   }
 
   .month-selector {
@@ -5491,4 +5513,32 @@ body.salary-blur .overtime-money-amount {
 /* Only .active class controls styling, not :hover/:active */
 .tab-btn {
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Hide scrollbars everywhere while preserving scroll behavior. Keep this at the
+   end so component-level scrollbar styling cannot reintroduce visible bars. */
+html,
+body,
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent !important;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb,
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+  display: none !important;
+  background: transparent !important;
 }
