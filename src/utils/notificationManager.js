@@ -180,6 +180,86 @@ class NotificationManager {
     }
     return false;
   }
+
+  /**
+   * Test notification with different patterns
+   * @param {string} pattern - 'single', 'repeating', or 'custom'
+   * @param {Object} options - { count: number, interval: number }
+   */
+  async testNotification(pattern = 'single', options = {}) {
+    try {
+      // Request permission if not granted
+      if (this.getPermissionStatus() !== 'granted') {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          throw new Error('Notification permission was denied. Please enable notifications in your browser settings.');
+        }
+      }
+
+      const { count = 1, interval = 5 } = options;
+
+      if (pattern === 'single') {
+        // Send a single test notification
+        await this.sendTestNotification('Test Notification', 'This is a single test notification.');
+      } else if (pattern === 'repeating') {
+        // Send notifications at regular intervals
+        for (let i = 0; i < count; i++) {
+          await this.sendTestNotification(
+            `Test Notification ${i + 1}/${count}`,
+            `This is test notification ${i + 1} of ${count}.`
+          );
+          if (i < count - 1) {
+            await new Promise(resolve => setTimeout(resolve, interval * 60 * 1000));
+          }
+        }
+      } else if (pattern === 'custom') {
+        // Custom pattern: send notifications at specific intervals
+        for (let i = 0; i < count; i++) {
+          await this.sendTestNotification(
+            `Custom Test ${i + 1}`,
+            `Custom notification ${i + 1} sent every ${interval} minutes.`
+          );
+          if (i < count - 1) {
+            await new Promise(resolve => setTimeout(resolve, interval * 60 * 1000));
+          }
+        }
+      }
+
+      return { success: true, message: 'Test notification(s) sent successfully.' };
+    } catch (error) {
+      console.error('Failed to send test notification:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send a local test notification (for immediate feedback)
+   */
+  async sendTestNotification(title, body) {
+    if (Notification.permission === 'granted') {
+      try {
+        const notification = new Notification(title, {
+          body: body,
+          tag: 'test-notification',
+          requireInteraction: true,
+          silent: false
+        });
+
+        notification.onclick = function() {
+          window.focus();
+          notification.close();
+        };
+
+        console.log('Notification created successfully:', notification);
+      } catch (error) {
+        console.error('Error creating notification:', error);
+        throw error;
+      }
+    } else {
+      console.error('Notification permission not granted');
+      throw new Error('Notification permission not granted');
+    }
+  }
 }
 
 export const notificationManager = new NotificationManager();

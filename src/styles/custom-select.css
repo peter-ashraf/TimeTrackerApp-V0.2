@@ -70,7 +70,7 @@
     max-height: 0;
     overflow-y: auto;
     opacity: 0;
-    z-index: 100;
+    z-index: 1000000;
     transition: all var(--duration-normal) var(--ease-standard);
     scrollbar-width: thin;
     scrollbar-color: var(--color-primary) transparent;
