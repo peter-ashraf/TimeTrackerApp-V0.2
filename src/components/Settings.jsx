@@ -14,6 +14,14 @@ import { notificationManager } from "../utils/notificationManager";
 import CustomSelect from "./CustomSelect";
 import "../styles/settings.css";
 
+const SETTINGS_TABS = [
+  { id: "profile", label: "Profile", icon: "fa-user" },
+  { id: "reminders", label: "Reminders", icon: "fa-bell" },
+  { id: "periods", label: "Periods", icon: "fa-calendar-days" },
+  { id: "data", label: "Data", icon: "fa-database" },
+  { id: "advanced", label: "Advanced", icon: "fa-screwdriver-wrench" },
+];
+
 // Validation helper
 const validateEmployeeData = (
   name,
@@ -250,6 +258,7 @@ function Settings() {
   // Diagnostics state
   const [cacheStatus, setCacheStatus] = useState({});
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState("profile");
 
   const handleOpenExport = () => {
     setShowExportModal(true);
@@ -397,13 +406,16 @@ function Settings() {
     const shouldOpenAddPeriod = localStorage.getItem("shouldOpenAddPeriod");
     if (shouldOpenAddPeriod === "true") {
       localStorage.removeItem("shouldOpenAddPeriod");
+      setActiveSettingsTab("periods");
       setEditingPeriodId(null);
       setNewPeriodStart("");
       setNewPeriodEnd("");
       setShowAddPeriod(true);
       // Scroll to the Pay Period Management section
       setTimeout(() => {
-        const periodSection = document.querySelector(".settings-section h3");
+        const periodSection = document.querySelector(
+          ".pay-period-settings-section h3",
+        );
         if (periodSection) {
           periodSection.scrollIntoView({ behavior: "smooth" });
         }
@@ -1131,11 +1143,30 @@ function Settings() {
   };
 
   return (
-    <main className="main-content">
+    <main className={`main-content settings-page settings-tab-${activeSettingsTab}`}>
       <h1>⚙️ Settings</h1>
 
+      <nav className="settings-tabs" aria-label="Settings sections">
+        {SETTINGS_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={`settings-tab-button ${
+              activeSettingsTab === tab.id ? "active" : ""
+            }`}
+            aria-label={tab.label}
+            aria-pressed={activeSettingsTab === tab.id}
+            onClick={() => setActiveSettingsTab(tab.id)}
+          >
+            <i className={`fa-solid ${tab.icon}`} aria-hidden="true"></i>
+            <span className="settings-tab-label">{tab.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      <div className="settings-panels-scroll">
       {/* ✅ UNIFIED EMPLOYEE INFORMATION & LEAVE SETTINGS */}
-      <div className="settings-section">
+      <div className="settings-section settings-panel settings-panel-profile">
         <h2>👤 Employee Information</h2>
 
         <form onSubmit={handleSaveAll}>
@@ -1347,7 +1378,7 @@ function Settings() {
       </div>
 
       {/* Check-in Reminders Settings */}
-      <section className="settings-section">
+      <section className="settings-section settings-panel settings-panel-reminders">
         <h2>⏰ Check-in Reminders</h2>
         <p className="settings-description">
           Configure daily check-in reminders so you never forget to log your
@@ -1549,7 +1580,7 @@ function Settings() {
       </section>
 
       {/* Haptic Feedback Settings */}
-      <section className="settings-section">
+      <section className="settings-section settings-panel settings-panel-profile">
         <h2>📳 Haptic Feedback</h2>
         <p className="settings-description">
           Control vibration feedback for button interactions and other UI
@@ -1620,7 +1651,7 @@ function Settings() {
       </section>
 
       {/* Pay Periods Management */}
-      <section className="settings-section">
+      <section className="settings-section settings-panel settings-panel-periods pay-period-settings-section">
         <h3>📅 Pay Period Management</h3>
         <p className="settings-description">
           Define custom pay periods for your timesheet. Periods must be
@@ -1879,7 +1910,7 @@ function Settings() {
       </section>
 
       {/* NEW: Export/Import Data Section */}
-      <section className="settings-section">
+      <section className="settings-section settings-panel settings-panel-data">
         <h2>📊 Data Management</h2>
         <p className="settings-description">
           Export your timesheet data to Excel or import data from a previous
@@ -1911,7 +1942,7 @@ function Settings() {
       </section>
 
       {/* Danger Zone */}
-      <section className="settings-section danger-zone">
+      <section className="settings-section danger-zone settings-panel settings-panel-advanced">
         <h2>⚠️ Danger Zone</h2>
 
         <div className="danger-actions">
@@ -1978,7 +2009,7 @@ function Settings() {
       </section>
 
       {/* Diagnostics Section */}
-      <section className="settings-section">
+      <section className="settings-section settings-panel settings-panel-advanced">
         <h2>🔧 Diagnostics</h2>
         <p className="settings-description">
           Developer tools for troubleshooting and deployment verification.
@@ -2108,6 +2139,7 @@ function Settings() {
           </table>
         </div>
       </section>
+      </div>
 
       {/* Export Modal */}
       <React.Suspense

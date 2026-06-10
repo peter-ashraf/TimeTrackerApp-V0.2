@@ -1,3 +1,103 @@
+.settings-tabs {
+  position: relative;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 20px;
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+  border-bottom: none;
+}
+
+.settings-container.active {
+  height: calc(100dvh - 140px);
+  overflow: hidden;
+}
+
+.settings-container.active .settings-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.settings-container.active .settings-page > h1,
+.settings-container.active .settings-tabs {
+  flex: 0 0 auto;
+}
+
+.settings-panels-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 24px;
+}
+
+.settings-tab-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.settings-tab-button i {
+  flex: 0 0 auto;
+  font-size: 15px;
+}
+
+.settings-tab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-tab-button:hover,
+.settings-tab-button:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+  background: var(--color-secondary);
+}
+
+.settings-tab-button.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #071315;
+}
+
+.settings-panel {
+  display: none;
+}
+
+.settings-tab-profile .settings-panel-profile,
+.settings-tab-reminders .settings-panel-reminders,
+.settings-tab-periods .settings-panel-periods,
+.settings-tab-data .settings-panel-data,
+.settings-tab-advanced .settings-panel-advanced {
+  display: block;
+}
+
 .input-error {
   border: 2px solid #ff4444 !important;
   background-color: rgba(255, 68, 68, 0.05);
@@ -84,6 +184,19 @@
 
 /* Mobile responsive styles for diagnostics table */
 @media (max-width: 768px) {
+  .settings-tabs {
+    gap: 6px;
+    margin-right: 0;
+    margin-left: 0;
+    padding: 0;
+  }
+
+  .settings-tab-button {
+    min-height: 40px;
+    padding: 8px 6px;
+    font-size: 13px;
+  }
+
   .diagnostics-panel {
     padding: 12px;
   }
@@ -105,6 +218,33 @@
   .diagnostics-table {
     min-width: 100%;
     white-space: nowrap;
+  }
+}
+
+@media (max-width: 520px) {
+  .settings-tabs {
+    gap: 5px;
+  }
+
+  .settings-tab-button {
+    min-height: 38px;
+    padding: 8px 4px;
+  }
+
+  .settings-tab-button i {
+    font-size: 16px;
+  }
+
+  .settings-tab-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 }
 

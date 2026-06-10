@@ -129,7 +129,7 @@
 }
 
 /* Add Break Button */
-.add-break-btn {
+.modal-content.edit-entry-modal .add-break-btn {
   width: 100%;
   padding: var(--space-12) var(--space-16);
   background: var(--color-bg-2);
@@ -147,7 +147,7 @@
   margin-bottom: var(--space-16);
 }
 
-.add-break-btn:hover {
+.modal-content.edit-entry-modal .add-break-btn:hover {
   background: var(--color-secondary);
   border-color: var(--color-primary);
   border-style: solid;

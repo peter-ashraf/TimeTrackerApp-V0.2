@@ -1,0 +1,15 @@
+.manual-time-actions .btn {
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .manual-time-actions .btn {
+    box-sizing: border-box;
+    min-height: 40px;
+    height: 40px;
+    padding: 0 var(--space-8);
+    font-size: 12px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+}

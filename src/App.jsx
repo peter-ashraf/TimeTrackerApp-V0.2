@@ -36,6 +36,8 @@ import "./styles/app-transitions.css";
 
 import "./styles/fixed-header.css";
 
+import "./styles/manual-time-actions.css";
+
 // Lazy load major view components
 
 const Dashboard = React.lazy(() => import("./components/Dashboard"));
