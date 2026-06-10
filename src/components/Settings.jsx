@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { useSupabaseAuth, supabase } from "../context/SupabaseAuthContext";
 import { usePayPeriod } from "../context/PayPeriodContext";
 import { supabaseData } from "../utils/supabaseData";
 import hapticFeedback from "../utils/hapticFeedback";
 import cacheManager from "../utils/cacheManager";
+import { backgroundSync } from "../utils/backgroundSync-enhanced";
+import { offlineQueue } from "../utils/offlineQueue";
 const ExportModal = React.lazy(() => import("./ExportModal"));
 const ImportModal = React.lazy(() => import("./ImportModal"));
 import ModalShell from "./ModalShell";
@@ -21,6 +23,36 @@ const SETTINGS_TABS = [
   { id: "data", label: "Data", icon: "fa-database" },
   { id: "advanced", label: "Advanced", icon: "fa-screwdriver-wrench" },
 ];
+
+const getStoredQueueLength = (key) => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (!stored) return 0;
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed.length : 0;
+  } catch (error) {
+    return 0;
+  }
+};
+
+const getSyncStatusSnapshot = () => {
+  const backgroundStatus = backgroundSync.getStatus();
+  const offlineStatus = offlineQueue.getStatus();
+  const storedBackgroundQueue = getStoredQueueLength("tt_sync_queue");
+  const appSaveQueue = getStoredQueueLength("dbSaveQueue");
+
+  return {
+    isOnline: navigator.onLine,
+    isSyncing: backgroundStatus.isSyncing || offlineStatus.isProcessing,
+    backgroundQueue: Math.max(
+      backgroundStatus.queueLength || 0,
+      storedBackgroundQueue,
+    ),
+    appSaveQueue,
+    offlineQueue: offlineStatus,
+    checkedAt: new Date(),
+  };
+};
 
 // Validation helper
 const validateEmployeeData = (
@@ -165,6 +197,10 @@ function Settings() {
     periods,
     currentPeriodId,
     hideSalary,
+    lastSaved,
+    lastRefreshed,
+    saveStatus,
+    pendingConflicts,
     setEmployee,
     setLeaveSettings,
     clearAllData,
@@ -259,6 +295,11 @@ function Settings() {
   const [cacheStatus, setCacheStatus] = useState({});
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState("profile");
+  const [syncStatus, setSyncStatus] = useState(() => getSyncStatusSnapshot());
+
+  const refreshSyncStatus = useCallback(() => {
+    setSyncStatus(getSyncStatusSnapshot());
+  }, []);
 
   const handleOpenExport = () => {
     setShowExportModal(true);
@@ -377,6 +418,32 @@ function Settings() {
   useEffect(() => {
     readCacheStatus();
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const updateStatus = () => {
+      if (isMounted) refreshSyncStatus();
+    };
+
+    offlineQueue.init().finally(updateStatus);
+    updateStatus();
+
+    window.addEventListener("online", updateStatus);
+    window.addEventListener("offline", updateStatus);
+    backgroundSync.addListener(updateStatus);
+    offlineQueue.addListener(updateStatus);
+
+    const intervalId = window.setInterval(updateStatus, 30000);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("online", updateStatus);
+      window.removeEventListener("offline", updateStatus);
+      backgroundSync.removeListener(updateStatus);
+      offlineQueue.removeListener(updateStatus);
+      window.clearInterval(intervalId);
+    };
+  }, [refreshSyncStatus]);
 
   useEffect(() => {
     setName(employee.name ?? "");
@@ -1907,6 +1974,115 @@ function Settings() {
             </form>
           </ModalShell>
         )}
+      </section>
+
+      <section className="settings-section settings-panel settings-panel-data">
+        <div className="settings-section-header">
+          <h2>Sync Status</h2>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline"
+            onClick={() => {
+              hapticFeedback.buttonClick();
+              refreshSyncStatus();
+            }}
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div className="sync-status-grid">
+          <div className="sync-status-card">
+            <span className="sync-status-label">Connection</span>
+            <strong
+              className={`sync-status-value ${
+                syncStatus.isOnline ? "is-online" : "is-offline"
+              }`}
+            >
+              {syncStatus.isOnline ? "Online" : "Offline"}
+            </strong>
+          </div>
+
+          <div className="sync-status-card">
+            <span className="sync-status-label">Sync Activity</span>
+            <strong className="sync-status-value">
+              {syncStatus.isSyncing ? "Syncing" : "Idle"}
+            </strong>
+          </div>
+
+          <div className="sync-status-card">
+            <span className="sync-status-label">Last Saved</span>
+            <strong className="sync-status-value">
+              {lastSaved ? formatRelativeTime(new Date(lastSaved)) : "-"}
+            </strong>
+          </div>
+
+          <div className="sync-status-card">
+            <span className="sync-status-label">Last Refreshed</span>
+            <strong className="sync-status-value">
+              {lastRefreshed
+                ? formatRelativeTime(new Date(lastRefreshed))
+                : "-"}
+            </strong>
+          </div>
+
+          <div className="sync-status-card">
+            <span className="sync-status-label">Conflicts</span>
+            <strong
+              className={`sync-status-value ${
+                pendingConflicts?.length ? "has-warning" : ""
+              }`}
+            >
+              {pendingConflicts?.length || 0}
+            </strong>
+          </div>
+
+          <div className="sync-status-card">
+            <span className="sync-status-label">App Save Queue</span>
+            <strong
+              className={`sync-status-value ${
+                syncStatus.appSaveQueue ? "has-warning" : ""
+              }`}
+            >
+              {syncStatus.appSaveQueue}
+            </strong>
+          </div>
+
+          <div className="sync-status-card">
+            <span className="sync-status-label">Background Queue</span>
+            <strong
+              className={`sync-status-value ${
+                syncStatus.backgroundQueue ? "has-warning" : ""
+              }`}
+            >
+              {syncStatus.backgroundQueue}
+            </strong>
+          </div>
+
+          <div className="sync-status-card">
+            <span className="sync-status-label">Offline Queue</span>
+            <strong
+              className={`sync-status-value ${
+                syncStatus.offlineQueue?.pending ||
+                syncStatus.offlineQueue?.failed
+                  ? "has-warning"
+                  : ""
+              }`}
+            >
+              {syncStatus.offlineQueue?.pending || 0} pending
+            </strong>
+          </div>
+        </div>
+
+        <div className="sync-status-footer">
+          <span>{saveStatus?.message || "No current save message"}</span>
+          <span>
+            Checked{" "}
+            {syncStatus.checkedAt
+              ? formatRelativeTime(new Date(syncStatus.checkedAt))
+              : "-"}
+          </span>
+        </div>
       </section>
 
       {/* NEW: Export/Import Data Section */}
