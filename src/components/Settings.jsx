@@ -15,6 +15,10 @@ import { setSimpleEncryptedItem } from "../utils/simple-encryption";
 import { useUserPreferences } from "../context/UserPreferencesContext";
 import { notificationManager } from "../utils/notificationManager";
 import CustomSelect from "./CustomSelect";
+import {
+  getPendingTimeEntrySyncStatus,
+  SYNC_STATUS_EVENT,
+} from "../utils/timeEntrySyncStatus";
 import "../styles/settings.css";
 
 const SETTINGS_TABS = [
@@ -24,6 +28,8 @@ const SETTINGS_TABS = [
   { id: "data", label: "Data", icon: "fa-database" },
   { id: "advanced", label: "Advanced", icon: "fa-screwdriver-wrench" },
 ];
+
+const IS_DEV_MODE = import.meta.env.DEV;
 
 const DEV_SAMPLE_CONFLICTS = [
   {
@@ -125,21 +131,26 @@ const getStoredQueueLength = (key) => {
   }
 };
 
-const getSyncStatusSnapshot = () => {
+const getSyncStatusSnapshot = (currentUser) => {
   const backgroundStatus = backgroundSync.getStatus();
   const offlineStatus = offlineQueue.getStatus();
   const storedBackgroundQueue = getStoredQueueLength("tt_sync_queue");
   const appSaveQueue = getStoredQueueLength("dbSaveQueue");
+  const timeEntrySync = getPendingTimeEntrySyncStatus(currentUser?.id);
 
   return {
     isOnline: navigator.onLine,
-    isSyncing: backgroundStatus.isSyncing || offlineStatus.isProcessing,
+    isSyncing:
+      backgroundStatus.isSyncing ||
+      offlineStatus.isProcessing ||
+      (navigator.onLine && timeEntrySync.pending > 0),
     backgroundQueue: Math.max(
       backgroundStatus.queueLength || 0,
       storedBackgroundQueue,
     ),
     appSaveQueue,
     offlineQueue: offlineStatus,
+    timeEntrySync,
     checkedAt: new Date(),
   };
 };
@@ -306,7 +317,7 @@ function Settings() {
   const { reminderSettings, setReminderSettings } = useUserPreferences();
 
   // ✅ ADDED: Get auth functions
-  const { currentUser, deleteUser } = useSupabaseAuth();
+  const { currentUser, deleteUser, verifyPassword } = useSupabaseAuth();
 
   // Employee form
   const [name, setName] = useState(employee.name ?? "");
@@ -387,7 +398,13 @@ function Settings() {
   const [cacheStatus, setCacheStatus] = useState({});
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState("profile");
-  const [syncStatus, setSyncStatus] = useState(() => getSyncStatusSnapshot());
+  const [isDangerUnlocked, setIsDangerUnlocked] = useState(false);
+  const [dangerPassword, setDangerPassword] = useState("");
+  const [dangerUnlockError, setDangerUnlockError] = useState("");
+  const [isUnlockingDanger, setIsUnlockingDanger] = useState(false);
+  const [syncStatus, setSyncStatus] = useState(() =>
+    getSyncStatusSnapshot(currentUser),
+  );
   const previewConflictCount = Math.max(
     1,
     Math.min(20, parseInt(conflictPreviewCount, 10) || 1),
@@ -398,8 +415,8 @@ function Settings() {
   );
 
   const refreshSyncStatus = useCallback(() => {
-    setSyncStatus(getSyncStatusSnapshot());
-  }, []);
+    setSyncStatus(getSyncStatusSnapshot(currentUser));
+  }, [currentUser]);
 
   const handleOpenExport = () => {
     setShowExportModal(true);
@@ -469,6 +486,25 @@ function Settings() {
     });
   };
 
+  const handleUnlockDangerZone = async (event) => {
+    event.preventDefault();
+    setDangerUnlockError("");
+
+    try {
+      setIsUnlockingDanger(true);
+      await verifyPassword(dangerPassword);
+      setIsDangerUnlocked(true);
+      setDangerPassword("");
+      hapticFeedback.success();
+    } catch (error) {
+      setIsDangerUnlocked(false);
+      setDangerUnlockError(error.message || "Password could not be verified");
+      hapticFeedback.error();
+    } finally {
+      setIsUnlockingDanger(false);
+    }
+  };
+
   // Read cache status (read-only, no modifications)
   const readCacheStatus = async () => {
     const cacheKeys = [
@@ -532,8 +568,16 @@ function Settings() {
 
   // Load cache status when Settings page opens
   useEffect(() => {
-    readCacheStatus();
+    if (IS_DEV_MODE) {
+      readCacheStatus();
+    }
   }, []);
+
+  useEffect(() => {
+    setIsDangerUnlocked(false);
+    setDangerPassword("");
+    setDangerUnlockError("");
+  }, [currentUser?.id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -546,6 +590,8 @@ function Settings() {
 
     window.addEventListener("online", updateStatus);
     window.addEventListener("offline", updateStatus);
+    window.addEventListener(SYNC_STATUS_EVENT, updateStatus);
+    window.addEventListener("storage", updateStatus);
     backgroundSync.addListener(updateStatus);
     offlineQueue.addListener(updateStatus);
 
@@ -555,6 +601,8 @@ function Settings() {
       isMounted = false;
       window.removeEventListener("online", updateStatus);
       window.removeEventListener("offline", updateStatus);
+      window.removeEventListener(SYNC_STATUS_EVENT, updateStatus);
+      window.removeEventListener("storage", updateStatus);
       backgroundSync.removeListener(updateStatus);
       offlineQueue.removeListener(updateStatus);
       window.clearInterval(intervalId);
@@ -2179,19 +2227,26 @@ function Settings() {
             <span className="sync-status-label">Offline Queue</span>
             <strong
               className={`sync-status-value ${
+                syncStatus.timeEntrySync?.pending ||
                 syncStatus.offlineQueue?.pending ||
                 syncStatus.offlineQueue?.failed
                   ? "has-warning"
                   : ""
               }`}
             >
-              {syncStatus.offlineQueue?.pending || 0} pending
+              {(syncStatus.timeEntrySync?.pending || 0) +
+                (syncStatus.offlineQueue?.pending || 0)}{" "}
+              pending
             </strong>
           </div>
         </div>
 
         <div className="sync-status-footer">
-          <span>{saveStatus?.message || "No current save message"}</span>
+          <span>
+            {syncStatus.timeEntrySync?.pending
+              ? `Pending time entries: ${syncStatus.timeEntrySync.dates.join(", ")}`
+              : saveStatus?.message || "No current save message"}
+          </span>
           <span>
             Checked{" "}
             {syncStatus.checkedAt
@@ -2234,10 +2289,57 @@ function Settings() {
       </section>
 
       {/* Danger Zone */}
-      <section className="settings-section danger-zone settings-panel settings-panel-advanced">
+      <section
+        className={`settings-section danger-zone settings-panel settings-panel-advanced ${
+          isDangerUnlocked ? "is-unlocked" : "is-locked"
+        }`}
+      >
         <h2>⚠️ Danger Zone</h2>
 
-        <div className="danger-actions">
+        <div className="danger-zone-header">
+          <h2>Danger Zone</h2>
+          <span className={`danger-lock-badge ${isDangerUnlocked ? "is-unlocked" : ""}`}>
+            {isDangerUnlocked ? "Unlocked" : "Locked"}
+          </span>
+        </div>
+
+        {!isDangerUnlocked && (
+          <form className="danger-unlock-form" onSubmit={handleUnlockDangerZone}>
+            <label htmlFor="danger-password" className="form-label">
+              Enter your password to enable destructive actions
+            </label>
+            <div className="danger-unlock-row">
+              <input
+                id="danger-password"
+                type="password"
+                className={`form-control ${dangerUnlockError ? "input-error" : ""}`}
+                value={dangerPassword}
+                onChange={(event) => {
+                  setDangerPassword(event.target.value);
+                  setDangerUnlockError("");
+                }}
+                placeholder="Password"
+                autoComplete="current-password"
+              />
+              <button
+                type="submit"
+                className="btn btn-danger"
+                disabled={isUnlockingDanger || !dangerPassword.trim()}
+              >
+                {isUnlockingDanger ? "Checking..." : "Unlock"}
+              </button>
+            </div>
+            {dangerUnlockError && (
+              <p className="danger-unlock-error">{dangerUnlockError}</p>
+            )}
+          </form>
+        )}
+
+        <fieldset
+          className="danger-actions danger-protected-content"
+          disabled={!isDangerUnlocked}
+          aria-disabled={!isDangerUnlocked}
+        >
           <button
             className="btn btn-danger"
             onClick={() => {
@@ -2297,10 +2399,11 @@ function Settings() {
             ⚠️ PERMANENTLY delete your account "{currentUser?.username}" and ALL
             associated data. This cannot be undone!
           </p>
-        </div>
+        </fieldset>
       </section>
 
       {/* Diagnostics Section */}
+      {IS_DEV_MODE && (
       <section className="settings-section settings-panel settings-panel-advanced">
         <h2>🔧 Diagnostics</h2>
         <p className="settings-description">
@@ -2467,6 +2570,7 @@ function Settings() {
           </table>
         </div>
       </section>
+      )}
       </div>
 
       {/* Export Modal */}

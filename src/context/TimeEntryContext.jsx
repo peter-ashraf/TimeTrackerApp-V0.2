@@ -5,6 +5,10 @@ import { supabaseData } from '../utils/supabaseData';
 import { setSimpleEncryptedItem, getSimpleEncryptedItem } from '../utils/simple-encryption';
 import { multiTabSync } from '../utils/multiTabSync';
 import { cacheManager } from '../utils/cacheManager';
+import {
+  clearPendingTimeEntrySync,
+  markPendingTimeEntrySync
+} from '../utils/timeEntrySyncStatus';
 
 const TimeEntryContext = createContext();
 
@@ -189,15 +193,20 @@ export const TimeEntryProvider = ({ children }) => {
               ));
             }
 
+            clearPendingTimeEntrySync(currentUser.id, entriesToSave);
             setLastSaved(new Date().toISOString());
             return { success: true, savedTo: 'supabase' };
           } catch (saveError) {
             console.error('[Save] Supabase save failed:', saveError.message);
             // For intermittent issues, continue with local save and don't retry
+            markPendingTimeEntrySync(currentUser.id, entriesToSave, 'connectivity_issue');
             setLastSaved(new Date().toISOString());
             return { success: true, savedTo: 'local', reason: 'connectivity_issue' };
           }
         } else {
+          if (isAuthenticated && !currentUser.isLocalOnly) {
+            markPendingTimeEntrySync(currentUser.id, entriesToSave, navigator.onLine ? 'local_only' : 'offline');
+          }
           setLastSaved(new Date().toISOString());
           return { success: true, savedTo: 'local' };
         }
@@ -320,8 +329,10 @@ export const TimeEntryProvider = ({ children }) => {
                         e.date === entry.date ? { ...e, id: returnedEntry.id } : e
                       ));
                     }
+                    clearPendingTimeEntrySync(currentUser.id, entry);
                   } catch (err) {
                     console.error(`[Sync] Failed to upload entry for ${entry.date}:`, err);
+                    markPendingTimeEntrySync(currentUser.id, entry, 'upload_failed');
                   }
                 })
               );
@@ -361,6 +372,7 @@ export const TimeEntryProvider = ({ children }) => {
                     ...localEntry,
                     id: remoteEntry.id
                   });
+                  clearPendingTimeEntrySync(currentUser.id, localEntry);
                 }
               }
             }
@@ -420,8 +432,10 @@ export const TimeEntryProvider = ({ children }) => {
                             e.date === resolution.chosenEntry.date ? { ...e, id: returnedEntry.id } : e
                           ));
                         }
+                        clearPendingTimeEntrySync(currentUser.id, resolution.chosenEntry);
                       } catch (err) {
                         console.error(`[Sync] Failed to upload entry for ${resolution.chosenEntry.date}:`, err);
+                        markPendingTimeEntrySync(currentUser.id, resolution.chosenEntry, 'upload_failed');
                       }
                     })
                   ).catch(err => {
@@ -456,8 +470,10 @@ export const TimeEntryProvider = ({ children }) => {
                         e.date === entry.date ? { ...e, id: returnedEntry.id } : e
                       ));
                     }
+                    clearPendingTimeEntrySync(currentUser.id, entry);
                   } catch (err) {
                     console.error(`[Sync] Failed to upload entry for ${entry.date}:`, err);
+                    markPendingTimeEntrySync(currentUser.id, entry, 'upload_failed');
                   }
                 })
               ).catch(err => {

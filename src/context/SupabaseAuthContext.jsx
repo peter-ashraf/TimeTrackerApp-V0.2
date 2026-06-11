@@ -1302,6 +1302,59 @@ export const SupabaseAuthProvider = ({ children }) => {
     }
   };
 
+  const verifyPassword = async (password) => {
+    try {
+      if (!currentUser) {
+        throw new Error("Please log in first");
+      }
+
+      if (!password || !password.trim()) {
+        throw new Error("Password is required");
+      }
+
+      if (currentUser.isLocalOnly) {
+        const localUsers = failsafeAuth.getLocalUsers();
+        const localUser = localUsers[currentUser.username];
+        const passwordHash = failsafeAuth.hashPassword(password);
+
+        if (!localUser || localUser.passwordHash !== passwordHash) {
+          throw new Error("Password is incorrect");
+        }
+
+        return true;
+      }
+
+      let email = currentUser.email;
+
+      if (!email) {
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("email")
+          .eq("id", currentUser.id)
+          .single();
+
+        if (profileError || !profile?.email) {
+          throw new Error("Unable to verify this account");
+        }
+
+        email = profile.email;
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw new Error("Password is incorrect");
+      }
+
+      return true;
+    } catch (error) {
+      throw error;
+    }
+  };
+
   // Reset password with rate limiting
   const resetPassword = async (emailOrUsername) => {
     try {
@@ -1422,6 +1475,7 @@ export const SupabaseAuthProvider = ({ children }) => {
     saveUserData,
     updateProfile,
     updatePassword,
+    verifyPassword,
     resetPassword,
     saveSessionSettings,
     updateLastActivity,

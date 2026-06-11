@@ -85,7 +85,20 @@ const AppLoader = () => {
   );
 };
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+const rootElement = document.getElementById('root');
+
+if (import.meta.env.DEV && window.__TIMETRACKER_REACT_ROOT__) {
+  window.__TIMETRACKER_REACT_ROOT__.unmount();
+  rootElement.replaceChildren();
+}
+
+const root = ReactDOM.createRoot(rootElement);
+
+if (import.meta.env.DEV) {
+  window.__TIMETRACKER_REACT_ROOT__ = root;
+}
+
+root.render(
   <React.StrictMode>
     <AppLoader />
   </React.StrictMode>,

@@ -162,6 +162,83 @@
   font-size: 13px;
 }
 
+.danger-zone > h2 {
+  display: none;
+}
+
+.danger-zone-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.danger-zone-header h2 {
+  margin: 0;
+}
+
+.danger-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid rgba(220, 53, 69, 0.45);
+  border-radius: 999px;
+  color: #ff8a8a;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.danger-lock-badge.is-unlocked {
+  border-color: rgba(40, 167, 69, 0.45);
+  color: var(--color-success, #28a745);
+}
+
+.danger-unlock-form {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid rgba(220, 53, 69, 0.35);
+  border-radius: 8px;
+  background: rgba(220, 53, 69, 0.06);
+}
+
+.danger-unlock-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.danger-unlock-error {
+  margin: 0;
+  color: #ff8a8a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.danger-protected-content {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  transition:
+    filter 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.danger-zone.is-locked .danger-protected-content {
+  filter: blur(4px);
+  opacity: 0.55;
+  pointer-events: none;
+  user-select: none;
+}
+
 .conflict-preview-controls {
   display: grid;
   grid-template-columns: minmax(0, 180px);
@@ -284,6 +361,10 @@
     align-items: flex-start;
     flex-direction: column;
     gap: 4px;
+  }
+
+  .danger-unlock-row {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .diagnostics-panel {
