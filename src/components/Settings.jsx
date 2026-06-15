@@ -32,11 +32,23 @@ const SETTINGS_TABS = [
 ];
 
 const IS_DEV_MODE = import.meta.env.DEV;
+const REMINDER_COUNT_PRESETS = ["1", "2", "3", "4", "5"];
+const REMINDER_INTERVAL_PRESETS = ["5", "10", "15", "30"];
 
 const normalizeReminderTime = (value, fallback = "09:00") => {
   if (typeof value !== "string") return fallback;
   const match = value.match(/^(\d{2}:\d{2})/);
   return match ? match[1] : fallback;
+};
+
+const getPresetOrCustomValue = (value, presets, fallback) => {
+  const normalized = String(value ?? fallback);
+  return presets.includes(normalized) ? normalized : "custom";
+};
+
+const getNumericString = (value, fallback) => {
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? String(parsed) : fallback;
 };
 
 const DEV_SAMPLE_CONFLICTS = [
@@ -358,19 +370,27 @@ function Settings() {
     reminderSettings?.enabled ?? false,
   );
   const [reminderStartTime, setReminderStartTime] = useState(
-    reminderSettings?.startTime ?? "09:00",
+    normalizeReminderTime(reminderSettings?.startTime),
   );
   const [reminderCount, setReminderCount] = useState(
-    reminderSettings?.reminderCount ?? 3,
+    getPresetOrCustomValue(
+      getNumericString(reminderSettings?.reminderCount, "3"),
+      REMINDER_COUNT_PRESETS,
+      "3",
+    ),
   );
   const [reminderInterval, setReminderInterval] = useState(
-    reminderSettings?.intervalMinutes ?? 15,
+    getPresetOrCustomValue(
+      getNumericString(reminderSettings?.intervalMinutes, "15"),
+      REMINDER_INTERVAL_PRESETS,
+      "15",
+    ),
   );
   const [customReminderCount, setCustomReminderCount] = useState(
-    reminderSettings?.reminderCount ?? 3,
+    getNumericString(reminderSettings?.reminderCount, "3"),
   );
   const [customReminderInterval, setCustomReminderInterval] = useState(
-    reminderSettings?.intervalMinutes ?? 15,
+    getNumericString(reminderSettings?.intervalMinutes, "15"),
   );
   // Period management
   const [showAddPeriod, setShowAddPeriod] = useState(false);
@@ -731,10 +751,29 @@ function Settings() {
 
   useEffect(() => {
     if (reminderSettings) {
+      const reminderCountValue = getNumericString(
+        reminderSettings.reminderCount,
+        "3",
+      );
+      const reminderIntervalValue = getNumericString(
+        reminderSettings.intervalMinutes,
+        "15",
+      );
+
       setRemindersEnabled(reminderSettings.enabled ?? false);
       setReminderStartTime(normalizeReminderTime(reminderSettings.startTime));
-      setReminderCount(reminderSettings.reminderCount ?? 3);
-      setReminderInterval(reminderSettings.intervalMinutes ?? 15);
+      setReminderCount(
+        getPresetOrCustomValue(reminderCountValue, REMINDER_COUNT_PRESETS, "3"),
+      );
+      setReminderInterval(
+        getPresetOrCustomValue(
+          reminderIntervalValue,
+          REMINDER_INTERVAL_PRESETS,
+          "15",
+        ),
+      );
+      setCustomReminderCount(reminderCountValue);
+      setCustomReminderInterval(reminderIntervalValue);
     }
   }, [reminderSettings]);
 
