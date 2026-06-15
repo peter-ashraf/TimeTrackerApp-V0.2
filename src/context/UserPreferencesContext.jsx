@@ -17,6 +17,47 @@ import cacheManager from "../utils/cacheManager";
 
 const UserPreferencesContext = createContext();
 
+const DEFAULT_LEAVE_SETTINGS = {
+  annualVacation: 10,
+  sickDays: 7,
+  personalDays: 2,
+  usedVacationDays: 0,
+  usedSickDays: 0,
+  usedPersonalDays: 0,
+};
+
+const toFiniteNumber = (value, fallback) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const normalizeLeaveSettings = (settings = {}) => ({
+  annualVacation: toFiniteNumber(
+    settings.annualVacation ?? settings.annual_vacation,
+    DEFAULT_LEAVE_SETTINGS.annualVacation,
+  ),
+  sickDays: toFiniteNumber(
+    settings.sickDays ?? settings.sick_days,
+    DEFAULT_LEAVE_SETTINGS.sickDays,
+  ),
+  personalDays: toFiniteNumber(
+    settings.personalDays ?? settings.personal_days,
+    DEFAULT_LEAVE_SETTINGS.personalDays,
+  ),
+  usedVacationDays: toFiniteNumber(
+    settings.usedVacationDays ?? settings.used_vacation_days,
+    DEFAULT_LEAVE_SETTINGS.usedVacationDays,
+  ),
+  usedSickDays: toFiniteNumber(
+    settings.usedSickDays ?? settings.used_sick_days,
+    DEFAULT_LEAVE_SETTINGS.usedSickDays,
+  ),
+  usedPersonalDays: toFiniteNumber(
+    settings.usedPersonalDays ?? settings.used_personal_days,
+    DEFAULT_LEAVE_SETTINGS.usedPersonalDays,
+  ),
+});
+
 export const useUserPreferences = () => {
   const context = useContext(UserPreferencesContext);
   if (!context) {
@@ -75,14 +116,7 @@ export const UserPreferencesProvider = ({ children }) => {
   });
 
   // Leave Settings
-  const [leaveSettings, setLeaveSettings] = useState({
-    annualVacation: 10,
-    sickDays: 7,
-    personalDays: 2,
-    usedVacationDays: 0,
-    usedSickDays: 0,
-    usedPersonalDays: 0,
-  });
+  const [leaveSettings, setLeaveSettings] = useState(DEFAULT_LEAVE_SETTINGS);
 
   // Reminder Settings
   const [reminderSettings, setReminderSettings] = useState({
@@ -130,14 +164,7 @@ export const UserPreferencesProvider = ({ children }) => {
         localLeaveSettings = getSimpleEncryptedItem(
           leaveSettingsKey,
           currentUser.username,
-        ) ?? {
-          annualVacation: 10,
-          sickDays: 7,
-          personalDays: 2,
-          usedVacationDays: 0,
-          usedSickDays: 0,
-          usedPersonalDays: 0,
-        };
+        ) ?? DEFAULT_LEAVE_SETTINGS;
       }
 
       setEmployee((prev) => ({
@@ -149,7 +176,7 @@ export const UserPreferencesProvider = ({ children }) => {
           "User",
         salary: localSalary ?? 0,
       }));
-      setLeaveSettings(localLeaveSettings);
+      setLeaveSettings(normalizeLeaveSettings(localLeaveSettings));
 
       let localReminderSettings = null;
       try {
@@ -244,55 +271,24 @@ export const UserPreferencesProvider = ({ children }) => {
             }
 
             if (leaveSettingsData) {
-              setLeaveSettings({
-                annualVacation:
-                  leaveSettingsData.annual_vacation ??
-                  leaveSettingsData.annualVacation ??
-                  10,
-                sickDays:
-                  leaveSettingsData.sick_days ??
-                  leaveSettingsData.sickDays ??
-                  7,
-                personalDays:
-                  leaveSettingsData.personal_days ??
-                  leaveSettingsData.personalDays ??
-                  2,
-                usedVacationDays:
-                  leaveSettingsData.used_vacation_days ??
-                  leaveSettingsData.usedVacationDays ??
-                  0,
-                usedSickDays:
-                  leaveSettingsData.used_sick_days ??
-                  leaveSettingsData.usedSickDays ??
-                  0,
-                usedPersonalDays:
-                  leaveSettingsData.used_personal_days ??
-                  leaveSettingsData.usedPersonalDays ??
-                  0,
-              });
+              setLeaveSettings(normalizeLeaveSettings(leaveSettingsData));
             } else {
               // If no settings exist on Supabase, initialize the DB record with local/default data
               const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
               const currentLocal = getSimpleEncryptedItem(
                 leaveSettingsKey,
                 currentUser.username,
-              ) ?? {
-                annualVacation: 10,
-                sickDays: 7,
-                personalDays: 2,
-                usedVacationDays: 0,
-                usedSickDays: 0,
-                usedPersonalDays: 0,
-              };
+              ) ?? DEFAULT_LEAVE_SETTINGS;
+              const normalizedLocal = normalizeLeaveSettings(currentLocal);
 
               try {
                 await supabaseData.saveLeaveSettings(currentUser.id, {
-                  annual_vacation: currentLocal.annualVacation ?? 10,
-                  sick_days: currentLocal.sickDays ?? 7,
-                  personal_days: currentLocal.personalDays ?? 2,
-                  used_vacation_days: currentLocal.usedVacationDays ?? 0,
-                  used_sick_days: currentLocal.usedSickDays ?? 0,
-                  used_personal_days: currentLocal.usedPersonalDays ?? 0,
+                  annual_vacation: normalizedLocal.annualVacation,
+                  sick_days: normalizedLocal.sickDays,
+                  personal_days: normalizedLocal.personalDays,
+                  used_vacation_days: normalizedLocal.usedVacationDays,
+                  used_sick_days: normalizedLocal.usedSickDays,
+                  used_personal_days: normalizedLocal.usedPersonalDays,
                 });
               } catch (saveError) {
                 console.error(
@@ -392,17 +388,19 @@ export const UserPreferencesProvider = ({ children }) => {
     if (!currentUser || !isInitialSyncCompleted.current) return;
 
     const saveLeaveSettingsData = async () => {
+      const normalizedLeaveSettings = normalizeLeaveSettings(leaveSettings);
+
       // Always save to localStorage immediately to keep local cache sync'd
       const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
       setSimpleEncryptedItem(
         leaveSettingsKey,
-        leaveSettings,
+        normalizedLeaveSettings,
         currentUser.username,
       );
 
       // Also save to cacheManager for offline access
       try {
-        cacheManager.setCachedData("leaveSettings", leaveSettings);
+        cacheManager.setCachedData("leaveSettings", normalizedLeaveSettings);
       } catch (cacheError) {
         console.warn(
           "Failed to save leaveSettings to cacheManager:",
@@ -412,12 +410,12 @@ export const UserPreferencesProvider = ({ children }) => {
 
       try {
         await supabaseData.saveLeaveSettings(currentUser.id, {
-          annual_vacation: leaveSettings.annualVacation,
-          sick_days: leaveSettings.sickDays,
-          personal_days: leaveSettings.personalDays,
-          used_vacation_days: leaveSettings.usedVacationDays,
-          used_sick_days: leaveSettings.usedSickDays,
-          used_personal_days: leaveSettings.usedPersonalDays,
+          annual_vacation: normalizedLeaveSettings.annualVacation,
+          sick_days: normalizedLeaveSettings.sickDays,
+          personal_days: normalizedLeaveSettings.personalDays,
+          used_vacation_days: normalizedLeaveSettings.usedVacationDays,
+          used_sick_days: normalizedLeaveSettings.usedSickDays,
+          used_personal_days: normalizedLeaveSettings.usedPersonalDays,
         });
       } catch (error) {
         console.error("Failed to save leave settings:", error);
@@ -540,14 +538,7 @@ export const UserPreferencesProvider = ({ children }) => {
         monthlyHours: 187,
         workDaysPerWeek: 5,
       });
-      setLeaveSettings({
-        annualVacation: 10,
-        sickDays: 7,
-        personalDays: 2,
-        usedVacationDays: 0,
-        usedSickDays: 0,
-        usedPersonalDays: 0,
-      });
+      setLeaveSettings(DEFAULT_LEAVE_SETTINGS);
       isInitialSyncCompleted.current = false;
     }
   }, [currentUser, isAuthenticated, loadUserPreferences]);

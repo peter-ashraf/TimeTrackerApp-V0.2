@@ -396,6 +396,9 @@ function Settings() {
   const [testInterval, setTestInterval] = useState("5");
   const [customTestCount, setCustomTestCount] = useState("3");
   const [customTestInterval, setCustomTestInterval] = useState("10");
+  const [isNotificationSubscribed, setIsNotificationSubscribed] =
+    useState(false);
+  const [isNotificationBusy, setIsNotificationBusy] = useState(false);
 
   // Haptic feedback state
   const [hapticEnabled, setHapticEnabled] = useState(
@@ -510,6 +513,60 @@ function Settings() {
         isError: true,
         message: err.message,
       });
+    }
+  };
+
+  const refreshNotificationSubscription = useCallback(async () => {
+    try {
+      const subscribed = await notificationManager.isSubscribed();
+      setIsNotificationSubscribed(subscribed);
+    } catch (error) {
+      console.warn("Failed to read notification subscription status:", error);
+      setIsNotificationSubscribed(false);
+    }
+  }, []);
+
+  const handleTogglePushNotifications = async () => {
+    try {
+      setIsNotificationBusy(true);
+
+      if (!currentUser) {
+        throw new Error("Please log in first");
+      }
+
+      if (isNotificationSubscribed) {
+        const unsubscribed = await notificationManager.unsubscribeUser(
+          currentUser.id,
+        );
+        await refreshNotificationSubscription();
+        setNotifModal({
+          isOpen: true,
+          isError: false,
+          message: unsubscribed
+            ? "Push notifications disabled on this device."
+            : "No active push subscription was found on this device.",
+        });
+        return;
+      }
+
+      const sub = await notificationManager.subscribeUser(currentUser.id);
+      await refreshNotificationSubscription();
+      if (sub) {
+        setNotifModal({
+          isOpen: true,
+          isError: false,
+          message:
+            "Push notifications enabled on this device. Reminder delivery still depends on the server sending scheduled pushes.",
+        });
+      }
+    } catch (err) {
+      setNotifModal({
+        isOpen: true,
+        isError: true,
+        message: err.message,
+      });
+    } finally {
+      setIsNotificationBusy(false);
     }
   };
 
@@ -674,6 +731,12 @@ function Settings() {
       setReminderInterval(reminderSettings.intervalMinutes ?? 15);
     }
   }, [reminderSettings]);
+
+  useEffect(() => {
+    if (activeSettingsTab === "reminders") {
+      refreshNotificationSubscription();
+    }
+  }, [activeSettingsTab, currentUser?.id, refreshNotificationSubscription]);
 
   // Check if we should open the Add Period modal (from Timesheet navigation)
   useEffect(() => {
@@ -1792,32 +1855,21 @@ function Settings() {
               <div style={{ marginTop: "15px", marginBottom: "20px" }}>
                 <button
                   type="button"
-                  className="btn btn-outline"
-                  disabled={!import.meta.env.PROD}
-                  onClick={async () => {
-                    try {
-                      if (!currentUser) throw new Error("Please log in first");
-                      const sub = await notificationManager.subscribeUser(
-                        currentUser.id,
-                      );
-                      if (sub) {
-                        setNotifModal({
-                          isOpen: true,
-                          isError: false,
-                          message:
-                            "Push notifications enabled successfully! You'll receive check-in reminders as configured.",
-                        });
-                      }
-                    } catch (err) {
-                      setNotifModal({
-                        isOpen: true,
-                        isError: true,
-                        message: err.message,
-                      });
-                    }
-                  }}
+                  className={`btn ${isNotificationSubscribed ? "btn-secondary" : "btn-outline"}`}
+                  disabled={!import.meta.env.PROD || isNotificationBusy}
+                  onClick={handleTogglePushNotifications}
                 >
-                  🔔 Enable Push Notifications
+                  <span>
+                    <i
+                      className={`fa-solid ${isNotificationSubscribed ? "fa-bell-slash" : "fa-bell"}`}
+                      aria-hidden="true"
+                    ></i>{" "}
+                    {isNotificationBusy
+                      ? "Updating Push Notifications..."
+                      : isNotificationSubscribed
+                        ? "Disable Push Notifications"
+                        : "Enable Push Notifications"}
+                  </span>
                 </button>
                 {!import.meta.env.PROD && (
                   <p className="help-text" style={{ marginTop: "8px", fontSize: "12px", color: "#666" }}>
@@ -1828,7 +1880,7 @@ function Settings() {
                   <strong>Notes:<br /></strong>- Notifications only work if your phone is
                   connected to the internet and the app is added to your home
                   screen. <br/>- iOS requires this app to be added to the Home Screen
-                  to receive notifications.
+                  to receive notifications. <br/>- Multi-notification tests use app timers, so keep the app open during the test interval.
                 </p>
 
                 <button

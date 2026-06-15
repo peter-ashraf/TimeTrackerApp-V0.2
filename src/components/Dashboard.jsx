@@ -8,6 +8,11 @@ import ViewHoursModal from './ViewHoursModal';
 import VacationDetailsModal from './VacationDetailsModal';
 import DashboardSkeleton from './DashboardSkeleton';
 
+const toFiniteNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
 function Dashboard() {
   const {
     employee,
@@ -69,6 +74,9 @@ function Dashboard() {
 
   // ✅ Memoize leave statistics (YEAR-BASED)
   const leaveStats = useMemo(() => {
+    const annualVacation = toFiniteNumber(leaveSettings?.annualVacation, 10);
+    const sickDaysLimit = toFiniteNumber(leaveSettings?.sickDays, 7);
+
     // Filter all entries for the current year
     const currentYear = new Date().getFullYear();
     const yearlyEntries = entries.filter(e => {
@@ -88,10 +96,12 @@ function Dashboard() {
       .filter(e => e.type === 'Sick Leave')
       .reduce((sum, e) => sum + (e.duration || 1), 0);
 
-    const vacationBalance = leaveSettings.annualVacation - vacationTaken + toBeAdded;
-    const sickBalance = leaveSettings.sickDays - sickUsed;
+    const vacationBalance = annualVacation - vacationTaken + toBeAdded;
+    const sickBalance = sickDaysLimit - sickUsed;
 
     return {
+      annualVacation,
+      sickDaysLimit,
       vacationTaken,
       toBeAdded,
       sickUsed,
@@ -101,7 +111,15 @@ function Dashboard() {
   }, [entries, leaveSettings]);
 
   // Destructure for use in JSX
-  const { vacationTaken, toBeAdded, sickUsed, vacationBalance, sickBalance } = leaveStats;
+  const {
+    annualVacation,
+    sickDaysLimit,
+    vacationTaken,
+    toBeAdded,
+    sickUsed,
+    vacationBalance,
+    sickBalance,
+  } = leaveStats;
 
   // Calculate overtime
   const overtimeDetails = useMemo(() => {
@@ -278,7 +296,7 @@ function Dashboard() {
           <div className="vacation-top-section">
             <div className="vacation-stat">
               <span className="stat-label">Official Balance</span>
-              <span className="stat-value">{leaveSettings.annualVacation}</span>
+              <span className="stat-value">{annualVacation}</span>
             </div>
             <div 
               className="vacation-stat clickable-stat"
@@ -310,7 +328,7 @@ function Dashboard() {
           <div className="vacation-top-section double-stat">
             <div className="vacation-stat">
               <span className="stat-label">Sick Days Balance</span>
-              <span className="stat-value">{leaveSettings.sickDays}</span>
+              <span className="stat-value">{sickDaysLimit}</span>
             </div>
             <div 
               className="vacation-stat clickable-stat"

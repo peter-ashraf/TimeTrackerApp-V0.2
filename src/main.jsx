@@ -20,6 +20,16 @@ const notifyAppUpdateAvailable = (registration) => {
   );
 };
 
+const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
+
+const checkForAppUpdate = (registration) => {
+  if (!navigator.onLine) return;
+
+  registration.update().catch((error) => {
+    console.warn('Service Worker update check failed:', error);
+  });
+};
+
 // Register Service Worker for offline support
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
@@ -32,6 +42,22 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
         if (registration.waiting && navigator.serviceWorker.controller) {
           notifyAppUpdateAvailable(registration);
         }
+
+        checkForAppUpdate(registration);
+
+        window.addEventListener('focus', () => {
+          checkForAppUpdate(registration);
+        });
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+            checkForAppUpdate(registration);
+          }
+        });
+
+        window.setInterval(() => {
+          checkForAppUpdate(registration);
+        }, UPDATE_CHECK_INTERVAL_MS);
 
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;

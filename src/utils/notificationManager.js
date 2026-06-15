@@ -37,6 +37,19 @@ class NotificationManager {
     this.swRegistration = registration;
   }
 
+  async getRegistration() {
+    if (this.swRegistration) return this.swRegistration;
+    if (!('serviceWorker' in navigator)) return null;
+
+    try {
+      this.swRegistration = await navigator.serviceWorker.ready;
+      return this.swRegistration;
+    } catch (error) {
+      console.warn('Service Worker registration is not ready:', error);
+      return null;
+    }
+  }
+
   /**
    * Gets current permission status
    */
@@ -84,7 +97,8 @@ class NotificationManager {
    */
   async subscribeUser(userId) {
     try {
-      if (!this.swRegistration) {
+      const registration = await this.getRegistration();
+      if (!registration) {
         throw new Error('Service Worker is not registered yet.');
       }
 
@@ -96,12 +110,12 @@ class NotificationManager {
       }
 
       // See if we have an existing subscription
-      let subscription = await this.swRegistration.pushManager.getSubscription();
+      let subscription = await registration.pushManager.getSubscription();
 
       // If we don't, subscribe
       if (!subscription) {
         const applicationServerKey = this.urlB64ToUint8Array(this.applicationServerKey);
-        subscription = await this.swRegistration.pushManager.subscribe({
+        subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: applicationServerKey
         });
@@ -121,8 +135,9 @@ class NotificationManager {
    * Determine if the user is currently subscribed locally
    */
   async isSubscribed() {
-    if (!this.swRegistration) return false;
-    const subscription = await this.swRegistration.pushManager.getSubscription();
+    const registration = await this.getRegistration();
+    if (!registration) return false;
+    const subscription = await registration.pushManager.getSubscription();
     return !!subscription;
   }
 
@@ -157,10 +172,11 @@ class NotificationManager {
    * Unsubscribe user from notifications
    */
   async unsubscribeUser(userId) {
-    if (!this.swRegistration) return false;
+    const registration = await this.getRegistration();
+    if (!registration) return false;
     
     try {
-      const subscription = await this.swRegistration.pushManager.getSubscription();
+      const subscription = await registration.pushManager.getSubscription();
       if (subscription) {
         const endpoint = subscription.endpoint;
         // Unsubscribe locally
@@ -197,38 +213,45 @@ class NotificationManager {
       }
 
       const { count = 1, interval = 5 } = options;
+      const safeCount = Math.max(1, Math.min(20, Number(count) || 1));
+      const safeInterval = Math.max(0, Number(interval) || 0);
 
       if (pattern === 'single') {
         // Send a single test notification
         await this.sendTestNotification('Test Notification', 'This is a single test notification.');
       } else if (pattern === 'repeating') {
-        // Send notifications at regular intervals
-        for (let i = 0; i < count; i++) {
-          await this.sendTestNotification(
-            `Test Notification ${i + 1}/${count}`,
-            `This is test notification ${i + 1} of ${count}.`
-          );
-          if (i < count - 1) {
-            await new Promise(resolve => setTimeout(resolve, interval * 60 * 1000));
-          }
-        }
+        this.scheduleTestNotifications(safeCount, safeInterval, (index) => ({
+          title: `Test Notification ${index + 1}/${safeCount}`,
+          body: `This is test notification ${index + 1} of ${safeCount}.`
+        }));
       } else if (pattern === 'custom') {
-        // Custom pattern: send notifications at specific intervals
-        for (let i = 0; i < count; i++) {
-          await this.sendTestNotification(
-            `Custom Test ${i + 1}`,
-            `Custom notification ${i + 1} sent every ${interval} minutes.`
-          );
-          if (i < count - 1) {
-            await new Promise(resolve => setTimeout(resolve, interval * 60 * 1000));
-          }
-        }
+        this.scheduleTestNotifications(safeCount, safeInterval, (index) => ({
+          title: `Custom Test ${index + 1}`,
+          body: `Custom notification ${index + 1} sent every ${safeInterval} minutes.`
+        }));
       }
 
-      return { success: true, message: 'Test notification(s) sent successfully.' };
+      const message = pattern === 'single'
+        ? 'Test notification sent successfully.'
+        : `${safeCount} test notifications scheduled. Keep the app open and active for the full test interval; mobile browsers can pause page timers in the background.`;
+
+      return { success: true, message };
     } catch (error) {
       console.error('Failed to send test notification:', error);
       throw error;
+    }
+  }
+
+  scheduleTestNotifications(count, intervalMinutes, buildNotification) {
+    const delayMs = intervalMinutes * 60 * 1000;
+
+    for (let i = 0; i < count; i++) {
+      window.setTimeout(() => {
+        const notification = buildNotification(i);
+        this.sendTestNotification(notification.title, notification.body).catch((error) => {
+          console.error('Scheduled test notification failed:', error);
+        });
+      }, i * delayMs);
     }
   }
 
@@ -238,12 +261,26 @@ class NotificationManager {
   async sendTestNotification(title, body) {
     if (Notification.permission === 'granted') {
       try {
-        const notification = new Notification(title, {
+        const options = {
           body: body,
-          tag: 'test-notification',
+          tag: `test-notification-${Date.now()}-${Math.random().toString(36).slice(2)}`,
           requireInteraction: true,
-          silent: false
-        });
+          silent: false,
+          data: {
+            url: '/TimeTrackerApp-V0.2/',
+            createdAt: Date.now(),
+            type: 'test-notification'
+          }
+        };
+
+        const registration = await this.getRegistration();
+        if (registration?.showNotification) {
+          await registration.showNotification(title, options);
+          console.log('Service Worker notification shown successfully:', title);
+          return;
+        }
+
+        const notification = new Notification(title, options);
 
         notification.onclick = function() {
           window.focus();
