@@ -258,6 +258,18 @@ serve(async () => {
           }
         }
 
+        if (sentCount === 0) {
+          await supabase
+            .from("reminder_logs")
+            .update({
+              last_sent_slot: log.last_sent_slot,
+              reminders_sent: log.reminders_sent,
+              last_sent_at: log.last_sent_at,
+            })
+            .eq("id", log.id)
+            .eq("last_sent_slot", sequenceNumber);
+        }
+
         results.push({
           userId: user.user_id,
           date: userDate,
