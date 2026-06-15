@@ -84,7 +84,9 @@ serve(async () => {
     if (prefError) throw prefError;
 
     if (!users || users.length === 0) {
-      return jsonResponse({ status: "No users with enabled reminders" });
+      const responseBody = { status: "No users with enabled reminders" };
+      console.log("checkin-reminders result", JSON.stringify(responseBody));
+      return jsonResponse(responseBody);
     }
 
     for (const user of users) {
@@ -95,6 +97,13 @@ serve(async () => {
         const startMinutes = getMinutesFromTime(user.start_time);
 
         if (userMinutes < startMinutes) {
+          results.push({
+            userId: user.user_id,
+            status: "not_due_yet",
+            currentMinutes: userMinutes,
+            startMinutes,
+            timezone: userTimeZone,
+          });
           continue;
         }
 
@@ -126,11 +135,32 @@ serve(async () => {
           throw logError;
         }
 
-        if (!log || log.suppressed) {
+        if (!log) {
+          results.push({
+            userId: user.user_id,
+            date: userDate,
+            status: "missing_reminder_log",
+          });
+          continue;
+        }
+
+        if (log.suppressed) {
+          results.push({
+            userId: user.user_id,
+            date: userDate,
+            status: "suppressed_after_check_in",
+          });
           continue;
         }
 
         if (log.last_sent_slot >= user.reminder_count) {
+          results.push({
+            userId: user.user_id,
+            date: userDate,
+            status: "daily_limit_reached",
+            lastSentSlot: log.last_sent_slot,
+            reminderCount: user.reminder_count,
+          });
           continue;
         }
 
@@ -140,6 +170,14 @@ serve(async () => {
             (nowUtc.getTime() - lastSentTime.getTime()) / (1000 * 60);
 
           if (elapsedMinutes < user.interval_minutes) {
+            results.push({
+              userId: user.user_id,
+              date: userDate,
+              status: "waiting_interval",
+              elapsedMinutes: Number(elapsedMinutes.toFixed(2)),
+              intervalMinutes: user.interval_minutes,
+              lastSentAt: log.last_sent_at,
+            });
             continue;
           }
         }
@@ -226,6 +264,7 @@ serve(async () => {
         results.push({
           userId: user.user_id,
           date: userDate,
+          status: sentCount > 0 ? "sent" : "send_failed",
           sent: sentCount,
           failed: failedCount,
           slot: sequenceNumber,
@@ -239,7 +278,9 @@ serve(async () => {
       }
     }
 
-    return jsonResponse({ success: true, results });
+    const responseBody = { success: true, results };
+    console.log("checkin-reminders result", JSON.stringify(responseBody));
+    return jsonResponse(responseBody);
   } catch (error) {
     console.error("Scheduler Error:", error);
     return jsonResponse(
