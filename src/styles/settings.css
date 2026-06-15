@@ -110,6 +110,37 @@
   margin: 0;
 }
 
+.reminder-save-status {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-surface) 92%, #000 8%);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.reminder-save-status-success {
+  border-color: rgba(40, 167, 69, 0.45);
+  color: var(--color-success, #28a745);
+  background: rgba(40, 167, 69, 0.08);
+}
+
+.reminder-save-status-error {
+  border-color: rgba(220, 53, 69, 0.45);
+  color: var(--color-danger, #dc3545);
+  background: rgba(220, 53, 69, 0.08);
+}
+
+.reminder-save-status-saving,
+.reminder-save-status-info {
+  border-color: rgba(23, 162, 184, 0.45);
+  color: var(--color-primary);
+  background: rgba(23, 162, 184, 0.08);
+}
+
 .sync-status-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -392,6 +392,10 @@ function Settings() {
   const [customReminderInterval, setCustomReminderInterval] = useState(
     getNumericString(reminderSettings?.intervalMinutes, "15"),
   );
+  const [reminderSaveStatus, setReminderSaveStatus] = useState({
+    type: "",
+    message: "",
+  });
   // Period management
   const [showAddPeriod, setShowAddPeriod] = useState(false);
   const [editingPeriodId, setEditingPeriodId] = useState(null);
@@ -817,6 +821,12 @@ function Settings() {
   const handleSaveAll = async (e, options = {}) => {
     e.preventDefault();
     const forceReminderSave = options.forceReminderSave === true;
+    if (forceReminderSave) {
+      setReminderSaveStatus({
+        type: "saving",
+        message: "Saving reminder settings...",
+      });
+    }
 
     // Parse values
     const parsedSalary = parseFloat(salary) || 0;
@@ -850,6 +860,12 @@ function Settings() {
 
     // If validation fails, show errors
     if (errors.length > 0) {
+      if (forceReminderSave) {
+        setReminderSaveStatus({
+          type: "error",
+          message: "Reminder settings were not saved. Please fix the validation errors.",
+        });
+      }
       setConfirmModal({
         isOpen: true,
         title: "⚠️ Validation Error",
@@ -902,6 +918,12 @@ function Settings() {
 
     // If nothing changed, alert user
     if (!anyChanges) {
+      if (forceReminderSave) {
+        setReminderSaveStatus({
+          type: "info",
+          message: "Reminder settings are already up to date.",
+        });
+      }
       setConfirmModal({
         isOpen: true,
         title: "No Changes Detected",
@@ -1087,6 +1109,14 @@ function Settings() {
             timezone: nextReminderSettings.timezone,
           });
         } catch (error) {
+          if (forceReminderSave) {
+            setReminderSaveStatus({
+              type: "error",
+              message:
+                error.message ||
+                "Reminder settings were saved locally, but Supabase did not update.",
+            });
+          }
           setNotifModal({
             isOpen: true,
             isError: true,
@@ -1096,6 +1126,16 @@ function Settings() {
           });
           return;
         }
+      }
+
+      if (forceReminderSave) {
+        setReminderSaveStatus({
+          type: "success",
+          message: `Reminder settings saved at ${new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}.`,
+        });
       }
     }
 
@@ -1984,6 +2024,14 @@ function Settings() {
               >
                 💾 Save Reminder Settings
               </button>
+              {reminderSaveStatus.message && (
+                <p
+                  className={`reminder-save-status reminder-save-status-${reminderSaveStatus.type}`}
+                  role={reminderSaveStatus.type === "error" ? "alert" : "status"}
+                >
+                  {reminderSaveStatus.message}
+                </p>
+              )}
             </>
           )}
         </form>

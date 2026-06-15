@@ -1,0 +1,381 @@
+# TimeTracker App Report
+
+Generated: 2026-06-09
+
+## Executive Summary
+
+TimeTracker App V0.2 is a React 18/Vite single-page application for employee time tracking, pay-period management, overtime calculation, leave tracking, exports, reminders, offline use, and Supabase-backed sync. The codebase is more ambitious than a simple tracker: it includes PWA support, encrypted local storage, background sync, conflict handling, password reset, local/offline fallback authentication, and GitHub Pages deployment configuration.
+
+The production build succeeds, which is a strong baseline. The main risks are not basic build breakage; they are correctness, maintainability, security posture, and runtime reliability around sync/auth/offline behavior. Several areas show signs of rapid iteration: duplicated sync utilities, stale or corrupted documentation text, broad context files, inline styles, console/debug traces, and at least one likely UI event-handler defect.
+
+## App Overview
+
+### Technology Stack
+
+- React 18 with Vite.
+- React Router using `HashRouter`, likely to support GitHub Pages deployment.
+- Supabase for authentication and persisted user data.
+- Vite PWA plugin with custom service worker injection.
+- Local encrypted storage via `crypto-js` helpers.
+- Export tooling through `xlsx`, `jspdf`, `@react-pdf/renderer`, and `html2canvas`.
+- Font Awesome for icons.
+
+### Main Application Areas
+
+- Dashboard view for summaries and current period visibility.
+- Timesheet view for daily entries, intervals, breaks, leave/special-day entries, and editing.
+- Settings view for profile, pay periods, leave settings, export/import, reminders, and preferences.
+- Login and password reset flows.
+- PWA/offline support through service worker, local cache, offline queues, and background sync utilities.
+- Supabase Edge Function and migration for check-in reminders.
+
+## Notable Features
+
+### Time Tracking
+
+- Check-in and check-out workflow.
+- Daily interval tracking with support for breaks.
+- Manual entry/editing flows.
+- Per-entry notes, durations, special day types, and double-hour behavior.
+- Calculated fields for hours worked, extra hours, weighted extra hours, and time spent outside.
+
+### Pay and Leave Management
+
+- Pay period creation, selection, and current-period tracking.
+- Vacation/sick leave settings.
+- Employee type support appears to be planned or partially implemented through database scripts and README documentation.
+- Overtime calculations that account for weekends, vacations, sick leave, half days, and double-hour cases.
+
+### Authentication and Account Management
+
+- Supabase username/password login.
+- Username-to-email profile lookup.
+- Password reset route and reset-email flow.
+- Remember-me session behavior.
+- Offline/failsafe authentication fallback.
+- Session timeout and session warning state.
+
+### Offline and Sync
+
+- Local-first save flow.
+- Encrypted local storage for user-specific data.
+- Cache manager for faster startup.
+- Offline queue utilities.
+- Background sync utilities.
+- Conflict-detection modal for local-vs-remote entry differences.
+- Multi-tab data-change notification.
+
+### Export, Import, and Backup
+
+- Export support using spreadsheet/PDF-related libraries.
+- Import modal.
+- Backup reminder modal.
+- Local backup reminder timing based on oldest entry or previous backup date.
+
+### PWA and Deployment
+
+- GitHub Pages base path: `/TimeTrackerApp-V0.2/`.
+- PWA manifest and service worker setup.
+- Production service worker registration in `src/main.jsx`.
+- `404.html` handling for SPA deployment.
+
+## Verification Performed
+
+### Production Build
+
+Command:
+
+```powershell
+npm run build
+```
+
+Result: passed.
+
+Important build details:
+
+- 668 modules transformed.
+- PWA service worker generated successfully.
+- Precache contains 44 entries totaling about 4.8 MB.
+- Largest generated chunks include:
+  - `pdf-vendor`: about 653.58 kB raw, 196.95 kB gzip.
+  - `xlsx-vendor`: about 417.25 kB raw, 138.85 kB gzip.
+  - `router`: about 177.19 kB raw, 57.79 kB gzip.
+  - `supabase`: about 170.23 kB raw, 43.25 kB gzip.
+
+Build warnings:
+
+- `src/utils/supabaseData.js` is both dynamically and statically imported, so the dynamic import does not create a separate chunk.
+- `src/utils/offlineQueue.js` is both dynamically and statically imported by `backgroundSync.js`, so the dynamic import does not create a separate chunk.
+
+These warnings are not release blockers, but they reduce the effectiveness of code splitting.
+
+## Key Findings
+
+### 1. Likely Touch Navigation Bug
+
+In `src/App.jsx`, `handleTouchEnd` is assigned to the return value of `useEffect`:
+
+- Definition: `src/App.jsx:360`
+- Usage: `src/App.jsx:852`
+
+`onTouchEnd` expects an event handler function, but `useEffect` returns `undefined` unless its effect returns cleanup logic. This means horizontal swipe completion is likely broken or inconsistent. The resize logic inside that effect is useful, but it should be separate from a real `useCallback` touch-end handler.
+
+Impact: mobile swipe navigation may not complete correctly.
+
+Priority: high.
+
+### 2. Documentation Mentions a Client-Side Service Role Key
+
+The README lists:
+
+- `VITE_SUPABASE_SERVICE_ROLE_KEY=your_service_role_key`
+
+Any `VITE_` environment variable is exposed to client-side code at build time. Supabase service-role keys should never be shipped to browsers.
+
+There is also a local utility reference:
+
+- `src/utils/databaseVerification.js:8`
+
+That file reads `process.env.VITE_SUPABASE_SERVICE_ROLE_KEY`. Even if not bundled into the app today, the naming encourages unsafe configuration.
+
+Impact: serious security risk if a real service role key is ever placed in a Vite-exposed environment variable.
+
+Priority: high.
+
+### 3. Sync Architecture Is Powerful but Complex
+
+The app has multiple overlapping sync/offline paths:
+
+- `src/utils/backgroundSync.js`
+- `src/utils/backgroundSync-enhanced.js`
+- `src/utils/offlineQueue.js`
+- `src/hooks/useOfflineQueue.js`
+- `src/hooks/useInstantData.js`
+- local encrypted storage helpers
+- cache manager
+- Supabase data helper
+- multi-tab sync
+
+The feature set is valuable, but the number of paths makes it harder to prove which source of truth wins in edge cases. For example, local saves, cache updates, remote fetches, conflict prompts, deleted remote entries, and offline-created entries all interact in `TimeEntryContext`.
+
+Impact: higher risk of duplicate entries, lost edits, stale cache, or surprising conflict prompts.
+
+Priority: medium-high.
+
+### 4. Data Deletion Depends Heavily on Local Entry IDs
+
+`supabaseData.deleteTimeEntry` requires an `id` and returns `missing_id` when it is absent. `TimeTrackerContext.deleteEntry` tries to resolve an ID from the server if missing, but the lower-level delete helper itself does not support deletion by `(user_id, date)` even though the table appears to use `user_id,date` as an upsert conflict key.
+
+Impact: entries can become hard to delete if local state loses the remote ID.
+
+Priority: medium-high.
+
+### 5. README Appears Stale and Encoding-Corrupted
+
+The README contains mojibake such as `ðŸš€`, `â”œ`, and `ï¿½`. It also references files that do not appear in the current tree, such as `TimeTrackerContext-optimized.jsx`.
+
+Impact: onboarding friction and reduced confidence in docs.
+
+Priority: medium.
+
+### 6. Production Bundle Still Carries Heavy Export Vendors
+
+The app already chunks spreadsheet and PDF libraries separately, which is good. However, those chunks are large:
+
+- PDF vendor: about 654 kB raw.
+- XLSX vendor: about 417 kB raw.
+
+If export/import features are not needed on first app load, they should stay behind lazy-loaded modal boundaries and dynamic imports.
+
+Impact: slower first use of export/import paths, larger precache, and heavier PWA updates.
+
+Priority: medium.
+
+### 7. Test Coverage and Static Quality Gates Are Missing
+
+`package.json` has no scripts for:
+
+- unit tests
+- integration tests
+- linting
+- formatting
+- type checking
+
+Given the amount of date/time math and sync conflict behavior, automated tests would be very valuable.
+
+Impact: regressions are likely to escape review, especially around overtime calculations, offline sync, and auth/session edge cases.
+
+Priority: medium.
+
+### 8. Runtime Logging Is Widespread
+
+Many files contain `console.log`, `console.warn`, and `console.error`. Vite/Terser drops console output in production, but logs still affect development noise and may obscure important errors.
+
+Impact: weaker debugging signal and inconsistent diagnostics.
+
+Priority: low-medium.
+
+### 9. Inline Styles and Runtime-Injected CSS Complicate UI Maintenance
+
+`src/App.jsx` injects header CSS through a `style` element and also applies many inline styles for layout and the scroll-to-top button. This works, but it bypasses the app's stylesheet conventions and makes responsive/theming changes harder.
+
+Impact: harder UI maintenance and theming consistency.
+
+Priority: low-medium.
+
+## Strengths
+
+- The production build works.
+- The app has a broad and useful real-world feature set.
+- Local-first persistence is treated seriously.
+- Supabase access is mostly centralized through helper modules.
+- User-specific data is separated by user ID in local storage.
+- The app has explicit conflict-resolution UX rather than silently overwriting all conflicts.
+- PWA support is configured intentionally, including manifest and service worker generation.
+- Major views are lazy-loaded.
+- Export dependencies are manually chunked rather than all living in one app bundle.
+- The codebase includes database setup scripts and Supabase Edge Function code, not just frontend code.
+
+## Risks and Issues by Area
+
+### Reliability
+
+- The touch-end handler issue should be fixed first for mobile UX.
+- Background sync has multiple implementations/import paths, increasing drift risk.
+- Some async operations intentionally continue in the background without awaiting all results, which can be fine but needs user-visible sync state.
+- Deletion edge cases can fail when entry IDs are absent.
+- Conflict resolution compares serialized interval JSON, which can detect differences but may be sensitive to object shape/order.
+
+### Security and Privacy
+
+- Remove all references to Vite-exposed service-role keys.
+- Audit `.env` handling and make sure only publishable Supabase keys are used in browser code.
+- Local "simple encryption" should be treated as obfuscation unless its key handling and threat model are documented.
+- Rate limiting in localStorage helps UX but is not a security boundary.
+- Offline/failsafe auth needs careful documentation because local-only authentication can create user expectations that differ from Supabase-backed auth.
+
+### Performance
+
+- Production bundle is acceptable for a feature-rich app, but export/PDF/XLSX chunks are large.
+- PWA precache size is close to 5 MB. This may be acceptable, but every added asset will make updates heavier.
+- Static and dynamic imports are mixed for the same modules, limiting chunking benefits.
+- Cache invalidation/versioning should be periodically reviewed because stale local data is a major risk in offline-first apps.
+
+### Maintainability
+
+- Context providers are large and own many responsibilities.
+- Some logic is duplicated between `App.jsx`, `TimeEntryContext`, `TimeTrackerContext`, and utility modules.
+- There are multiple CSS files and inline style islands.
+- Documentation is out of sync with the repo.
+- There is no lint/test safety net.
+
+### UX and Accessibility
+
+- Modals and status indicators are present, which is good.
+- Mobile gestures are intended, but the touch-end bug may degrade them.
+- The app would benefit from systematic keyboard/focus testing on modals, selects, and conflict resolution.
+- Save/offline/conflict states should be clear enough that users know whether data is local-only, queued, synced, or conflicted.
+
+## Recommended Improvements
+
+### Highest Priority
+
+1. Fix `App.jsx` touch handling:
+   - Replace the current `handleTouchEnd = useEffect(...)` pattern with a real `useCallback`.
+   - Keep resize cleanup in a separate `useEffect`.
+   - Add a quick mobile manual test for swiping between Dashboard, Timesheet, and Settings.
+
+2. Remove service-role-key references from client-facing docs/code:
+   - Delete `VITE_SUPABASE_SERVICE_ROLE_KEY` from README examples.
+   - Rename any server-only verification variable to avoid `VITE_`.
+   - Add a note that service role keys belong only in trusted server/CLI environments.
+
+3. Add tests for core calculations:
+   - Workday regular hours.
+   - Weekend and holiday double-hour behavior.
+   - Half-day leave baseline.
+   - Break deduction rules.
+   - Overnight or invalid interval handling, if supported.
+   - Status: initial Node test coverage added for interval hours, breaks, incomplete entries, period filtering, and weekday/weekend overtime.
+
+4. Fix the mobile conflict-resolution modal:
+   - Ensure the modal body can scroll on small screens.
+   - Keep the header/actions/footer usable without blocking the conflict details.
+   - Stack local and online versions clearly on mobile so both "Keep My Edit" and "Use Online Version" remain reachable.
+   - Test with at least one conflict containing notes/long values.
+
+### Medium Priority
+
+5. Add multi-day special day entry:
+   - Extend `AddDayModal` from a single date to either a date range or start date plus number of days.
+   - Generate one entry per date for vacation, sick leave, holiday, leave, or "to be added" types.
+   - Validate duplicates before saving, and show which dates already exist.
+   - Save entries sequentially or with clear partial-failure handling so the app does not silently create only some days.
+   - Consider whether half-day entries should support multiple dates or remain single-day only.
+   - Status: implemented start date plus number of days, duplicate blocking, sequential saves, and save-in-progress protection.
+
+6. Consolidate sync architecture:
+   - Choose one background sync module.
+   - Document the source-of-truth order: local encrypted storage, cache manager, remote Supabase, queue, conflict modal.
+   - Make deletion work by stable server ID or by the unique `(user_id, date)` pair.
+
+7. Add quality scripts:
+   - `npm run lint`
+   - `npm run test`
+   - `npm run format`
+   - optional `npm run preview` smoke check in CI.
+
+8. Modernize documentation:
+   - Fix encoding.
+   - Update project structure.
+   - Document setup, deployment, Supabase tables, migrations, and local/offline behavior.
+   - Split user-facing features from developer setup.
+
+9. Improve bundle splitting:
+   - Ensure export/import/PDF code is loaded only when the user opens export/import workflows.
+   - Resolve mixed static/dynamic imports flagged by Vite.
+   - Review whether all Font Awesome assets are needed.
+
+### Lower Priority
+
+8. Move inline app styles into CSS modules/files aligned with existing styles.
+
+9. Replace scattered console output with a small debug logger that can be enabled per area.
+
+10. Add lightweight developer docs:
+   - Architecture diagram.
+   - Data model.
+   - Sync state machine.
+   - Known limitations.
+
+## Suggested Roadmap
+
+### Short Term
+
+- Fix the mobile touch-end handler.
+- Fix mobile scrolling/reachability in the conflict-resolution modal.
+- Remove service-role-key references.
+- Refresh README encoding and setup instructions.
+- Expand calculation tests.
+- Add a simple lint script.
+
+### Medium Term
+
+- Verify multi-day special day entry on mobile and with offline/online sync.
+- Consolidate offline/background sync paths.
+- Harden deletion and conflict-resolution flows.
+- Add integration tests for create/edit/delete/sync scenarios.
+- Lazy-load heavy export libraries from the modal/action that needs them.
+
+### Long Term
+
+- Introduce a clearer data synchronization state machine.
+- Add observability for sync status and queue health.
+- Consider TypeScript or runtime schema validation for time entry objects.
+- Build a small QA checklist for PWA install, offline mode, mobile swipe, password reset, exports, and pay-period migration.
+
+## Overall Assessment
+
+The app is functional and thoughtfully equipped for real usage: it handles time tracking, payroll-adjacent calculations, offline persistence, cloud sync, reminders, exports, and account recovery. The build passing suggests it is in a workable state.
+
+The next stage should focus less on adding new features and more on reducing complexity. The best payoff will come from fixing the mobile handler bug, removing unsafe service-role-key guidance, writing tests for the calculation engine, and simplifying the sync/offline architecture into one clearly documented flow.

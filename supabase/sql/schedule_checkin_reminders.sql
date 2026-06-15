@@ -22,10 +22,10 @@ select cron.schedule(
   '* * * * *',
   $$
   select net.http_post(
-    url := 'https://<project-ref>.supabase.co/functions/v1/checkin-reminders',
+    url := 'https://wjfnmncthgpjcthattmo.supabase.co/functions/v1/checkin-reminders',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer <service-role-key>'
+      'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZm5tbmN0aGdwamN0aGF0dG1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTk0MDUyMywiZXhwIjoyMDg3NTE2NTIzfQ.Wrlfe3y4m5uqF66l27cius3816GP0YQXLetiWMNRJ78'
     ),
     body := '{}'::jsonb
   );
