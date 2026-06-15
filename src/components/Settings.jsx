@@ -775,8 +775,9 @@ function Settings() {
     }
   }, [employeeType]);
 
-  const handleSaveAll = async (e) => {
+  const handleSaveAll = async (e, options = {}) => {
     e.preventDefault();
+    const forceReminderSave = options.forceReminderSave === true;
 
     // Parse values
     const parsedSalary = parseFloat(salary) || 0;
@@ -857,7 +858,8 @@ function Settings() {
       remindersEnabledChanged ||
       reminderStartTimeChanged ||
       reminderCountChanged ||
-      reminderIntervalChanged;
+      reminderIntervalChanged ||
+      forceReminderSave;
 
     // If nothing changed, alert user
     if (!anyChanges) {
@@ -910,6 +912,9 @@ function Settings() {
       changedItems.push(
         `• Reminder Start Time: ${normalizeReminderTime(reminderSettings.startTime)} → ${normalizedReminderStartTime}`,
       );
+    if (forceReminderSave && changedItems.length === 0) {
+      changedItems.push("• Reminder settings synced to cloud");
+    }
 
     // Save all data (preserves unchanged values automatically, excludes salary if hidden)
     const employeeData = {
@@ -1014,7 +1019,8 @@ function Settings() {
       remindersEnabledChanged ||
       reminderStartTimeChanged ||
       reminderCountChanged ||
-      reminderIntervalChanged
+      reminderIntervalChanged ||
+      forceReminderSave
     ) {
       const nextReminderSettings = {
         enabled: remindersEnabled,
@@ -1761,7 +1767,7 @@ function Settings() {
           time.
         </p>
 
-        <form onSubmit={handleSaveAll}>
+        <form onSubmit={(event) => handleSaveAll(event, { forceReminderSave: true })}>
           <div className="form-group">
             <div className="haptic-feedback-toggle">
               <label htmlFor="reminders-toggle" className="form-label">
