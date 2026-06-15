@@ -56,6 +56,36 @@ const getMinutesFromTime = (timeValue: string) => {
   return Number(hours) * 60 + Number(minutes);
 };
 
+const getWeekdayInTimeZone = (date: Date, timeZone: string) => {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "short",
+  }).format(date);
+};
+
+const isWorkingWeekday = (
+  date: Date,
+  timeZone: string,
+  workDaysPerWeek = 5,
+) => {
+  const weekday = getWeekdayInTimeZone(date, timeZone);
+  if (weekday === "Sun") return false;
+  if (workDaysPerWeek >= 6) return weekday !== "Sun";
+  return weekday !== "Sat";
+};
+
+const isNonWorkingEntryType = (type?: string | null) => {
+  const normalizedType = (type || "Regular").trim().toLowerCase();
+  return normalizedType !== "regular";
+};
+
+const hasCheckIn = (
+  intervals?: Array<{ in?: string | null }> | null,
+) => {
+  return Array.isArray(intervals) &&
+    intervals.some((interval) => Boolean(interval?.in));
+};
+
 serve(async () => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -96,6 +126,58 @@ serve(async () => {
             currentMinutes: userMinutes,
             startMinutes,
             timezone: userTimeZone,
+          });
+          continue;
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("work_days_per_week")
+          .eq("id", user.user_id)
+          .maybeSingle();
+
+        if (profileError) throw profileError;
+
+        const profileWorkDays = Number(profile?.work_days_per_week ?? 5);
+        const workDaysPerWeek = Number.isFinite(profileWorkDays)
+          ? profileWorkDays
+          : 5;
+
+        if (!isWorkingWeekday(nowUtc, userTimeZone, workDaysPerWeek)) {
+          results.push({
+            userId: user.user_id,
+            date: userDate,
+            status: "non_working_day",
+            weekday: getWeekdayInTimeZone(nowUtc, userTimeZone),
+            workDaysPerWeek,
+          });
+          continue;
+        }
+
+        const { data: todayEntry, error: todayEntryError } = await supabase
+          .from("time_entries")
+          .select("type, intervals")
+          .eq("user_id", user.user_id)
+          .eq("date", userDate)
+          .maybeSingle();
+
+        if (todayEntryError) throw todayEntryError;
+
+        if (todayEntry && isNonWorkingEntryType(todayEntry.type)) {
+          results.push({
+            userId: user.user_id,
+            date: userDate,
+            status: "non_working_entry",
+            entryType: todayEntry.type,
+          });
+          continue;
+        }
+
+        if (hasCheckIn(todayEntry?.intervals)) {
+          results.push({
+            userId: user.user_id,
+            date: userDate,
+            status: "already_checked_in",
           });
           continue;
         }
