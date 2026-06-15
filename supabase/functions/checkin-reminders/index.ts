@@ -122,8 +122,22 @@ serve(async () => {
             .select()
             .single();
 
-          if (newLogError) throw newLogError;
-          log = newLog;
+          if (newLogError) {
+            if (newLogError.code !== "23505") throw newLogError;
+
+            const { data: existingLog, error: existingLogError } =
+              await supabase
+                .from("reminder_logs")
+                .select("*")
+                .eq("user_id", user.user_id)
+                .eq("date", userDate)
+                .single();
+
+            if (existingLogError) throw existingLogError;
+            log = existingLog;
+          } else {
+            log = newLog;
+          }
         } else if (logError) {
           throw logError;
         }
