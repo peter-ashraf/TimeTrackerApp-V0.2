@@ -234,7 +234,6 @@ serve(async () => {
             await webpush.sendNotification(subscription, payload, {
               TTL: 60 * 60,
               urgency: "high",
-              topic: `checkin-${sequenceNumber}`,
             });
             sentCount++;
 
@@ -248,8 +247,16 @@ serve(async () => {
 
             const status = (err as { status?: number }).status ??
               (err as { statusCode?: number }).statusCode;
+            const body = (err as { body?: string }).body || "";
+            const headers =
+              (err as { headers?: Record<string, string> }).headers || {};
+            const wnsError = headers["x-wns-error-description"] || "";
 
-            if (status === 404 || status === 410) {
+            const shouldDeleteSubscription = status === 404 || status === 410 ||
+              body.includes("VapidPkHashMismatch") ||
+              wnsError.includes("public key used to sign JWT does not match");
+
+            if (shouldDeleteSubscription) {
               await supabase
                 .from("push_subscriptions")
                 .delete()
