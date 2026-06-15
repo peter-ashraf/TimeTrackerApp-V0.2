@@ -33,6 +33,12 @@ const SETTINGS_TABS = [
 
 const IS_DEV_MODE = import.meta.env.DEV;
 
+const normalizeReminderTime = (value, fallback = "09:00") => {
+  if (typeof value !== "string") return fallback;
+  const match = value.match(/^(\d{2}:\d{2})/);
+  return match ? match[1] : fallback;
+};
+
 const DEV_SAMPLE_CONFLICTS = [
   {
     entryId: "dev-conflict-2026-06-08",
@@ -726,7 +732,7 @@ function Settings() {
   useEffect(() => {
     if (reminderSettings) {
       setRemindersEnabled(reminderSettings.enabled ?? false);
-      setReminderStartTime(reminderSettings.startTime ?? "09:00");
+      setReminderStartTime(normalizeReminderTime(reminderSettings.startTime));
       setReminderCount(reminderSettings.reminderCount ?? 3);
       setReminderInterval(reminderSettings.intervalMinutes ?? 15);
     }
@@ -779,6 +785,16 @@ function Settings() {
     const parsedDailyHours = parseFloat(dailyHours) || 9;
     const parsedWorkDaysPerWeek = parseFloat(workDaysPerWeek) || 5;
     const parsedMonthlyHours = parseFloat(monthlyHours) || 187;
+    const normalizedReminderStartTime =
+      normalizeReminderTime(reminderStartTime);
+    const finalReminderCount =
+      reminderCount === "custom"
+        ? parseInt(customReminderCount, 10)
+        : parseInt(reminderCount, 10);
+    const finalReminderInterval =
+      reminderInterval === "custom"
+        ? parseInt(customReminderInterval, 10)
+        : parseInt(reminderInterval, 10);
 
     // Run validation
     const errors = validateEmployeeData(
@@ -822,11 +838,12 @@ function Settings() {
     const remindersEnabledChanged =
       remindersEnabled !== reminderSettings.enabled;
     const reminderStartTimeChanged =
-      reminderStartTime !== reminderSettings.startTime;
+      normalizedReminderStartTime !==
+      normalizeReminderTime(reminderSettings.startTime);
     const reminderCountChanged =
-      reminderCount !== reminderSettings.reminderCount;
+      finalReminderCount !== Number(reminderSettings.reminderCount);
     const reminderIntervalChanged =
-      reminderInterval !== reminderSettings.intervalMinutes;
+      finalReminderInterval !== Number(reminderSettings.intervalMinutes);
 
     const anyChanges =
       nameChanged ||
@@ -891,7 +908,7 @@ function Settings() {
       );
     if (reminderStartTimeChanged)
       changedItems.push(
-        `• Reminder Start Time: ${reminderSettings.startTime} → ${reminderStartTime}`,
+        `• Reminder Start Time: ${normalizeReminderTime(reminderSettings.startTime)} → ${normalizedReminderStartTime}`,
       );
 
     // Save all data (preserves unchanged values automatically, excludes salary if hidden)
@@ -999,20 +1016,42 @@ function Settings() {
       reminderCountChanged ||
       reminderIntervalChanged
     ) {
-      const finalReminderCount = reminderCount === "custom" 
-        ? parseInt(customReminderCount, 10) 
-        : parseInt(reminderCount, 10);
-      const finalReminderInterval = reminderInterval === "custom" 
-        ? parseInt(customReminderInterval, 10) 
-        : parseInt(reminderInterval, 10);
+      const nextReminderSettings = {
+        enabled: remindersEnabled,
+        startTime: normalizedReminderStartTime,
+        reminderCount: finalReminderCount,
+        intervalMinutes: finalReminderInterval,
+        timezone:
+          reminderSettings.timezone ||
+          Intl.DateTimeFormat().resolvedOptions().timeZone ||
+          "UTC",
+      };
 
       setReminderSettings((prev) => ({
         ...prev,
-        enabled: remindersEnabled,
-        startTime: reminderStartTime,
-        reminderCount: finalReminderCount,
-        intervalMinutes: finalReminderInterval,
+        ...nextReminderSettings,
       }));
+
+      if (currentUser) {
+        try {
+          await supabaseData.saveReminderPreferences(currentUser.id, {
+            enabled: nextReminderSettings.enabled,
+            start_time: nextReminderSettings.startTime,
+            reminder_count: nextReminderSettings.reminderCount,
+            interval_minutes: nextReminderSettings.intervalMinutes,
+            timezone: nextReminderSettings.timezone,
+          });
+        } catch (error) {
+          setNotifModal({
+            isOpen: true,
+            isError: true,
+            message:
+              error.message ||
+              "Reminder settings were saved locally, but Supabase did not update.",
+          });
+          return;
+        }
+      }
     }
 
     // ✅ IMMEDIATE SAVE: Force immediate salary save to localStorage

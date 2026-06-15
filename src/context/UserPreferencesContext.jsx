@@ -58,6 +58,12 @@ const normalizeLeaveSettings = (settings = {}) => ({
   ),
 });
 
+const normalizeReminderTime = (value, fallback = "09:00") => {
+  if (typeof value !== "string") return fallback;
+  const match = value.match(/^(\d{2}:\d{2})/);
+  return match ? match[1] : fallback;
+};
+
 export const useUserPreferences = () => {
   const context = useContext(UserPreferencesContext);
   if (!context) {
@@ -301,7 +307,7 @@ export const UserPreferencesProvider = ({ children }) => {
             if (reminderData) {
               setReminderSettings({
                 enabled: reminderData.enabled ?? false,
-                startTime: reminderData.start_time ?? "09:00",
+                startTime: normalizeReminderTime(reminderData.start_time),
                 reminderCount: reminderData.reminder_count ?? 3,
                 intervalMinutes: reminderData.interval_minutes ?? 15,
                 timezone:
@@ -324,7 +330,7 @@ export const UserPreferencesProvider = ({ children }) => {
               try {
                 await supabaseData.saveReminderPreferences(currentUser.id, {
                   enabled: currentLocalR.enabled,
-                  start_time: currentLocalR.startTime,
+                  start_time: normalizeReminderTime(currentLocalR.startTime),
                   reminder_count: currentLocalR.reminderCount,
                   interval_minutes: currentLocalR.intervalMinutes,
                   timezone: currentLocalR.timezone,
@@ -458,7 +464,7 @@ export const UserPreferencesProvider = ({ children }) => {
       try {
         await supabaseData.saveReminderPreferences(currentUser.id, {
           enabled: settingsToSave.enabled,
-          start_time: settingsToSave.startTime,
+          start_time: normalizeReminderTime(settingsToSave.startTime),
           reminder_count: settingsToSave.reminderCount,
           interval_minutes: settingsToSave.intervalMinutes,
           timezone: settingsToSave.timezone,
