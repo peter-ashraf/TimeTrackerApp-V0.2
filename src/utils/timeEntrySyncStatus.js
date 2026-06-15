@@ -118,4 +118,38 @@ export const getPendingTimeEntrySyncStatus = (userId) => {
   };
 };
 
+export const getInferredPendingTimeEntries = (entries = []) => {
+  if (!Array.isArray(entries)) return [];
+
+  return entries
+    .filter((entry) => entry?.date && !entry?.id)
+    .map((entry) => ({
+      date: normalizeDateKey(entry.date),
+      reason: "local_entry_without_cloud_id",
+      updatedAt: entry.lastModified || null,
+    }));
+};
+
+export const mergePendingTimeEntrySync = (storedStatus, inferredItems) => {
+  const byDate = new Map();
+
+  [...(storedStatus?.items || []), ...(inferredItems || [])].forEach((item) => {
+    if (!item?.date) return;
+    byDate.set(normalizeDateKey(item.date), {
+      ...item,
+      date: normalizeDateKey(item.date),
+    });
+  });
+
+  const items = Array.from(byDate.values()).sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+
+  return {
+    pending: items.length,
+    dates: items.map((item) => item.date),
+    items,
+  };
+};
+
 export { SYNC_STATUS_EVENT };

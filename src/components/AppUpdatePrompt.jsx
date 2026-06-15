@@ -74,9 +74,12 @@ function AppUpdatePrompt() {
       aria-live="polite"
       aria-label="App update available"
     >
+      <div className="app-update-icon" aria-hidden="true">
+        <i className="fa-solid fa-arrow-rotate-right"></i>
+      </div>
       <div className="app-update-copy">
-        <strong>Update available</strong>
-        <span>Reload to use the latest version.</span>
+        <strong>New version available</strong>
+        <span>Reload now to get the latest fixes and offline improvements.</span>
       </div>
       <div className="app-update-actions">
         <button

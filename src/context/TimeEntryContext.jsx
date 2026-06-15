@@ -9,6 +9,7 @@ import {
   clearPendingTimeEntrySync,
   markPendingTimeEntrySync
 } from '../utils/timeEntrySyncStatus';
+import { syncTimeEntryToCloud } from '../utils/timeEntrySyncManager';
 
 const TimeEntryContext = createContext();
 
@@ -321,18 +322,20 @@ export const TimeEntryProvider = ({ children }) => {
               console.log(`[Sync] Supabase returned empty, but uploading ${unsyncedLocal.length} offline-created entries...`);
               Promise.all(
                 unsyncedLocal.map(async (entry) => {
-                  try {
-                    const saved = await supabaseData.saveTimeEntry(currentUser.id, entry);
-                    const returnedEntry = Array.isArray(saved) ? saved[0] : saved;
-                    if (returnedEntry?.id) {
-                      setEntries(prev => prev.map(e =>
-                        e.date === entry.date ? { ...e, id: returnedEntry.id } : e
-                      ));
-                    }
-                    clearPendingTimeEntrySync(currentUser.id, entry);
-                  } catch (err) {
-                    console.error(`[Sync] Failed to upload entry for ${entry.date}:`, err);
-                    markPendingTimeEntrySync(currentUser.id, entry, 'upload_failed');
+                  const result = await syncTimeEntryToCloud({
+                    userId: currentUser.id,
+                    entry,
+                    saveTimeEntry: (userId, entryToSave) => supabaseData.saveTimeEntry(userId, entryToSave),
+                  });
+
+                  if (result.returnedEntry?.id) {
+                    setEntries(prev => prev.map(e =>
+                      e.date === entry.date ? { ...e, id: result.returnedEntry.id } : e
+                    ));
+                  }
+
+                  if (!result.success) {
+                    console.error(`[Sync] Failed to upload entry for ${entry.date}:`, result.error);
                   }
                 })
               );
@@ -424,18 +427,20 @@ export const TimeEntryProvider = ({ children }) => {
                   console.log(`[Sync] Uploading ${toUpload.length} user-chosen local entries to Supabase...`);
                   Promise.all(
                     toUpload.map(async (resolution) => {
-                      try {
-                        const saved = await supabaseData.saveTimeEntry(currentUser.id, resolution.chosenEntry);
-                        const returnedEntry = Array.isArray(saved) ? saved[0] : saved;
-                        if (returnedEntry?.id) {
-                          setEntries(prev => prev.map(e =>
-                            e.date === resolution.chosenEntry.date ? { ...e, id: returnedEntry.id } : e
-                          ));
-                        }
-                        clearPendingTimeEntrySync(currentUser.id, resolution.chosenEntry);
-                      } catch (err) {
-                        console.error(`[Sync] Failed to upload entry for ${resolution.chosenEntry.date}:`, err);
-                        markPendingTimeEntrySync(currentUser.id, resolution.chosenEntry, 'upload_failed');
+                      const result = await syncTimeEntryToCloud({
+                        userId: currentUser.id,
+                        entry: resolution.chosenEntry,
+                        saveTimeEntry: (userId, entryToSave) => supabaseData.saveTimeEntry(userId, entryToSave),
+                      });
+
+                      if (result.returnedEntry?.id) {
+                        setEntries(prev => prev.map(e =>
+                          e.date === resolution.chosenEntry.date ? { ...e, id: result.returnedEntry.id } : e
+                        ));
+                      }
+
+                      if (!result.success) {
+                        console.error(`[Sync] Failed to upload entry for ${resolution.chosenEntry.date}:`, result.error);
                       }
                     })
                   ).catch(err => {
@@ -462,18 +467,20 @@ export const TimeEntryProvider = ({ children }) => {
               console.log(`[Sync] Uploading ${entriesToUpload.length} local/edited entries to Supabase...`);
               Promise.all(
                 entriesToUpload.map(async (entry) => {
-                  try {
-                    const saved = await supabaseData.saveTimeEntry(currentUser.id, entry);
-                    const returnedEntry = Array.isArray(saved) ? saved[0] : saved;
-                    if (returnedEntry?.id) {
-                      setEntries(prev => prev.map(e =>
-                        e.date === entry.date ? { ...e, id: returnedEntry.id } : e
-                      ));
-                    }
-                    clearPendingTimeEntrySync(currentUser.id, entry);
-                  } catch (err) {
-                    console.error(`[Sync] Failed to upload entry for ${entry.date}:`, err);
-                    markPendingTimeEntrySync(currentUser.id, entry, 'upload_failed');
+                  const result = await syncTimeEntryToCloud({
+                    userId: currentUser.id,
+                    entry,
+                    saveTimeEntry: (userId, entryToSave) => supabaseData.saveTimeEntry(userId, entryToSave),
+                  });
+
+                  if (result.returnedEntry?.id) {
+                    setEntries(prev => prev.map(e =>
+                      e.date === entry.date ? { ...e, id: result.returnedEntry.id } : e
+                    ));
+                  }
+
+                  if (!result.success) {
+                    console.error(`[Sync] Failed to upload entry for ${entry.date}:`, result.error);
                   }
                 })
               ).catch(err => {

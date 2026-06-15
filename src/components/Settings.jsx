@@ -16,7 +16,9 @@ import { useUserPreferences } from "../context/UserPreferencesContext";
 import { notificationManager } from "../utils/notificationManager";
 import CustomSelect from "./CustomSelect";
 import {
+  getInferredPendingTimeEntries,
   getPendingTimeEntrySyncStatus,
+  mergePendingTimeEntrySync,
   SYNC_STATUS_EVENT,
 } from "../utils/timeEntrySyncStatus";
 import "../styles/settings.css";
@@ -129,37 +131,6 @@ const getStoredQueueLength = (key) => {
   } catch (error) {
     return 0;
   }
-};
-
-const getInferredPendingTimeEntries = (entries = []) => {
-  if (!Array.isArray(entries)) return [];
-
-  return entries
-    .filter((entry) => entry?.date && !entry?.id)
-    .map((entry) => ({
-      date: String(entry.date).split("T")[0],
-      reason: "local_entry_without_cloud_id",
-      updatedAt: entry.lastModified || null,
-    }));
-};
-
-const mergePendingTimeEntrySync = (storedStatus, inferredItems) => {
-  const byDate = new Map();
-
-  [...(storedStatus?.items || []), ...inferredItems].forEach((item) => {
-    if (!item?.date) return;
-    byDate.set(item.date, item);
-  });
-
-  const items = Array.from(byDate.values()).sort((a, b) =>
-    a.date.localeCompare(b.date),
-  );
-
-  return {
-    pending: items.length,
-    dates: items.map((item) => item.date),
-    items,
-  };
 };
 
 const getSyncStatusSnapshot = (currentUser, entries) => {
@@ -337,6 +308,7 @@ function Settings() {
     lastRefreshed,
     saveStatus,
     pendingConflicts,
+    loadTimeEntriesData,
     setEmployee,
     setLeaveSettings,
     clearAllData,
@@ -344,6 +316,7 @@ function Settings() {
     setConfirmModal,
     setCurrentPeriod,
     setEntries,
+    setLastRefreshed,
     validateEmployeeType,
     calculateMonthlyHours,
   } = useTimeTracker();
@@ -437,6 +410,7 @@ function Settings() {
   const [dangerPassword, setDangerPassword] = useState("");
   const [dangerUnlockError, setDangerUnlockError] = useState("");
   const [isUnlockingDanger, setIsUnlockingDanger] = useState(false);
+  const [isSyncingNow, setIsSyncingNow] = useState(false);
   const [syncStatus, setSyncStatus] = useState(() =>
     getSyncStatusSnapshot(currentUser, entries),
   );
@@ -452,6 +426,40 @@ function Settings() {
   const refreshSyncStatus = useCallback(() => {
     setSyncStatus(getSyncStatusSnapshot(currentUser, entries));
   }, [currentUser, entries]);
+
+  const handleSyncNow = useCallback(async () => {
+    hapticFeedback.buttonClick();
+    setIsSyncingNow(true);
+
+    try {
+      if (!navigator.onLine) {
+        refreshSyncStatus();
+        setNotifModal({
+          isOpen: true,
+          isError: false,
+          message: "You are offline. Pending changes will upload when the connection returns.",
+        });
+        return;
+      }
+
+      await loadTimeEntriesData({ forceConflictCheck: true });
+      setLastRefreshed(new Date().toISOString());
+      refreshSyncStatus();
+      setNotifModal({
+        isOpen: true,
+        isError: false,
+        message: "Sync check completed.",
+      });
+    } catch (error) {
+      setNotifModal({
+        isOpen: true,
+        isError: true,
+        message: error.message || "Sync failed. Please try again.",
+      });
+    } finally {
+      setIsSyncingNow(false);
+    }
+  }, [loadTimeEntriesData, refreshSyncStatus, setLastRefreshed]);
 
   const handleOpenExport = () => {
     setShowExportModal(true);
@@ -2178,16 +2186,26 @@ function Settings() {
       <section className="settings-section settings-panel settings-panel-data">
         <div className="settings-section-header">
           <h2>Sync Status</h2>
-          <button
-            type="button"
-            className="btn btn-sm btn-outline"
-            onClick={() => {
-              hapticFeedback.buttonClick();
-              refreshSyncStatus();
-            }}
-          >
-            Refresh
-          </button>
+          <div className="sync-status-actions">
+            <button
+              type="button"
+              className="btn btn-sm btn-outline"
+              onClick={() => {
+                hapticFeedback.buttonClick();
+                refreshSyncStatus();
+              }}
+            >
+              Refresh Status
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={handleSyncNow}
+              disabled={isSyncingNow}
+            >
+              {isSyncingNow ? "Syncing..." : "Sync Now"}
+            </button>
+          </div>
         </div>
 
         <div className="sync-status-grid">
@@ -2237,7 +2255,7 @@ function Settings() {
           </div>
 
           <div className="sync-status-card">
-            <span className="sync-status-label">App Save Queue</span>
+            <span className="sync-status-label">Profile Save Queue</span>
             <strong
               className={`sync-status-value ${
                 syncStatus.appSaveQueue ? "has-warning" : ""
@@ -2248,7 +2266,7 @@ function Settings() {
           </div>
 
           <div className="sync-status-card">
-            <span className="sync-status-label">Background Queue</span>
+            <span className="sync-status-label">Pending Uploads</span>
             <strong
               className={`sync-status-value ${
                 syncStatus.backgroundQueue ? "has-warning" : ""
@@ -2259,7 +2277,7 @@ function Settings() {
           </div>
 
           <div className="sync-status-card">
-            <span className="sync-status-label">Offline Queue</span>
+            <span className="sync-status-label">Offline Changes</span>
             <strong
               className={`sync-status-value ${
                 syncStatus.timeEntrySync?.pending ||
@@ -2275,6 +2293,17 @@ function Settings() {
             </strong>
           </div>
         </div>
+
+        {syncStatus.timeEntrySync?.pending > 0 && (
+          <div className="sync-pending-details">
+            <span className="sync-pending-details-label">
+              Pending time entries
+            </span>
+            <span className="sync-pending-details-dates">
+              {syncStatus.timeEntrySync.dates.join(", ")}
+            </span>
+          </div>
+        )}
 
         <div className="sync-status-footer">
           <span>

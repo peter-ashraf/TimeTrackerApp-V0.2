@@ -7,12 +7,26 @@
   align-items: center;
   gap: 12px;
   max-width: min(420px, calc(100vw - 32px));
-  padding: 12px;
+  padding: 12px 14px;
   border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-primary);
   border-radius: 8px;
   background: var(--color-surface);
   color: var(--color-text);
   box-shadow: var(--shadow-lg);
+}
+
+.app-update-icon {
+  display: inline-flex;
+  flex: 0 0 34px;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  color: var(--color-primary);
+  font-size: 15px;
 }
 
 .app-update-copy {
@@ -70,11 +84,13 @@
     bottom: 10px;
     left: 10px;
     max-width: none;
-    align-items: stretch;
-    flex-direction: column;
+    align-items: center;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
   .app-update-actions {
+    grid-column: 1 / -1;
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
