@@ -84,6 +84,11 @@ Service role keys must not use the `VITE_` prefix or be exposed to browser build
 - **Offline Support**: Complete offline-first experience
 - **iOS PWA**: Optimized startup performance
 
+### Check-in Reminder Push Notifications
+- **Reliable iOS reminders require server-side Web Push** through the Supabase `checkin-reminders` Edge Function.
+- **Setup guide**: see `docs/checkin-reminders-ios-web-push.md`.
+- **Cron SQL**: see `supabase/sql/schedule_checkin_reminders.sql`.
+
 ## 🚀 Getting Started
 
 ### Installation

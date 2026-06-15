@@ -21,6 +21,48 @@ const appServer = await ApplicationServer.new({
   },
 });
 
+const jsonResponse = (body: Record<string, unknown>, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+
+const getDateInTimeZone = (date: Date, timeZone: string) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const partMap = Object.fromEntries(
+    parts.map((part) => [part.type, part.value]),
+  );
+
+  return `${partMap.year}-${partMap.month}-${partMap.day}`;
+};
+
+const getMinutesInTimeZone = (date: Date, timeZone: string) => {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    hourCycle: "h23",
+  }).formatToParts(date);
+
+  const partMap = Object.fromEntries(
+    parts.map((part) => [part.type, part.value]),
+  );
+
+  return Number(partMap.hour) * 60 + Number(partMap.minute);
+};
+
+const getMinutesFromTime = (timeValue: string) => {
+  const [hours = "0", minutes = "0"] = timeValue.split(":");
+  return Number(hours) * 60 + Number(minutes);
+};
+
 serve(async () => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -42,39 +84,17 @@ serve(async () => {
     if (prefError) throw prefError;
 
     if (!users || users.length === 0) {
-      return new Response(
-        JSON.stringify({ status: "No users with enabled reminders" }),
-        { headers: { "Content-Type": "application/json" } },
-      );
+      return jsonResponse({ status: "No users with enabled reminders" });
     }
 
     for (const user of users) {
       try {
-        const userDateStr = new Intl.DateTimeFormat("en-CA", {
-          timeZone: user.timezone,
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).format(nowUtc);
+        const userTimeZone = user.timezone || "UTC";
+        const userDate = getDateInTimeZone(nowUtc, userTimeZone);
+        const userMinutes = getMinutesInTimeZone(nowUtc, userTimeZone);
+        const startMinutes = getMinutesFromTime(user.start_time);
 
-        const parts = userDateStr.split("-");
-        const normalizedUserDateStr =
-          parts.length === 3
-            ? userDateStr
-            : (() => {
-                const fallback = userDateStr.split("/").join("-");
-                const p = fallback.split("-");
-                return `${p[2]}-${p[0]}-${p[1]}`;
-              })();
-
-        const userTimeStr = new Intl.DateTimeFormat("en-GB", {
-          timeZone: user.timezone,
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        }).format(nowUtc);
-
-        if (userTimeStr < user.start_time) {
+        if (userMinutes < startMinutes) {
           continue;
         }
 
@@ -82,7 +102,7 @@ serve(async () => {
           .from("reminder_logs")
           .select("*")
           .eq("user_id", user.user_id)
-          .eq("date", normalizedUserDateStr)
+          .eq("date", userDate)
           .single();
 
         let log = logData;
@@ -92,7 +112,7 @@ serve(async () => {
             .from("reminder_logs")
             .insert({
               user_id: user.user_id,
-              date: normalizedUserDateStr,
+              date: userDate,
               last_sent_slot: 0,
               reminders_sent: 0,
               suppressed: false,
@@ -102,6 +122,8 @@ serve(async () => {
 
           if (newLogError) throw newLogError;
           log = newLog;
+        } else if (logError) {
+          throw logError;
         }
 
         if (!log || log.suppressed) {
@@ -122,6 +144,22 @@ serve(async () => {
           }
         }
 
+        const { data: subs, error: subError } = await supabase
+          .from("push_subscriptions")
+          .select("endpoint, keys")
+          .eq("user_id", user.user_id);
+
+        if (subError) throw subError;
+
+        if (!subs || subs.length === 0) {
+          results.push({
+            userId: user.user_id,
+            date: userDate,
+            status: "no_push_subscriptions",
+          });
+          continue;
+        }
+
         const sequenceNumber = log.last_sent_slot + 1;
 
         const { data: updatedLog, error: updateError } = await supabase
@@ -139,55 +177,55 @@ serve(async () => {
         if (updateError || !updatedLog) {
           results.push({
             userId: user.user_id,
+            date: userDate,
             status: "skipped_concurrency_or_error",
           });
           continue;
         }
 
-        const { data: subs, error: subError } = await supabase
-          .from("push_subscriptions")
-          .select("endpoint, keys")
-          .eq("user_id", user.user_id);
-
-        if (subError) throw subError;
-
         let sentCount = 0;
         let failedCount = 0;
 
-        if (subs && subs.length > 0) {
-          const payload = JSON.stringify({
-            title: `TimeTracker Reminder (${sequenceNumber}/${user.reminder_count})`,
-            body: "Don't forget to log your daily check-in!",
-          });
+        const payload = JSON.stringify({
+          title: `TimeTracker Reminder (${sequenceNumber}/${user.reminder_count})`,
+          body: "Don't forget to log your daily check-in!",
+          url: "/TimeTrackerApp-V0.2/",
+          tag: `checkin-reminder-${user.user_id}-${userDate}-${sequenceNumber}`,
+        });
 
-          for (const sub of subs) {
-            try {
-              const subscription: PushSubscription = {
-                endpoint: sub.endpoint,
-                keys: sub.keys,
-              };
+        for (const sub of subs) {
+          try {
+            const subscription: PushSubscription = {
+              endpoint: sub.endpoint,
+              keys: sub.keys,
+            };
 
-              await appServer.send(subscription, payload);
-              sentCount++;
-            } catch (err) {
-              console.error(`Failed to send push to ${sub.endpoint}:`, err);
-              failedCount++;
+            await appServer.send(subscription, payload);
+            sentCount++;
 
-              const status = (err as { status?: number }).status ??
-                (err as { statusCode?: number }).statusCode;
+            await supabase
+              .from("push_subscriptions")
+              .update({ last_used_at: nowUtc.toISOString() })
+              .eq("endpoint", sub.endpoint);
+          } catch (err) {
+            console.error(`Failed to send push to ${sub.endpoint}:`, err);
+            failedCount++;
 
-              if (status === 404 || status === 410) {
-                await supabase
-                  .from("push_subscriptions")
-                  .delete()
-                  .match({ endpoint: sub.endpoint });
-              }
+            const status = (err as { status?: number }).status ??
+              (err as { statusCode?: number }).statusCode;
+
+            if (status === 404 || status === 410) {
+              await supabase
+                .from("push_subscriptions")
+                .delete()
+                .match({ endpoint: sub.endpoint });
             }
           }
         }
 
         results.push({
           userId: user.user_id,
+          date: userDate,
           sent: sentCount,
           failed: failedCount,
           slot: sequenceNumber,
@@ -201,19 +239,12 @@ serve(async () => {
       }
     }
 
-    return new Response(JSON.stringify({ success: true, results }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse({ success: true, results });
   } catch (error) {
     console.error("Scheduler Error:", error);
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : String(error),
-      }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      },
+    return jsonResponse(
+      { error: error instanceof Error ? error.message : String(error) },
+      500,
     );
   }
 });

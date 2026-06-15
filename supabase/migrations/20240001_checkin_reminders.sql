@@ -84,6 +84,7 @@ CREATE INDEX IF NOT EXISTS idx_reminder_preferences_enabled ON reminder_preferen
 -- Scheduled Cron Job (run in Supabase Dashboard → SQL Editor)
 -- Frequency: every 1 minute for accurate reminder timing
 -- ============================================================
+-- Prefer supabase/sql/schedule_checkin_reminders.sql for the current setup script.
 -- select cron.schedule(
 --   'send-checkin-reminders',
 --   '* * * * *',

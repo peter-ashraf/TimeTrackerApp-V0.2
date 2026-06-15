@@ -40,9 +40,10 @@ self.addEventListener('push', function(event) {
     vibrate: [100, 50, 100],
     data: {
       dateOfArrival: Date.now(),
-      primaryKey: '2'
+      primaryKey: '2',
+      url: notificationData.url || '/TimeTrackerApp-V0.2/'
     },
-    tag: 'checkin-reminder-' + Date.now(),
+    tag: notificationData.tag || 'checkin-reminder-' + Date.now(),
     requireInteraction: true,
     actions: [
       {
@@ -67,7 +68,7 @@ self.addEventListener('notificationclick', function(event) {
 
   if (event.action !== 'close') {
     // Note: Assuming app is hosted under /TimeTrackerApp-V0.2/
-    const targetUrl = '/TimeTrackerApp-V0.2/';
+    const targetUrl = event.notification.data?.url || '/TimeTrackerApp-V0.2/';
 
     event.waitUntil(
       clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
