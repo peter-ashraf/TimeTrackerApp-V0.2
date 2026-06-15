@@ -1,25 +1,18 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import {
-  ApplicationServer,
-  type PushSubscription,
-} from "jsr:@negrel/webpush";
+import webpush from "npm:web-push@3.6.7";
 
 const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY") || "";
 const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY") || "";
 const vapidSubject = Deno.env.get("VAPID_SUBJECT") || "mailto:admin@example.com";
 
-if (!vapidPublicKey || !vapidPrivateKey) {
-  throw new Error("Missing VAPID_PUBLIC_KEY or VAPID_PRIVATE_KEY");
+if (!vapidPublicKey || !vapidPrivateKey || !vapidSubject) {
+  throw new Error(
+    "Missing VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, or VAPID_SUBJECT",
+  );
 }
 
-const appServer = await ApplicationServer.new({
-  contactInformation: vapidSubject,
-  vapidKeys: {
-    publicKey: vapidPublicKey,
-    privateKey: vapidPrivateKey,
-  },
-});
+webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
 
 const jsonResponse = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -233,12 +226,16 @@ serve(async () => {
 
         for (const sub of subs) {
           try {
-            const subscription: PushSubscription = {
+            const subscription = {
               endpoint: sub.endpoint,
               keys: sub.keys,
             };
 
-            await appServer.send(subscription, payload);
+            await webpush.sendNotification(subscription, payload, {
+              TTL: 60 * 60,
+              urgency: "high",
+              topic: `checkin-${sequenceNumber}`,
+            });
             sentCount++;
 
             await supabase
