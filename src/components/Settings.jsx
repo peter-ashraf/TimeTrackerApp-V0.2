@@ -131,12 +131,46 @@ const getStoredQueueLength = (key) => {
   }
 };
 
-const getSyncStatusSnapshot = (currentUser) => {
+const getInferredPendingTimeEntries = (entries = []) => {
+  if (!Array.isArray(entries)) return [];
+
+  return entries
+    .filter((entry) => entry?.date && !entry?.id)
+    .map((entry) => ({
+      date: String(entry.date).split("T")[0],
+      reason: "local_entry_without_cloud_id",
+      updatedAt: entry.lastModified || null,
+    }));
+};
+
+const mergePendingTimeEntrySync = (storedStatus, inferredItems) => {
+  const byDate = new Map();
+
+  [...(storedStatus?.items || []), ...inferredItems].forEach((item) => {
+    if (!item?.date) return;
+    byDate.set(item.date, item);
+  });
+
+  const items = Array.from(byDate.values()).sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+
+  return {
+    pending: items.length,
+    dates: items.map((item) => item.date),
+    items,
+  };
+};
+
+const getSyncStatusSnapshot = (currentUser, entries) => {
   const backgroundStatus = backgroundSync.getStatus();
   const offlineStatus = offlineQueue.getStatus();
   const storedBackgroundQueue = getStoredQueueLength("tt_sync_queue");
   const appSaveQueue = getStoredQueueLength("dbSaveQueue");
-  const timeEntrySync = getPendingTimeEntrySyncStatus(currentUser?.id);
+  const timeEntrySync = mergePendingTimeEntrySync(
+    getPendingTimeEntrySyncStatus(currentUser?.id),
+    currentUser?.isLocalOnly ? [] : getInferredPendingTimeEntries(entries),
+  );
 
   return {
     isOnline: navigator.onLine,
@@ -147,6 +181,7 @@ const getSyncStatusSnapshot = (currentUser) => {
     backgroundQueue: Math.max(
       backgroundStatus.queueLength || 0,
       storedBackgroundQueue,
+      timeEntrySync.pending,
     ),
     appSaveQueue,
     offlineQueue: offlineStatus,
@@ -403,7 +438,7 @@ function Settings() {
   const [dangerUnlockError, setDangerUnlockError] = useState("");
   const [isUnlockingDanger, setIsUnlockingDanger] = useState(false);
   const [syncStatus, setSyncStatus] = useState(() =>
-    getSyncStatusSnapshot(currentUser),
+    getSyncStatusSnapshot(currentUser, entries),
   );
   const previewConflictCount = Math.max(
     1,
@@ -415,8 +450,8 @@ function Settings() {
   );
 
   const refreshSyncStatus = useCallback(() => {
-    setSyncStatus(getSyncStatusSnapshot(currentUser));
-  }, [currentUser]);
+    setSyncStatus(getSyncStatusSnapshot(currentUser, entries));
+  }, [currentUser, entries]);
 
   const handleOpenExport = () => {
     setShowExportModal(true);
