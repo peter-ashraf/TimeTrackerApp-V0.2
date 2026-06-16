@@ -167,6 +167,16 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
     }));
   };
 
+  const renderDisplayValue = (value) => {
+    const text = value == null ? '' : String(value);
+    const trimmed = text.trim();
+
+    if (!trimmed) return '-';
+    if (trimmed.length <= 12 && /[Ãâ]/.test(trimmed)) return '-';
+
+    return trimmed;
+  };
+
   const handleChoice = (conflict, choice) => {
     setResolutions((prev) => ({
       ...prev,
@@ -300,7 +310,7 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
                         {row.label}
                         {row.differs && <span className="difference-badge">Different</span>}
                       </span>
-                      <span className="field-value">{row.localValue}</span>
+                      <span className="field-value">{renderDisplayValue(row.localValue)}</span>
                     </div>
                   ))}
 
@@ -326,7 +336,7 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
                         {row.label}
                         {row.differs && <span className="difference-badge">Different</span>}
                       </span>
-                      <span className="field-value">{row.remoteValue}</span>
+                      <span className="field-value">{renderDisplayValue(row.remoteValue)}</span>
                     </div>
                   ))}
 

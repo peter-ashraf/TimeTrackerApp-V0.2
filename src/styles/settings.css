@@ -242,6 +242,8 @@
 }
 
 .danger-lock-badge {
+  appearance: none;
+  background: transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -254,6 +256,19 @@
   font-weight: 800;
   letter-spacing: 0;
   text-transform: uppercase;
+}
+
+.danger-lock-badge.is-clickable {
+  cursor: pointer;
+}
+
+.danger-lock-badge.is-clickable:hover {
+  background: rgba(40, 167, 69, 0.08);
+}
+
+.danger-lock-badge.is-clickable:focus-visible {
+  outline: 2px solid var(--color-primary, #00bcd4);
+  outline-offset: 2px;
 }
 
 .danger-lock-badge.is-unlocked {

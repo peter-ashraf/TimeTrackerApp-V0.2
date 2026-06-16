@@ -34,6 +34,24 @@ const SETTINGS_TABS = [
 const IS_DEV_MODE = import.meta.env.DEV;
 const REMINDER_COUNT_PRESETS = ["1", "2", "3", "4", "5"];
 const REMINDER_INTERVAL_PRESETS = ["5", "10", "15", "30"];
+const REMINDER_SAVE_TIMEOUT_MS = 12000;
+
+const withTimeout = (promise, timeoutMs, message) =>
+  new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+
+    Promise.resolve(promise)
+      .then((value) => {
+        clearTimeout(timeoutId);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      });
+  });
 
 const normalizeReminderTime = (value, fallback = "09:00") => {
   if (typeof value !== "string") return fallback;
@@ -622,7 +640,11 @@ function Settings() {
 
     try {
       setIsUnlockingDanger(true);
-      await verifyPassword(dangerPassword);
+      await withTimeout(
+        verifyPassword(dangerPassword),
+        10000,
+        "Password verification timed out. Please check your connection and try again.",
+      );
       setIsDangerUnlocked(true);
       setDangerPassword("");
       hapticFeedback.success();
@@ -633,6 +655,13 @@ function Settings() {
     } finally {
       setIsUnlockingDanger(false);
     }
+  };
+
+  const handleLockDangerZone = () => {
+    setIsDangerUnlocked(false);
+    setDangerPassword("");
+    setDangerUnlockError("");
+    hapticFeedback.buttonClick();
   };
 
   // Read cache status (read-only, no modifications)
@@ -1101,13 +1130,17 @@ function Settings() {
 
       if (currentUser) {
         try {
-          await supabaseData.saveReminderPreferences(currentUser.id, {
-            enabled: nextReminderSettings.enabled,
-            start_time: nextReminderSettings.startTime,
-            reminder_count: nextReminderSettings.reminderCount,
-            interval_minutes: nextReminderSettings.intervalMinutes,
-            timezone: nextReminderSettings.timezone,
-          });
+          await withTimeout(
+            supabaseData.saveReminderPreferences(currentUser.id, {
+              enabled: nextReminderSettings.enabled,
+              start_time: nextReminderSettings.startTime,
+              reminder_count: nextReminderSettings.reminderCount,
+              interval_minutes: nextReminderSettings.intervalMinutes,
+              timezone: nextReminderSettings.timezone,
+            }),
+            REMINDER_SAVE_TIMEOUT_MS,
+            "Reminder settings save timed out. Please check your connection and try again.",
+          );
         } catch (error) {
           if (forceReminderSave) {
             setReminderSaveStatus({
@@ -2546,9 +2579,19 @@ function Settings() {
 
         <div className="danger-zone-header">
           <h2>Danger Zone</h2>
-          <span className={`danger-lock-badge ${isDangerUnlocked ? "is-unlocked" : ""}`}>
-            {isDangerUnlocked ? "Unlocked" : "Locked"}
-          </span>
+          {isDangerUnlocked ? (
+            <button
+              type="button"
+              className="danger-lock-badge is-unlocked is-clickable"
+              onClick={handleLockDangerZone}
+              aria-label="Lock Danger Zone"
+              title="Lock Danger Zone"
+            >
+              Unlocked
+            </button>
+          ) : (
+            <span className="danger-lock-badge">Locked</span>
+          )}
         </div>
 
         {!isDangerUnlocked && (

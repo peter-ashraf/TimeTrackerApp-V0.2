@@ -18,6 +18,91 @@ const SupabaseAuthContext = createContext();
 // Use the shared supabase client
 export const supabase = supabaseClient;
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const PASSWORD_VERIFY_TIMEOUT_MS = 8000;
+
+const maskEmailForLog = (email) => {
+  const [name = "", domain = ""] = String(email || "").split("@");
+  if (!name || !domain) return "(invalid email)";
+
+  return `${name.slice(0, 2)}***@${domain}`;
+};
+
+const verifyPasswordWithEmail = async (email, password) => {
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+    throw new Error("Unable to verify password because Supabase is not configured.");
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    PASSWORD_VERIFY_TIMEOUT_MS,
+  );
+
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
+      {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+          "Content-Type": "application/json",
+          "X-Client-Info": "timetracker-password-verifier",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          gotrue_meta_security: {},
+        }),
+        signal: controller.signal,
+      },
+    );
+
+    if (response.ok) {
+      return true;
+    }
+
+    const errorBody = await response.json().catch(() => ({}));
+    if (response.status >= 500) {
+      throw new Error("Password verification is temporarily unavailable. Please try again.");
+    }
+
+    if (response.status !== 400) {
+      console.warn("[Auth] Password verification candidate rejected:", {
+        email: maskEmailForLog(email),
+        message: errorBody.error_description || errorBody.msg || errorBody.error,
+        status: response.status,
+      });
+    }
+
+    return false;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("Password verification timed out. Please check your connection and try again.");
+    }
+
+    if (
+      error.message?.includes("timed out") ||
+      error.message?.includes("Failed to fetch") ||
+      error.message?.includes("NetworkError")
+    ) {
+      throw error;
+    }
+
+    console.warn("[Auth] Password verification candidate failed:", {
+      email: maskEmailForLog(email),
+      message: error.message,
+      name: error.name,
+      status: error.status,
+    });
+    return false;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
 export const useSupabaseAuth = () => {
   const context = useContext(SupabaseAuthContext);
   if (!context) {
@@ -262,7 +347,8 @@ export const SupabaseAuthProvider = ({ children }) => {
                 ...decodedUser,
                 username: resolvedUsername,
                 ...(decodedProfile || {}),
-                isLocalOnly: true
+                isCachedSession: true,
+                isLocalOnly: false,
               });
               setIsAuthenticated(true);
               if (rememberMeState) {
@@ -441,7 +527,6 @@ export const SupabaseAuthProvider = ({ children }) => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session?.user) {
-
         // Get user profile from profiles table
         try {
           const { data: profile, error: profileError } = await supabase
@@ -1317,39 +1402,77 @@ export const SupabaseAuthProvider = ({ children }) => {
         const localUser = localUsers[currentUser.username];
         const passwordHash = failsafeAuth.hashPassword(password);
 
-        if (!localUser || localUser.passwordHash !== passwordHash) {
+        if (localUser?.isLocalOnly && localUser.passwordHash === passwordHash) {
+          return true;
+        }
+
+        if (!currentUser.email || currentUser.email.endsWith("@local.fallback")) {
           throw new Error("Password is incorrect");
         }
-
-        return true;
       }
 
-      let email = currentUser.email;
-
-      if (!email) {
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("email")
-          .eq("id", currentUser.id)
-          .single();
-
-        if (profileError || !profile?.email) {
-          throw new Error("Unable to verify this account");
+      const candidateEmails = [];
+      const addCandidateEmail = (email) => {
+        const normalizedEmail = typeof email === "string" ? email.trim() : "";
+        if (
+          normalizedEmail &&
+          normalizedEmail.includes("@") &&
+          !candidateEmails.includes(normalizedEmail)
+        ) {
+          candidateEmails.push(normalizedEmail);
         }
+      };
 
-        email = profile.email;
+      addCandidateEmail(currentUser.email);
+
+      try {
+        const {
+          data: { session },
+        } = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise((resolve) =>
+            setTimeout(
+              () => resolve({ data: { session: null }, error: null }),
+              1200,
+            ),
+          ),
+        ]);
+
+        addCandidateEmail(session?.user?.email);
+        addCandidateEmail(session?.user?.user_metadata?.email);
+      } catch (error) {
+        console.warn("[Auth] Failed to read session email candidate:", error);
       }
 
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      try {
+        const cachedUser = JSON.parse(
+          localStorage.getItem("cached_currentUser") || "null",
+        );
+        const cachedProfile = JSON.parse(
+          localStorage.getItem("cached_userProfile") || "null",
+        );
 
-      if (error) {
-        throw new Error("Password is incorrect");
+        addCandidateEmail(cachedUser?.email);
+        addCandidateEmail(cachedProfile?.email);
+      } catch (error) {
+        console.warn("[Auth] Failed to read cached email candidates:", error);
       }
 
-      return true;
+      if (currentUser.username) {
+        addCandidateEmail(`${currentUser.username}@timetracker.local`);
+      }
+
+      if (candidateEmails.length === 0) {
+        throw new Error("Unable to verify this account");
+      }
+
+      for (const email of candidateEmails) {
+        if (await verifyPasswordWithEmail(email, password)) {
+          return true;
+        }
+      }
+
+      throw new Error("Password is incorrect");
     } catch (error) {
       throw error;
     }
