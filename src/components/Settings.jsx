@@ -35,6 +35,7 @@ const IS_DEV_MODE = import.meta.env.DEV;
 const REMINDER_COUNT_PRESETS = ["1", "2", "3", "4", "5"];
 const REMINDER_INTERVAL_PRESETS = ["5", "10", "15", "30"];
 const REMINDER_SAVE_TIMEOUT_MS = 12000;
+const SETTINGS_SAVE_TIMEOUT_MS = 12000;
 
 const withTimeout = (promise, timeoutMs, message) =>
   new Promise((resolve, reject) => {
@@ -1096,13 +1097,52 @@ function Settings() {
       }
     }
 
-    // NOW update local state after database save (or queue)
-    setEmployee((prev) => ({ ...prev, ...employeeData }));
-    setLeaveSettings((prev) => ({
-      ...prev,
+    const nextLeaveSettings = {
+      ...leaveSettings,
       annualVacation: parsedVacation,
       sickDays: parsedSickDays,
-    }));
+    };
+
+    if ((vacationChanged || sickDaysChanged) && currentUser) {
+      const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
+      setSimpleEncryptedItem(
+        leaveSettingsKey,
+        nextLeaveSettings,
+        currentUser.username,
+      );
+      cacheManager.setCachedData(
+        `leaveSettings_${currentUser.id}`,
+        nextLeaveSettings,
+      );
+
+      try {
+        await withTimeout(
+          supabaseData.saveLeaveSettings(currentUser.id, {
+            annual_vacation: nextLeaveSettings.annualVacation,
+            sick_days: nextLeaveSettings.sickDays,
+            personal_days: nextLeaveSettings.personalDays,
+            used_vacation_days: nextLeaveSettings.usedVacationDays,
+            used_sick_days: nextLeaveSettings.usedSickDays,
+            used_personal_days: nextLeaveSettings.usedPersonalDays,
+          }),
+          SETTINGS_SAVE_TIMEOUT_MS,
+          "Leave settings save timed out. Please check your connection and try again.",
+        );
+      } catch (error) {
+        setNotifModal({
+          isOpen: true,
+          isError: true,
+          message:
+            error.message ||
+            "Leave settings were saved locally, but Supabase did not update.",
+        });
+        return;
+      }
+    }
+
+    // NOW update local state after database save (or queue)
+    setEmployee((prev) => ({ ...prev, ...employeeData }));
+    setLeaveSettings(nextLeaveSettings);
 
     // Update reminder settings
     if (
@@ -1687,6 +1727,7 @@ function Settings() {
               <label className="form-label">Monthly Salary (L.E.)</label>
               <input
                 type="number"
+                inputMode="decimal"
                 className="form-control"
                 value={salary ?? 0}
                 onChange={(e) => setSalary(e.target.value)}
@@ -1750,6 +1791,7 @@ function Settings() {
                 <label className="form-label">Daily Hours</label>
                 <input
                   type="number"
+                  inputMode="decimal"
                   className="form-control"
                   value={dailyHours ?? 9}
                   onChange={(e) => setDailyHours(e.target.value)}
@@ -1837,6 +1879,7 @@ function Settings() {
             <label className="form-label">Annual Vacation Days</label>
             <input
               type="number"
+              inputMode="numeric"
               className="form-control"
               value={annualVacation ?? 10}
               onChange={(e) => setAnnualVacation(e.target.value)}
@@ -1851,6 +1894,7 @@ function Settings() {
             <label className="form-label">Sick Days</label>
             <input
               type="number"
+              inputMode="numeric"
               className="form-control"
               value={sickDays ?? 7}
               onChange={(e) => setSickDays(e.target.value)}
@@ -1925,6 +1969,7 @@ function Settings() {
                   <div style={{ display: "flex", gap: "10px" }}>
                     <input
                       type="number"
+                      inputMode="numeric"
                       className="form-control"
                       value={customReminderCount}
                       onChange={(e) => setCustomReminderCount(e.target.value)}
@@ -1970,6 +2015,7 @@ function Settings() {
                   <div style={{ display: "flex", gap: "10px" }}>
                     <input
                       type="number"
+                      inputMode="numeric"
                       className="form-control"
                       value={customReminderInterval}
                       onChange={(e) => setCustomReminderInterval(e.target.value)}
@@ -2799,6 +2845,7 @@ function Settings() {
               <input
                 id="conflict-preview-count"
                 type="number"
+                inputMode="numeric"
                 className="form-control"
                 min="1"
                 max="20"
@@ -2994,6 +3041,7 @@ function Settings() {
                     <label className="form-label">Number of Notifications</label>
                     <input
                       type="number"
+                      inputMode="numeric"
                       className="form-input"
                       value={customTestCount}
                       onChange={(e) => setCustomTestCount(e.target.value)}
@@ -3016,6 +3064,7 @@ function Settings() {
                     <label className="form-label">Interval (minutes)</label>
                     <input
                       type="number"
+                      inputMode="numeric"
                       className="form-input"
                       value={customTestInterval}
                       onChange={(e) => setCustomTestInterval(e.target.value)}

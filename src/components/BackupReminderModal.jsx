@@ -48,6 +48,7 @@ function BackupReminderModal({ isOpen, onExport, onRemindLater, onDismiss, onClo
             <div className="custom-days-input">
               <input
                 type="number"
+                inputMode="numeric"
                 min="1"
                 max="30"
                 value={customDays}

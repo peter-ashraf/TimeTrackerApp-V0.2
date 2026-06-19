@@ -144,6 +144,7 @@ export const UserPreferencesProvider = ({ children }) => {
       const salaryKey = `salary_${currentUser.id}`;
       const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
       const reminderSettingsKey = `reminderSettings_${currentUser.id}`;
+      const leaveSettingsCacheKey = `leaveSettings_${currentUser.id}`;
 
       let localSalary =
         getSimpleEncryptedItem(salaryKey, currentUser.username) ?? 0;
@@ -152,7 +153,7 @@ export const UserPreferencesProvider = ({ children }) => {
       let localLeaveSettings = null;
       try {
         const cachedLeaveSettings = await cacheManager.getCachedData(
-          "leaveSettings",
+          leaveSettingsCacheKey,
           null,
         );
         if (cachedLeaveSettings) {
@@ -277,7 +278,18 @@ export const UserPreferencesProvider = ({ children }) => {
             }
 
             if (leaveSettingsData) {
-              setLeaveSettings(normalizeLeaveSettings(leaveSettingsData));
+              const normalizedCloudLeaveSettings =
+                normalizeLeaveSettings(leaveSettingsData);
+              setLeaveSettings(normalizedCloudLeaveSettings);
+              setSimpleEncryptedItem(
+                leaveSettingsKey,
+                normalizedCloudLeaveSettings,
+                currentUser.username,
+              );
+              cacheManager.setCachedData(
+                leaveSettingsCacheKey,
+                normalizedCloudLeaveSettings,
+              );
             } else {
               // If no settings exist on Supabase, initialize the DB record with local/default data
               const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
@@ -296,6 +308,10 @@ export const UserPreferencesProvider = ({ children }) => {
                   used_sick_days: normalizedLocal.usedSickDays,
                   used_personal_days: normalizedLocal.usedPersonalDays,
                 });
+                cacheManager.setCachedData(
+                  leaveSettingsCacheKey,
+                  normalizedLocal,
+                );
               } catch (saveError) {
                 console.error(
                   "Failed to initialize leave settings on Supabase:",
@@ -406,7 +422,10 @@ export const UserPreferencesProvider = ({ children }) => {
 
       // Also save to cacheManager for offline access
       try {
-        cacheManager.setCachedData("leaveSettings", normalizedLeaveSettings);
+        cacheManager.setCachedData(
+          `leaveSettings_${currentUser.id}`,
+          normalizedLeaveSettings,
+        );
       } catch (cacheError) {
         console.warn(
           "Failed to save leaveSettings to cacheManager:",

@@ -9,6 +9,7 @@ function EditEntryModal({ entry, onClose }) {
 
   // Track if user made any modifications
   const [hasModifications, setHasModifications] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // ✅ Convert HH:MM:SS to display format (keep seconds)
   const formatTimeForDisplay = (time) => {
@@ -101,6 +102,8 @@ function EditEntryModal({ entry, onClose }) {
   };
 
   const handleSave = async () => {
+    if (isSaving) return;
+
     // Check if user made any modifications
     if (!hasModifications) {
       showValidationError(
@@ -164,6 +167,7 @@ function EditEntryModal({ entry, onClose }) {
 
     // Update entry with all modified fields
     try {
+      setIsSaving(true);
       await updateEntry(entry.date, {
         type: editedEntry.type,
         intervals: validIntervals,
@@ -172,13 +176,12 @@ function EditEntryModal({ entry, onClose }) {
         doubleHours: editedEntry.doubleHours
       });
 
+      onClose();
       showSuccessModal();
-      setTimeout(() => {
-        onClose();
-      }, 1000); // Close after success modal
     } catch (error) {
       console.error('[Update] Failed to update entry:', error);
       showValidationError('Save Failed', 'Failed to save changes. Please try again.', 'error');
+      setIsSaving(false);
     }
   };
 
