@@ -27,6 +27,39 @@ export const PayPeriodProvider = ({ children }) => {
   const isSettingCurrentRef = useRef(false);
   const refreshKeyRef = useRef(0);
 
+  const normalizeCurrentFlags = useCallback((periodList, selectedId) => {
+    if (!Array.isArray(periodList)) return [];
+
+    const validSelectedId = selectedId && selectedId !== 'undefined' && selectedId !== 'null'
+      ? String(selectedId)
+      : null;
+    const fallbackCurrent = !validSelectedId
+      ? periodList.find(period => period?.is_current === true)
+      : null;
+    const currentId = validSelectedId || (fallbackCurrent ? String(fallbackCurrent.id) : null);
+
+    return periodList.map(period => ({
+      ...period,
+      is_current: currentId ? String(period.id) === currentId : !!period.is_current
+    }));
+  }, []);
+
+  const persistCurrentPeriodId = useCallback((periodId, periodList = []) => {
+    if (!currentUser || !periodId) return;
+
+    const currentPeriodIdKey = `currentPeriodId_${currentUser.id}`;
+    localStorage.setItem(currentPeriodIdKey, periodId);
+
+    try {
+      cacheManager.setCachedData('currentPeriod', periodId);
+      if (Array.isArray(periodList) && periodList.length > 0) {
+        cacheManager.setCachedData('payPeriods', periodList);
+      }
+    } catch (cacheError) {
+      console.warn('Failed to persist current period cache:', cacheError);
+    }
+  }, [currentUser]);
+
   // Load pay periods data
   const loadPayPeriodsData = useCallback(async () => {
     if (!currentUser || !isAuthenticated) return;
@@ -59,7 +92,8 @@ export const PayPeriodProvider = ({ children }) => {
         localCurrentPeriodId = localStorage.getItem(currentPeriodIdKey);
       }
 
-      setPeriods(localPeriods);
+      const normalizedLocalPeriods = normalizeCurrentFlags(localPeriods, localCurrentPeriodId);
+      setPeriods(normalizedLocalPeriods);
       if (localCurrentPeriodId && localCurrentPeriodId !== 'undefined' && localCurrentPeriodId !== 'null') {
         setCurrentPeriodId(localCurrentPeriodId);
       }
@@ -86,13 +120,20 @@ export const PayPeriodProvider = ({ children }) => {
             ]);
 
             if (periodsData && periodsData.length > 0) {
-              setPeriods(periodsData);
+              let selectedId = localCurrentPeriodId;
               if (currentPeriodData) {
                 const pId = currentPeriodData.id || currentPeriodData;
                 if (pId && pId !== 'undefined' && pId !== 'null') {
-                  setCurrentPeriodId(pId);
-                  localStorage.setItem(currentPeriodIdKey, pId);
+                  selectedId = pId;
                 }
+              }
+
+              const normalizedPeriodsData = normalizeCurrentFlags(periodsData, selectedId);
+              setPeriods(normalizedPeriodsData);
+
+              if (selectedId && selectedId !== 'undefined' && selectedId !== 'null') {
+                setCurrentPeriodId(selectedId);
+                persistCurrentPeriodId(selectedId, normalizedPeriodsData);
               }
             }
           } catch (onlineError) {
@@ -104,12 +145,13 @@ export const PayPeriodProvider = ({ children }) => {
     } catch (error) {
       console.error('loadPayPeriodsData critical error:', error);
     }
-  }, [currentUser, isAuthenticated]);
+  }, [currentUser, isAuthenticated, normalizeCurrentFlags, persistCurrentPeriodId]);
 
   // Save pay periods data
   useEffect(() => {
     if (!currentUser || !periods) return;
     if (isSavingPeriodsRef.current) return;
+    if (isSettingCurrentRef.current) return;
 
     const savePayPeriodsData = async () => {
       isSavingPeriodsRef.current = true;
@@ -192,16 +234,15 @@ export const PayPeriodProvider = ({ children }) => {
       return null;
     }
     
-    // First try to find the period marked as current in the database
-    const currentFromDb = periods.find(p => p.is_current === true);
-    if (currentFromDb) {
-      return currentFromDb;
-    }
-    
-    // Fallback to currentPeriodId state
+    // The selected local id is the source of truth. Database flags can be stale.
     const found = periods.find(p => String(p.id) === String(currentPeriodId));
     if (found) {
       return found;
+    }
+
+    const currentFromDb = periods.find(p => p.is_current === true);
+    if (currentFromDb) {
+      return currentFromDb;
     }
     
     // Final fallback to first period
@@ -210,39 +251,52 @@ export const PayPeriodProvider = ({ children }) => {
 
   // Set current period
   const setCurrentPeriod = async (periodId) => {
-    if (!currentUser || !periodId || isSettingCurrentRef.current) return;
+    if (!currentUser || !periodId || isSettingCurrentRef.current) {
+      return { success: false, cloudSynced: false, error: 'Current period update is already running.' };
+    }
+
+    const selectedPeriod = periods.find(p => String(p.id) === String(periodId));
+    if (!selectedPeriod) {
+      return { success: false, cloudSynced: false, error: 'Selected period was not found.' };
+    }
 
     isSettingCurrentRef.current = true;
+    const optimisticPeriods = normalizeCurrentFlags(periods, periodId);
 
     try {
-      await supabaseData.setCurrentPayPeriod(currentUser.id, periodId);
+      setCurrentPeriodId(periodId);
+      setPeriods(optimisticPeriods);
+      persistCurrentPeriodId(periodId, optimisticPeriods);
 
-      // Add delay to ensure database trigger completes
-      await new Promise(resolve => setTimeout(resolve, 500));
+      let cloudSynced = false;
 
-      // Force refresh of pay periods data
-      const periodsData = await supabaseData.getPayPeriods(currentUser.id);
-      if (periodsData && periodsData.length > 0) {
-        setPeriods(periodsData);
-        setCurrentPeriodId(periodId);
+      if (navigator.onLine && !currentUser.isLocalOnly && !String(periodId).startsWith('period-')) {
+        const updatedCurrent = await supabaseData.setCurrentPayPeriod(currentUser.id, periodId);
+        cloudSynced = !!updatedCurrent;
 
-        const currentPeriodIdKey = `currentPeriodId_${currentUser.id}`;
-        localStorage.setItem(currentPeriodIdKey, periodId);
-
-        // Also save to cacheManager
         try {
-          cacheManager.setCachedData('currentPeriod', periodId);
-          cacheManager.setCachedData('payPeriods', periodsData);
-        } catch (cacheError) {
-          console.warn('Failed to save to cacheManager in setCurrentPeriod:', cacheError);
+          const periodsData = await supabaseData.getPayPeriods(currentUser.id);
+          if (periodsData && periodsData.length > 0) {
+            const normalizedPeriodsData = normalizeCurrentFlags(periodsData, periodId);
+            setPeriods(normalizedPeriodsData);
+            persistCurrentPeriodId(periodId, normalizedPeriodsData);
+          }
+        } catch (refreshError) {
+          console.warn('Current period changed locally, but cloud refresh failed:', refreshError);
         }
       }
 
-      // Increment refresh key to trigger component re-renders
       refreshKeyRef.current += 1;
+      return { success: true, cloudSynced, error: null };
 
     } catch (error) {
       console.error('Failed to set current period:', error);
+      refreshKeyRef.current += 1;
+      return {
+        success: true,
+        cloudSynced: false,
+        error: error?.message || 'Current period changed locally, but cloud sync failed.'
+      };
     } finally {
       isSettingCurrentRef.current = false;
     }

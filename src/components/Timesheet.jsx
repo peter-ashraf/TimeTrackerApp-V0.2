@@ -5,6 +5,7 @@ import { debounce } from '../utils/performanceUtils';
 import ManualTimeModal from './ManualTimeModal';
 import AddBreakModal from './AddBreakModal';
 import EditEntryModal from './EditEntryModal';
+import TimesheetCompareModal from './TimesheetCompareModal';
 import NoPeriodPrompt from './NoPeriodPrompt';
 import VirtualizedTimesheetTable from './VirtualizedTimesheetTable';
 import CustomSelect from './CustomSelect';
@@ -136,6 +137,7 @@ function Timesheet() {
   const [showManualIn, setShowManualIn] = useState(false);
   const [showManualOut, setShowManualOut] = useState(false);
   const [showAddBreak, setShowAddBreak] = useState(false);
+  const [showCompareModal, setShowCompareModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [showNoPeriodPrompt, setShowNoPeriodPrompt] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -302,7 +304,19 @@ function Timesheet() {
         </div>
       ) : (
         <>
-          <h1>Timesheet</h1>
+          <div className="timesheet-page-header">
+            <h1>Timesheet</h1>
+            <button
+              type="button"
+              className="btn btn-secondary timesheet-compare-button"
+              onClick={() => {
+                hapticFeedback.buttonClick();
+                setShowCompareModal(true);
+              }}
+            >
+              Compare HR Timesheet
+            </button>
+          </div>
 
           {/* Timesheet Controls */}
           <div className="timesheet-controls">
@@ -318,7 +332,7 @@ function Timesheet() {
                     opts.push({ label: `--- ${year} ---`, value: `year-${year}`, disabled: true });
                     yearPeriods.forEach(period => {
                       opts.push({
-                        label: `${period.label} ${period.is_current ? '(Current)' : ''}`,
+                        label: `${period.label} ${String(period.id) === String(currentPeriodId) ? '(Current)' : ''}`,
                         value: period.id
                       });
                     });
@@ -531,6 +545,12 @@ function Timesheet() {
           {showManualIn && <ManualTimeModal mode="checkIn" onClose={() => setShowManualIn(false)} />}
           {showManualOut && <ManualTimeModal mode="checkOut" onClose={() => setShowManualOut(false)} />}
           {showAddBreak && <AddBreakModal onClose={() => setShowAddBreak(false)} />}
+          {showCompareModal && (
+            <TimesheetCompareModal
+              onClose={() => setShowCompareModal(false)}
+              onEditEntry={setEditingEntry}
+            />
+          )}
           {editingEntry && <EditEntryModal entry={editingEntry} onClose={() => setEditingEntry(null)} />}
           {showNoPeriodPrompt && <NoPeriodPrompt onOpenSettings={() => {
             localStorage.setItem('navigateToAddPeriod', 'true');

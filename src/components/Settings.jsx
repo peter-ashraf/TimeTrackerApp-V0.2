@@ -463,6 +463,7 @@ function Settings() {
   const [dangerUnlockError, setDangerUnlockError] = useState("");
   const [isUnlockingDanger, setIsUnlockingDanger] = useState(false);
   const [isSyncingNow, setIsSyncingNow] = useState(false);
+  const [settingCurrentPeriodId, setSettingCurrentPeriodId] = useState(null);
   const [syncStatus, setSyncStatus] = useState(() =>
     getSyncStatusSnapshot(currentUser, entries),
   );
@@ -1249,12 +1250,10 @@ function Settings() {
   };
 
   const categorizePeriods = () => {
-    // First try to find current period using is_current flag
-    let current = periods.find((p) => p.is_current === true);
+    let current = periods.find((p) => String(p.id) === String(currentPeriodId));
 
-    // Fallback to currentPeriodId if no is_current flag found
     if (!current) {
-      current = periods.find((p) => String(p.id) === String(currentPeriodId));
+      current = periods.find((p) => p.is_current === true);
     }
 
     const otherPeriods = periods.filter(
@@ -1278,6 +1277,39 @@ function Settings() {
   };
 
   const { current, upcoming, previous } = categorizePeriods();
+
+  const handleSetCurrentPeriod = async (period) => {
+    if (!period || period.id?.startsWith("period-") || settingCurrentPeriodId) {
+      return;
+    }
+
+    setSettingCurrentPeriodId(period.id);
+
+    try {
+      const result = await setCurrentPeriod(period.id);
+      const changedLocally = result?.success;
+
+      setConfirmModal({
+        isOpen: true,
+        title: changedLocally
+          ? result.cloudSynced
+            ? "Period Updated"
+            : "Period Updated Locally"
+          : "Period Update Failed",
+        message: changedLocally
+          ? result.cloudSynced
+            ? `"${period.label}" is now the current period.`
+            : `"${period.label}" is now current on this device, but cloud sync did not complete. It will retry through the normal sync flow.`
+          : result?.error || "Could not set this period as current.",
+        type: changedLocally ? (result.cloudSynced ? "success" : "warning") : "danger",
+        confirmText: "OK",
+        showCancel: false,
+        onConfirm: () => setConfirmModal((prev) => ({ ...prev, isOpen: false })),
+      });
+    } finally {
+      setSettingCurrentPeriodId(null);
+    }
+  };
 
   const handleAddPeriod = (e) => {
     e.preventDefault();
@@ -2221,12 +2253,14 @@ function Settings() {
                       <div className="period-actions">
                         <button
                           className="btn btn-sm btn-outline"
-                          onClick={() => setCurrentPeriod(period.id)}
-                          disabled={period.id.startsWith("period-")}
+                          onClick={() => handleSetCurrentPeriod(period)}
+                          disabled={period.id.startsWith("period-") || settingCurrentPeriodId === period.id}
                         >
-                          {period.id.startsWith("period-")
-                            ? "Saving..."
-                            : "Set as Current"}
+                          {settingCurrentPeriodId === period.id
+                            ? "Setting..."
+                            : period.id.startsWith("period-")
+                              ? "Saving..."
+                              : "Set as Current"}
                         </button>
                         <button
                           className="btn btn-sm btn-outline"
@@ -2317,12 +2351,14 @@ function Settings() {
                       <div className="period-actions">
                         <button
                           className="btn btn-sm btn-outline"
-                          onClick={() => setCurrentPeriod(period.id)}
-                          disabled={period.id.startsWith("period-")}
+                          onClick={() => handleSetCurrentPeriod(period)}
+                          disabled={period.id.startsWith("period-") || settingCurrentPeriodId === period.id}
                         >
-                          {period.id.startsWith("period-")
-                            ? "Saving..."
-                            : "Set as Current"}
+                          {settingCurrentPeriodId === period.id
+                            ? "Setting..."
+                            : period.id.startsWith("period-")
+                              ? "Saving..."
+                              : "Set as Current"}
                         </button>
                         <button
                           className="btn btn-sm btn-outline"
