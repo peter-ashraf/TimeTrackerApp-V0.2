@@ -10,6 +10,10 @@ import {
   markPendingTimeEntrySync
 } from '../utils/timeEntrySyncStatus';
 import { syncTimeEntryToCloud } from '../utils/timeEntrySyncManager';
+import {
+  buildTimeEntrySyncPlan,
+  normalizeDateKey as normalizeSyncDateKey,
+} from '../utils/timeEntrySyncPlanner';
 
 const TimeEntryContext = createContext();
 
@@ -59,72 +63,7 @@ export const TimeEntryProvider = ({ children }) => {
     return `${hours}:${minutes}:${seconds}`;
   }, []);
 
-  const normalizeDateKey = useCallback((date) => {
-    if (!date) return '';
-    return String(date).split('T')[0].trim();
-  }, []);
-
-  const normalizeTimeValue = useCallback((value) => {
-    if (!value) return '';
-    const text = String(value).trim();
-    if (!text) return '';
-
-    if (text.includes('T') || text.includes('Z')) {
-      const parsed = new Date(text);
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed.toTimeString().split(' ')[0];
-      }
-    }
-
-    const parts = text.split(':');
-    if (parts.length === 2) return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:00`;
-    if (parts.length >= 3) return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:${parts[2].padStart(2, '0')}`;
-    return text;
-  }, []);
-
-  const normalizeIntervals = useCallback((intervals) => {
-    let parsedIntervals = intervals;
-
-    if (typeof parsedIntervals === 'string') {
-      try {
-        parsedIntervals = JSON.parse(parsedIntervals);
-      } catch (error) {
-        parsedIntervals = [];
-      }
-    }
-
-    if (!Array.isArray(parsedIntervals)) return [];
-
-    return parsedIntervals.map((interval) => ({
-      in: normalizeTimeValue(interval?.in),
-      out: normalizeTimeValue(interval?.out)
-    }));
-  }, [normalizeTimeValue]);
-
-  const entriesAreDifferent = useCallback((localEntry, remoteEntry) => {
-    const localType = localEntry?.type || 'Regular';
-    const remoteType = remoteEntry?.type || 'Regular';
-
-    const localIntervals = JSON.stringify(normalizeIntervals(localEntry?.intervals));
-    const remoteIntervals = JSON.stringify(normalizeIntervals(remoteEntry?.intervals));
-
-    const localNotes = (localEntry?.notes || '').trim();
-    const remoteNotes = (remoteEntry?.notes || '').trim();
-
-    const localDuration = localEntry?.duration || 1;
-    const remoteDuration = remoteEntry?.duration || 1;
-
-    const localDouble = !!(localEntry?.doubleHours || localEntry?.double_hours);
-    const remoteDouble = !!(remoteEntry?.doubleHours || remoteEntry?.double_hours);
-
-    return (
-      localType !== remoteType ||
-      localIntervals !== remoteIntervals ||
-      localNotes !== remoteNotes ||
-      localDuration !== remoteDuration ||
-      localDouble !== remoteDouble
-    );
-  }, [normalizeIntervals]);
+  const normalizeDateKey = useCallback(normalizeSyncDateKey, []);
 
   // Update entries function
   const updateEntries = useCallback((newEntries) => {
@@ -379,41 +318,23 @@ export const TimeEntryProvider = ({ children }) => {
         });
       syncResult.remoteCount = entriesData?.length || 0;
 
-      const localMap = new Map(localEntries.map(e => [normalizeDateKey(e.date), e]));
-      const remoteMap = new Map((entriesData || []).map(e => [normalizeDateKey(e.date), e]));
+      const {
+        entriesToUpload,
+        finalEntries,
+        conflicts,
+        pulledCount,
+      } = buildTimeEntrySyncPlan({
+        localEntries,
+        remoteEntries: entriesData || [],
+      });
 
-      const entriesToUpload = [];
-      const finalEntries = [];
-      const conflicts = [];
+      syncResult.pulledCount = pulledCount;
 
-      for (const [date, remoteEntry] of remoteMap) {
-        const localEntry = localMap.get(date);
-
-        if (!localEntry) {
-          finalEntries.push(remoteEntry);
-          syncResult.pulledCount += 1;
-        } else if (entriesAreDifferent(localEntry, remoteEntry)) {
-          conflicts.push({
-            entryId: remoteEntry.id || localEntry.id,
-            date,
-            localEntry,
-            remoteEntry
-          });
-        } else {
-          finalEntries.push({
-            ...localEntry,
-            id: remoteEntry.id
-          });
-          clearPendingTimeEntrySync(currentUser.id, localEntry);
+      finalEntries.forEach((entry) => {
+        if (entry?.id) {
+          clearPendingTimeEntrySync(currentUser.id, entry);
         }
-      }
-
-      for (const [date, localEntry] of localMap) {
-        if (!remoteMap.has(date)) {
-          finalEntries.push(localEntry);
-          entriesToUpload.push(localEntry);
-        }
-      }
+      });
 
       syncResult.conflictCount = conflicts.length;
       syncResult.uploadCount = entriesToUpload.length;
@@ -492,7 +413,7 @@ export const TimeEntryProvider = ({ children }) => {
     } finally {
       isLoadingRef.current = false;
     }
-  }, [currentUser, isAuthenticated, entriesAreDifferent, normalizeDateKey]);
+  }, [currentUser, isAuthenticated, normalizeDateKey]);
 
   // Only save local storage heavily on array change.
   // We remove the cloud save from here to prevent loops on 100 items.

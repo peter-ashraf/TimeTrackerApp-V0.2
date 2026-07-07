@@ -14,11 +14,7 @@ import { useSupabaseAuth } from "./context/SupabaseAuthContext";
 
 import { useTimeEntry } from "./context/TimeEntryContext";
 
-import { useInstantData } from "./hooks/useInstantData";
-
-import { backgroundSync } from "./utils/backgroundSync-enhanced";
-
-import { supabaseData } from "./utils/supabaseData";
+import { backgroundSync } from "./utils/backgroundSync";
 import { notificationManager } from "./utils/notificationManager";
 import Header from "./components/Header";
 
@@ -80,10 +76,8 @@ function App() {
     lastRefreshed,
     entries,
     theme,
-    setEntries,
     setLastRefreshed,
     setRefreshing,
-    refreshEmployeeData,
     isSaving,
     saveStatus,
   } = useTimeTracker();
@@ -91,8 +85,6 @@ function App() {
   const {
     currentUser,
     isAuthenticated,
-    getUserData,
-    saveUserData,
     isAppLoading,
     isLoading: authLoading,
   } = useSupabaseAuth();
@@ -104,13 +96,6 @@ function App() {
     isConflictModalOpen,
     closeConflictModal,
   } = useTimeEntry();
-
-  const {
-    data: instantData,
-    cacheStatus,
-    forceRefresh,
-    isOnline,
-  } = useInstantData();
 
   const [refreshing, setRefreshingState] = useState(false);
 
@@ -530,169 +515,35 @@ function App() {
     return mergedEntries;
   };
 
-  // Enhanced refresh data function with proper PWA integration
-
   const refreshData = useCallback(async () => {
     if (!currentUser || !isAuthenticated) return;
 
     try {
       setRefreshing(true);
 
-      // Use instant data refresh if available
-
-      if (instantData.timeEntries.length > 0 || !navigator.onLine) {
-        // If we have cached data or are offline, use instant refresh
-
-        console.log("App: Calling refreshEmployeeData directly...");
-        // Skip forceRefresh since it's timing out and go straight to TimeTrackerContext refresh
-        await refreshEmployeeData();
-
-        // DO NOT set entries here - TimeEntryContext manages entries with conflict resolution
-        // useInstantData only updates cacheManager, not the entries state
-        // setEntries(instantData.timeEntries || []);
-
-        setLastRefreshed(new Date().toISOString());
-
-        return {
-          success: true,
-
-          entriesCount: instantData.timeEntries?.length || 0,
-
-          isOnline: navigator.onLine,
-
-          fromCache: true,
-        };
-      }
-
-      // Try background sync first
-
       try {
         await backgroundSync.forceSync();
       } catch (syncError) {
-        console.warn("Background sync failed, using fallback:", syncError);
+        console.warn("Background queue sync failed; continuing with entry sync:", syncError);
       }
 
-      const syncStatus = backgroundSync.getStatus();
+      const result = await loadTimeEntriesData({
+        forceConflictCheck: true,
+        fetchTimeoutMs: 30000,
+      });
 
-      const loadedEmployee = {
-        name: getUserData("fullName") || "",
-
-        salary: parseFloat(getUserData("salary")) || 0,
-      };
-
-      const loadedLeaveSettings = {
-        annualVacation: parseFloat(getUserData("annualVacation")) || 10,
-
-        sickDays: parseFloat(getUserData("sickDays")) || 7,
-      };
-
-      let loadedEntries = [];
-
-      // Try to get fresh data from Supabase first
-
-      try {
-        if (currentUser && !currentUser.isLocalOnly && syncStatus.isOnline) {
-          const supabaseEntries = await supabaseData
-            .getTimeEntries(currentUser.id)
-            .catch((err) => {
-              if (
-                err.message?.includes("Unauthorized") ||
-                err.message?.includes("401")
-              ) {
-                console.warn(
-                  "Session expired during time entries fetch in App refresh",
-                );
-                return [];
-              }
-              throw err;
-            });
-
-          if (supabaseEntries && supabaseEntries.length > 0) {
-            // Save Supabase data to localStorage for offline use
-
-            if (getUserData("timeEntries")) {
-              saveUserData("timeEntries", supabaseEntries);
-            }
-
-            loadedEntries = supabaseEntries;
-          }
-        }
-      } catch (supabaseError) {
-        console.warn(
-          "Supabase fetch failed, using localStorage:",
-          supabaseError,
-        );
-      }
-
-      // Fallback to localStorage if Supabase failed or user is local-only
-
-      if (loadedEntries.length === 0) {
-        loadedEntries = getUserData("timeEntries") || [];
-      }
-
-      const validatedLoadedEntries = validateTimeEntries(loadedEntries);
-
-      // Merge current entries with loaded entries, prioritizing Supabase data
-
-      const mergedEntries = mergeEntries(entries, validatedLoadedEntries);
-
-      // Additional merge logic to handle deleted entries
-
-      if (currentUser && !currentUser.isLocalOnly && syncStatus.isOnline) {
-        try {
-          const freshSupabaseEntries = await supabaseData
-            .getTimeEntries(currentUser.id)
-            .catch((err) => {
-              if (
-                err.message?.includes("Unauthorized") ||
-                err.message?.includes("401")
-              ) {
-                console.warn(
-                  "Session expired during fresh time entries fetch in App",
-                );
-                return [];
-              }
-              throw err;
-            });
-
-          const supabaseDates = new Set(
-            freshSupabaseEntries.map((entry) => entry.date),
-          );
-
-          // Remove entries that no longer exist in Supabase
-
-          const cleanedEntries = mergedEntries.filter(
-            (entry) => !entry.date || supabaseDates.has(entry.date),
-          );
-
-          setEntries(cleanedEntries);
-
-          // Update localStorage with cleaned data
-
-          if (cleanedEntries.length !== mergedEntries.length) {
-            saveUserData("timeEntries", cleanedEntries);
-          }
-        } catch (cleanupError) {
-          console.warn("Failed to clean up deleted entries:", cleanupError);
-
-          setEntries(mergedEntries);
-        }
-      } else {
-        setEntries(mergedEntries);
+      if (result && !result.success) {
+        throw new Error(result.message || "Refresh failed");
       }
 
       setLastRefreshed(new Date().toISOString());
-
       return {
         success: true,
-
-        entriesCount: mergedEntries.length,
-
-        syncStatus,
-
-        isOnline: syncStatus.isOnline,
-
-        fromCache: false,
+        entriesCount: result?.mergedCount ?? entries.length,
+        syncStatus: backgroundSync.getStatus(),
+        isOnline: navigator.onLine,
+        requiresResolution: !!result?.requiresResolution,
+        message: result?.message || "Refresh completed.",
       };
     } catch (error) {
       console.error("Refresh data failed:", error);
@@ -705,19 +556,15 @@ function App() {
     currentUser,
     isAuthenticated,
     entries,
-    instantData,
-    getUserData,
-    setEntries,
     setLastRefreshed,
     setRefreshing,
-    saveUserData,
-    forceRefresh,
+    loadTimeEntriesData,
   ]);
 
   // ✅ ALL EFFECTS ARE NOW AT TOP LEVEL
 
   useEffect(() => {
-    // Initialize enhanced background sync
+    // Initialize background sync
 
     const initTimer = setTimeout(() => {
       backgroundSync.init().catch((error) => {

@@ -5,7 +5,7 @@ import { usePayPeriod } from "../context/PayPeriodContext";
 import { supabaseData } from "../utils/supabaseData";
 import hapticFeedback from "../utils/hapticFeedback";
 import cacheManager from "../utils/cacheManager";
-import { backgroundSync } from "../utils/backgroundSync-enhanced";
+import { backgroundSync } from "../utils/backgroundSync";
 import { offlineQueue } from "../utils/offlineQueue";
 const ExportModal = React.lazy(() => import("./ExportModal"));
 const ImportModal = React.lazy(() => import("./ImportModal"));
@@ -173,7 +173,6 @@ const getStoredQueueLength = (key) => {
 const getSyncStatusSnapshot = (currentUser, entries) => {
   const backgroundStatus = backgroundSync.getStatus();
   const offlineStatus = offlineQueue.getStatus();
-  const storedBackgroundQueue = getStoredQueueLength("tt_sync_queue");
   const appSaveQueue = getStoredQueueLength("dbSaveQueue");
   const timeEntrySync = mergePendingTimeEntrySync(
     getPendingTimeEntrySyncStatus(currentUser?.id),
@@ -184,11 +183,12 @@ const getSyncStatusSnapshot = (currentUser, entries) => {
     isOnline: navigator.onLine,
     isSyncing:
       backgroundStatus.isSyncing ||
+      backgroundStatus.syncInProgress ||
       offlineStatus.isProcessing ||
       (navigator.onLine && timeEntrySync.pending > 0),
     backgroundQueue: Math.max(
       backgroundStatus.queueLength || 0,
-      storedBackgroundQueue,
+      backgroundStatus.queueStatus?.pending || 0,
       timeEntrySync.pending,
     ),
     appSaveQueue,

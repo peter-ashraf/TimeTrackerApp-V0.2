@@ -16,6 +16,7 @@ class BackgroundSync {
     this.lastSyncTime = null;
     this.listeners = [];
     this.syncInterval = null;
+    this.initialized = false;
     this.conflictResolution = 'local_wins'; // or 'remote_wins', 'merge', 'prompt'
   }
 
@@ -23,6 +24,11 @@ class BackgroundSync {
    * Initialize the sync service
    */
   async init() {
+    if (this.initialized) {
+      return this.getStatus();
+    }
+
+    this.initialized = true;
     await offlineQueue.init();
     
     // Initialize multi-tab sync
@@ -385,7 +391,11 @@ class BackgroundSync {
           const currentUserData = loadFromStorage('currentUser', username);
           
           if (currentUserData && !currentUserData.isLocalOnly && currentUserData.id) {
-            await supabaseData.deleteTimeEntry(currentUserData.id, data.date);
+            await supabaseData.deleteTimeEntry({
+              userId: currentUserData.id,
+              date: data.date,
+              id: data.id
+            });
           }
         } catch (supabaseError) {
           console.warn(`Failed to delete entry ${data.date} from Supabase:`, supabaseError);
@@ -435,18 +445,24 @@ class BackgroundSync {
    * Force immediate sync
    */
   async forceSync() {
-    return await this.performSync();
+    await this.performSync();
+    return this.getStatus();
   }
 
   /**
    * Get sync status
    */
   getStatus() {
+    const queueStatus = offlineQueue.getStatus();
+
     return {
       isOnline: this.isOnline,
       syncInProgress: this.syncInProgress,
+      isSyncing: this.syncInProgress || !!queueStatus.isProcessing,
       lastSyncTime: this.lastSyncTime,
-      queueStatus: offlineQueue.getStatus()
+      queueStatus,
+      queueLength: queueStatus.pending || queueStatus.queueLength || 0,
+      pendingActions: []
     };
   }
 
@@ -490,6 +506,7 @@ class BackgroundSync {
     
     // Cleanup multi-tab sync
     multiTabSync.destroy();
+    this.initialized = false;
     
     
   }
