@@ -244,16 +244,20 @@ function App() {
     if (!currentUser || !isAuthenticated) return;
     try {
       const refreshWithTimeout = Promise.race([
-        loadTimeEntriesData({ forceConflictCheck: true }),
+        loadTimeEntriesData({ forceConflictCheck: true, fetchTimeoutMs: 30000 }),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Refresh timed out")), 10000),
+          setTimeout(() => reject(new Error("Refresh timed out")), 35000),
         ),
       ]);
-      await refreshWithTimeout;
+      const result = await refreshWithTimeout;
+      if (result && !result.success) {
+        throw new Error(result.message || "Refresh failed");
+      }
+      setLastRefreshed(new Date().toISOString());
+      return result;
     } catch (err) {
       console.warn("[Refresh] Timed out or failed:", err.message);
-    } finally {
-      setLastRefreshed(new Date().toISOString());
+      return { success: false, message: err.message };
     }
   }, [currentUser, isAuthenticated, loadTimeEntriesData, setLastRefreshed]);
 
@@ -954,7 +958,7 @@ function App() {
                 />
 
                 <RefreshIndicator lastRefreshed={lastRefreshed} />
-                <NetworkStatus onRefresh={forceRefresh} />
+                <NetworkStatus onRefresh={handleRefresh} />
                 <AppUpdatePrompt />
 
                 {/* Scroll to Top Button - Completely outside all containers */}

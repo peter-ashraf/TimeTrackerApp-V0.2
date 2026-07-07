@@ -743,3 +743,264 @@
   border-radius: 4px;
   margin-bottom: 16px;
 }
+
+/* Export modal polish */
+.modal-content.export-modal {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg, 12px);
+  max-width: 560px;
+  width: min(560px, calc(100vw - 24px));
+}
+
+.modal-content.export-modal .modal-header {
+  align-items: center;
+  display: flex;
+  min-height: 56px;
+  padding: 16px 56px 14px 18px;
+}
+
+.export-modal-title {
+  align-items: center;
+  display: inline-flex;
+  gap: 10px;
+  line-height: 1.2;
+}
+
+.export-modal-title i,
+.export-preview-box i,
+.export-format-content i,
+.template-type-content i,
+.export-toggle-label i,
+.period-checkbox-label i,
+.export-summary i {
+  color: var(--color-primary);
+}
+
+.modal-content.export-modal .modal-body {
+  padding: 16px 18px 18px;
+}
+
+.modal-content.export-modal .settings-description {
+  color: var(--color-muted, var(--color-gray-500));
+  font-size: var(--font-size-sm, 0.875rem);
+  line-height: 1.45;
+  margin: 0 0 14px;
+}
+
+.export-preview-box {
+  align-items: center;
+  background: rgba(var(--color-primary-rgb), 0.07);
+  border-color: rgba(var(--color-primary-rgb), 0.22);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.export-preview-box strong {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.export-preview-box span {
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold, 600);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal-content.export-modal .form-group {
+  margin-bottom: 18px;
+}
+
+.modal-content.export-modal .form-label {
+  display: block;
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-semibold, 600);
+  margin-bottom: 8px;
+}
+
+.export-mode-tabs {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base, 8px);
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 5px;
+}
+
+.export-mode-tab {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  display: inline-flex;
+  gap: 7px;
+  justify-content: center;
+  min-height: 42px;
+  padding: 9px 10px;
+  white-space: nowrap;
+}
+
+.export-mode-tab.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-contrast, #06191d);
+}
+
+.export-mode-tab.active i {
+  color: currentColor;
+}
+
+.export-format-options,
+.template-type-options {
+  gap: 10px;
+  grid-template-columns: 1fr;
+}
+
+.export-format-option,
+.template-type-option {
+  align-items: center;
+  border-width: 1px;
+  border-radius: var(--radius-base, 8px);
+  min-height: 62px;
+  padding: 13px 14px;
+}
+
+.export-format-option:has(input:checked),
+.template-type-option:has(input:checked) {
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-color: var(--color-primary);
+}
+
+.export-format-option input[type="radio"],
+.template-type-option input[type="radio"],
+.period-checkbox-item input[type="checkbox"] {
+  flex: 0 0 auto;
+}
+
+.export-format-content strong,
+.template-type-content strong {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.export-toggle-container {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base, 8px);
+  margin: 0 0 18px;
+  padding: 13px 14px;
+}
+
+.export-toggle-wrapper {
+  margin-bottom: 6px;
+}
+
+.export-toggle-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.export-toggle-help {
+  margin-left: 60px;
+}
+
+.period-checkbox-list {
+  border-radius: var(--radius-base, 8px);
+  max-height: 170px;
+  padding: 6px;
+}
+
+.period-checkbox-item {
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.period-checkbox-item label {
+  min-height: 28px;
+}
+
+.period-divider {
+  margin: 10px 0;
+}
+
+.export-summary {
+  border-radius: var(--radius-base, 8px);
+}
+
+.modal-content.export-modal .modal-footer {
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+  padding: 12px 18px;
+}
+
+.modal-content.export-modal .export-actions {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin: 0;
+  width: 100%;
+}
+
+.modal-content.export-modal .export-actions .btn {
+  min-height: 44px;
+  width: 100%;
+}
+
+@media (max-width: 520px) {
+  .modal-content.export-modal {
+    border-radius: 10px;
+    max-height: 92vh;
+    width: calc(100vw - 16px);
+  }
+
+  .modal-content.export-modal .modal-header {
+    min-height: 52px;
+    padding: 14px 50px 12px 14px;
+  }
+
+  .modal-content.export-modal h3 {
+    font-size: 1.15rem;
+  }
+
+  .modal-content.export-modal .modal-body {
+    padding: 14px;
+  }
+
+  .export-mode-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .export-mode-tab {
+    flex-direction: column;
+    font-size: 0.72rem;
+    gap: 3px;
+    min-height: 52px;
+    padding: 7px 4px;
+  }
+
+  .export-preview-box {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .export-toggle-help {
+    margin-left: 0;
+  }
+
+  .modal-content.export-modal .modal-footer {
+    padding: 10px 14px 14px;
+  }
+
+  .modal-content.export-modal .export-actions {
+    grid-template-columns: 1fr;
+  }
+}

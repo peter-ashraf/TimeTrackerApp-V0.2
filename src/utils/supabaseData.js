@@ -5,15 +5,17 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export const supabaseData = {
-  async getTimeEntries(userId) {
+  async getTimeEntries(userId, options = {}) {
+    const timeoutMs = options.timeoutMs ?? 20000;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const { data, error } = await supabaseClient
         .from('time_entries')
         .select('*')
         .eq('user_id', userId)
-        .order('date', { ascending: false });
+        .order('date', { ascending: false })
+        .abortSignal(controller.signal);
 
       if (error) {
         if (error.code === '401' || error.status === 401) {
@@ -24,7 +26,7 @@ export const supabaseData = {
       return data || [];
     } catch (error) {
       if (error.name === 'AbortError') {
-        throw new Error('Request timed out');
+        throw new Error(`Supabase fetch timed out after ${Math.round(timeoutMs / 1000)} seconds`);
       }
       throw error;
     } finally {

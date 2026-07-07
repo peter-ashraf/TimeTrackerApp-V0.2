@@ -26,6 +26,7 @@ import {
 const BackupReminderModal = React.lazy(
   () => import("../components/BackupReminderModal"),
 );
+const ExportModal = React.lazy(() => import("../components/ExportModal"));
 
 const TimeTrackerContext = createContext();
 
@@ -56,6 +57,7 @@ export const TimeTrackerProvider = ({ children }) => {
   });
 
   const [showBackupReminder, setShowBackupReminder] = useState(false);
+  const [showBackupExportModal, setShowBackupExportModal] = useState(false);
   const [alertModal, setAlertModal] = useState({
     isOpen: false,
     message: "",
@@ -669,10 +671,9 @@ export const TimeTrackerProvider = ({ children }) => {
   }, []);
 
   const handleBackupNow = useCallback(() => {
-    localStorage.setItem("lastBackupDate", new Date().toISOString());
     setShowBackupReminder(false);
-    showAlert("Backup completed successfully!", "success");
-  }, [showAlert]);
+    setShowBackupExportModal(true);
+  }, []);
 
   const handleBackupLater = useCallback((days) => {
     const reminderDate = new Date();
@@ -1114,6 +1115,9 @@ export const TimeTrackerProvider = ({ children }) => {
           onDismiss={handleDismissBackup}
           onClose={handleCloseBackup}
         />
+        {showBackupExportModal && (
+          <ExportModal onClose={() => setShowBackupExportModal(false)} />
+        )}
       </Suspense>
       <AlertModal
         isOpen={alertModal.isOpen}

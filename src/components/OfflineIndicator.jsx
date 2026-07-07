@@ -51,8 +51,11 @@ const OfflineIndicator = ({ onRefresh, isRefreshing }) => {
   const handleForceSync = async () => {
     try {
       await backgroundSync.forceSync();
+      if (onRefresh) {
+        await onRefresh();
+      }
     } catch (error) {
-      
+      console.warn('Force sync failed:', error);
     }
   };
 

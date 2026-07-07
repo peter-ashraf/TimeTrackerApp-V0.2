@@ -1080,7 +1080,10 @@ function ExportModal({ onClose }) {
   return (
     <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="export-modal">
       <div className="modal-header">
-        <h3>📤 Enhanced Export Timesheet Data</h3>
+        <h3 className="export-modal-title">
+          <i className="fa-solid fa-file-export" aria-hidden="true"></i>
+          Export Timesheet
+        </h3>
       </div>
       <div className="modal-body">
         <p className="settings-description">
@@ -1089,7 +1092,8 @@ function ExportModal({ onClose }) {
 
         {/* Employee Info Preview */}
         <div className="export-preview-box">
-        <strong>📋 Employee:</strong> {employee.name || 'Not set'}
+        <strong><i className="fa-solid fa-user" aria-hidden="true"></i> Employee</strong>
+        <span>{employee.name || 'Not set'}</span>
       </div>
 
       {/* Export Mode Selection */}
@@ -1103,7 +1107,8 @@ function ExportModal({ onClose }) {
               setExportMode('periods');
             }}
           >
-            📊 Export Data
+            <i className="fa-solid fa-table" aria-hidden="true"></i>
+            <span>Export Data</span>
           </button>
           <button
             className={`export-mode-tab ${exportMode === 'template' ? 'active' : ''}`}
@@ -1112,7 +1117,8 @@ function ExportModal({ onClose }) {
               setExportMode('template');
             }}
           >
-            📋 Empty Template
+            <i className="fa-regular fa-clipboard" aria-hidden="true"></i>
+            <span>Template</span>
           </button>
           <button
             className={`export-mode-tab ${exportMode === 'custom' ? 'active' : ''}`}
@@ -1121,7 +1127,8 @@ function ExportModal({ onClose }) {
               setExportMode('custom');
             }}
           >
-            📅 Custom Range
+            <i className="fa-regular fa-calendar-days" aria-hidden="true"></i>
+            <span>Custom Range</span>
           </button>
         </div>
       </div>
@@ -1143,7 +1150,7 @@ function ExportModal({ onClose }) {
                 }}
               />
               <div className="export-format-content">
-                <strong>📊 Excel</strong>
+                <strong><i className="fa-solid fa-file-excel" aria-hidden="true"></i> Excel</strong>
                 <small>Formatted spreadsheet with data</small>
               </div>
             </label>
@@ -1159,7 +1166,7 @@ function ExportModal({ onClose }) {
                 }}
               />
               <div className="export-format-content">
-                <strong>📄 PDF Report</strong>
+                <strong><i className="fa-solid fa-file-pdf" aria-hidden="true"></i> PDF Report</strong>
                 <small>Professional document format</small>
               </div>
             </label>
@@ -1175,7 +1182,7 @@ function ExportModal({ onClose }) {
                 }}
               />
               <div className="export-format-content">
-                <strong>📧 Email</strong>
+                <strong><i className="fa-solid fa-envelope" aria-hidden="true"></i> Email</strong>
                 <small>Send report via email</small>
               </div>
             </label>
@@ -1219,7 +1226,8 @@ function ExportModal({ onClose }) {
               <span className="export-toggle-slider"></span>
             </label>
             <span className="export-toggle-label">
-              {includeCharts ? '📈 Include Charts' : '📊 Text Only'}
+                <i className={`fa-solid ${includeCharts ? 'fa-chart-line' : 'fa-align-left'}`} aria-hidden="true"></i>
+                {includeCharts ? 'Include Charts' : 'Text Only'}
             </span>
           </div>
           <span className="export-toggle-help">
@@ -1301,7 +1309,8 @@ function ExportModal({ onClose }) {
                 <span className="export-toggle-slider"></span>
               </label>
               <span className="export-toggle-label">
-                {detailedView ? '📊 Detailed View' : '📝 Simple View'}
+                <i className={`fa-solid ${detailedView ? 'fa-list-check' : 'fa-table-list'}`} aria-hidden="true"></i>
+                {detailedView ? 'Detailed View' : 'Simple View'}
               </span>
             </div>
             <span className="export-toggle-help">
@@ -1323,7 +1332,7 @@ function ExportModal({ onClose }) {
                   onChange={handleAllPeriodsToggle}
                 />
                 <span className="period-checkbox-label">
-                  <strong>📅 All Periods ({periods.length})</strong>
+                  <strong><i className="fa-regular fa-calendar-days" aria-hidden="true"></i> All Periods ({periods.length})</strong>
                 </span>
               </label>
             </div>
@@ -1352,7 +1361,7 @@ function ExportModal({ onClose }) {
           {selectedPeriods.length > 0 && (
             <div className="export-summary">
               <p>
-                <strong>📊 Export Summary:</strong><br />
+                <strong><i className="fa-solid fa-circle-info" aria-hidden="true"></i> Export Summary</strong><br />
                 {selectedPeriods.length} period(s) selected<br />
                 {detailedView ? 'Detailed' : 'Simple'} view<br />
                 {selectedPeriods.length > 1 ? 'Multiple sheets' : 'Single sheet'}
@@ -1377,7 +1386,7 @@ function ExportModal({ onClose }) {
                   onChange={(e) => setTemplateMode(e.target.value)}
                 />
                 <div className="template-type-content">
-                  <strong>📅 Period Template</strong>
+                  <strong><i className="fa-regular fa-calendar-days" aria-hidden="true"></i> Period Template</strong>
                   <small>Pre-fill dates for a specific period</small>
                 </div>
               </label>
@@ -1390,7 +1399,7 @@ function ExportModal({ onClose }) {
                   onChange={(e) => setTemplateMode(e.target.value)}
                 />
                 <div className="template-type-content">
-                  <strong>📝 Blank Template</strong>
+                  <strong><i className="fa-regular fa-file" aria-hidden="true"></i> Blank Template</strong>
                   <small>Completely empty - add your own dates</small>
                 </div>
               </label>
@@ -1403,7 +1412,7 @@ function ExportModal({ onClose }) {
                   onChange={(e) => setTemplateMode(e.target.value)}
                 />
                 <div className="template-type-content">
-                  <strong>✏️ Custom Template</strong>
+                  <strong><i className="fa-solid fa-pen" aria-hidden="true"></i> Custom Template</strong>
                   <small>Create template with custom date range</small>
                 </div>
               </label>
@@ -1457,8 +1466,8 @@ function ExportModal({ onClose }) {
 
           <div className="export-info-box template-info">
             <h4>
-              {templateMode === 'blank' ? '📝 Blank Template' :
-                templateMode === 'custom' ? '✏️ Custom Template' : '📋 Period Template'}
+              {templateMode === 'blank' ? 'Blank Template' :
+                templateMode === 'custom' ? 'Custom Template' : 'Period Template'}
             </h4>
             {templateMode === 'blank' ? (
               <>
@@ -1501,7 +1510,7 @@ function ExportModal({ onClose }) {
 
       <div className="modal-footer">
         {/* Actions */}
-        <div className="form-actions">
+        <div className="form-actions export-actions">
         <button
           type="button"
           className="btn btn-primary"

@@ -260,13 +260,76 @@ export const TimeEntryProvider = ({ children }) => {
   // Load time entries data
   const loadTimeEntriesData = useCallback(async (options = {}) => {
     const forceConflictCheck = options?.forceConflictCheck === true;
+    const fetchTimeoutMs = options?.fetchTimeoutMs ?? (forceConflictCheck ? 30000 : 20000);
 
     if (!currentUser || !isAuthenticated) {
-      return;
+      return {
+        success: false,
+        reason: 'not_authenticated',
+        message: 'You are not signed in.'
+      };
     }
+
     if (isLoadingRef.current) {
-      return;
+      return {
+        success: false,
+        skipped: true,
+        reason: 'already_loading',
+        message: 'A sync is already running.'
+      };
     }
+
+    const sortEntries = (entryList) =>
+      [...entryList].sort((a, b) => normalizeDateKey(b.date).localeCompare(normalizeDateKey(a.date)));
+
+    const syncResult = {
+      success: true,
+      source: navigator.onLine ? 'cloud' : 'local',
+      localCount: 0,
+      remoteCount: 0,
+      mergedCount: 0,
+      pulledCount: 0,
+      uploadCount: 0,
+      failedUploadCount: 0,
+      conflictCount: 0,
+      requiresResolution: false,
+      message: ''
+    };
+
+    const uploadLocalEntries = async (entriesToUpload) => {
+      if (!entriesToUpload.length) return { uploaded: 0, failed: 0 };
+
+      console.log(`[Sync] Uploading ${entriesToUpload.length} local entries to Supabase...`);
+
+      const uploadResults = await Promise.all(
+        entriesToUpload.map(async (entry) => {
+          const result = await syncTimeEntryToCloud({
+            userId: currentUser.id,
+            entry,
+            saveTimeEntry: (userId, entryToSave) => supabaseData.saveTimeEntry(userId, entryToSave),
+          });
+
+          if (result.returnedEntry?.id) {
+            setEntries(prev => prev.map(e =>
+              normalizeDateKey(e.date) === normalizeDateKey(entry.date)
+                ? { ...e, id: result.returnedEntry.id }
+                : e
+            ));
+          }
+
+          if (!result.success) {
+            console.error(`[Sync] Failed to upload entry for ${entry.date}:`, result.error);
+          }
+
+          return result;
+        })
+      );
+
+      return {
+        uploaded: uploadResults.filter(result => result.success).length,
+        failed: uploadResults.filter(result => !result.success).length
+      };
+    };
 
     try {
       isLoadingRef.current = true;
@@ -292,209 +355,140 @@ export const TimeEntryProvider = ({ children }) => {
           localEntries = getSimpleEncryptedItem(entriesKey, currentUser.username) || [];
         }
 
-        setEntries(localEntries);
+        setEntries(sortEntries(localEntries));
       }
 
-      // Immediate Supabase sync if online
-      if (navigator.onLine && currentUser) {
-        try {
-          const fetchWithTimeout = Promise.race([
-            supabaseData.getTimeEntries(currentUser.id).catch(err => {
-              if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
-                console.warn('Session expired during time entries fetch in TimeEntryContext');
-                return []; // Return empty array to not break the app
-              }
-              throw err;
-            }),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Supabase fetch timed out')), 8000)
-            )
-          ]);
-          const entriesData = await fetchWithTimeout;
+      syncResult.localCount = localEntries.length;
 
-          // If online and Supabase returned empty, check if we have offline-created entries
-          if (navigator.onLine && entriesData && entriesData.length === 0) {
-            const unsyncedLocal = forceConflictCheck
-              ? localEntries
-              : localEntries.filter(e => !e.id);
-            if (unsyncedLocal.length > 0) {
-              setEntries(unsyncedLocal.sort((a, b) => b.date.localeCompare(a.date)));
-              console.log(`[Sync] Supabase returned empty, but uploading ${unsyncedLocal.length} offline-created entries...`);
-              Promise.all(
-                unsyncedLocal.map(async (entry) => {
-                  const result = await syncTimeEntryToCloud({
-                    userId: currentUser.id,
-                    entry,
-                    saveTimeEntry: (userId, entryToSave) => supabaseData.saveTimeEntry(userId, entryToSave),
-                  });
+      if (!navigator.onLine || currentUser.isLocalOnly || !currentUser) {
+        syncResult.source = 'local';
+        syncResult.mergedCount = localEntries.length;
+        syncResult.message = currentUser.isLocalOnly
+          ? 'Loaded local entries. This account is local only.'
+          : 'Loaded local entries. Cloud sync will run when you are online.';
+        return syncResult;
+      }
 
-                  if (result.returnedEntry?.id) {
-                    setEntries(prev => prev.map(e =>
-                      e.date === entry.date ? { ...e, id: result.returnedEntry.id } : e
-                    ));
-                  }
-
-                  if (!result.success) {
-                    console.error(`[Sync] Failed to upload entry for ${entry.date}:`, result.error);
-                  }
-                })
-              );
-            } else {
-              setEntries([]);
-            }
-            return;
+      const entriesData = await supabaseData
+        .getTimeEntries(currentUser.id, { timeoutMs: fetchTimeoutMs })
+        .catch(err => {
+          if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+            throw new Error('Session expired while fetching cloud entries.');
           }
+          throw err;
+        });
+      syncResult.remoteCount = entriesData?.length || 0;
 
-          if (entriesData && entriesData.length > 0) {
-            const localMap = new Map(localEntries.map(e => [normalizeDateKey(e.date), e]));
-            const remoteMap = new Map(entriesData.map(e => [normalizeDateKey(e.date), e]));
+      const localMap = new Map(localEntries.map(e => [normalizeDateKey(e.date), e]));
+      const remoteMap = new Map((entriesData || []).map(e => [normalizeDateKey(e.date), e]));
 
-            const entriesToUpload = [];
-            const finalEntries = [];
-            const conflicts = [];
+      const entriesToUpload = [];
+      const finalEntries = [];
+      const conflicts = [];
 
-            // 1. Process all remote entries
-            for (const [date, remoteEntry] of remoteMap) {
-              const localEntry = localMap.get(date);
+      for (const [date, remoteEntry] of remoteMap) {
+        const localEntry = localMap.get(date);
 
-              if (!localEntry) {
-                // Only on remote -> pull remote
-                finalEntries.push(remoteEntry);
-              } else {
-                if (entriesAreDifferent(localEntry, remoteEntry)) {
-                  // Always treat as conflict requiring user decision
-                  conflicts.push({
-                    entryId: remoteEntry.id || localEntry.id,
-                    date,
-                    localEntry,
-                    remoteEntry
-                  });
-                } else {
-                  // Identical raw data -> keep local to preserve computed/derived math
-                  finalEntries.push({
-                    ...localEntry,
-                    id: remoteEntry.id
-                  });
-                  clearPendingTimeEntrySync(currentUser.id, localEntry);
-                }
-              }
-            }
-
-            // 2. Process local-only entries
-            for (const [date, localEntry] of localMap) {
-              if (!remoteMap.has(date)) {
-                if (forceConflictCheck || !localEntry.id) {
-                  // Created offline -> upload to Supabase
-                  entriesToUpload.push(localEntry);
-                  finalEntries.push(localEntry);
-                } else {
-                  // Deleted on remote -> do not add to finalEntries
-                  console.log(`[Sync] Entry for ${date} was deleted on remote. Removing locally.`);
-                }
-              }
-            }
-
-            // If conflicts exist, pause sync and show modal
-            if (conflicts.length > 0) {
-              console.log(`[Sync] Found ${conflicts.length} conflicts, pausing sync for user resolution`);
-              setPendingConflicts(conflicts);
-              setIsConflictModalOpen(true);
-              // Store non-conflicting entries for later merge
-              setConflictResolver(() => (resolutions) => {
-                // Apply user choices to finalEntries
-                const resolutionMap = new Map(resolutions.map(r => [r.entryId || r.date, r.chosenEntry]));
-                
-                // Merge resolved entries with non-conflicting finalEntries
-                const mergedEntries = [...finalEntries];
-                conflicts.forEach(conflict => {
-                  const chosen = resolutionMap.get(conflict.entryId || conflict.date);
-                  if (chosen) {
-                    const existingIndex = mergedEntries.findIndex(e => e.date === conflict.date);
-                    if (existingIndex >= 0) {
-                      mergedEntries[existingIndex] = chosen;
-                    } else {
-                      mergedEntries.push(chosen);
-                    }
-                  }
-                });
-
-                // Update entries state with merged data
-                setEntries(mergedEntries.sort((a, b) => b.date.localeCompare(a.date)));
-
-                // Upload local choices to Supabase
-                const toUpload = resolutions.filter(r => r.chosenEntry === r.localEntry);
-                if (toUpload.length > 0) {
-                  console.log(`[Sync] Uploading ${toUpload.length} user-chosen local entries to Supabase...`);
-                  Promise.all(
-                    toUpload.map(async (resolution) => {
-                      const result = await syncTimeEntryToCloud({
-                        userId: currentUser.id,
-                        entry: resolution.chosenEntry,
-                        saveTimeEntry: (userId, entryToSave) => supabaseData.saveTimeEntry(userId, entryToSave),
-                      });
-
-                      if (result.returnedEntry?.id) {
-                        setEntries(prev => prev.map(e =>
-                          e.date === resolution.chosenEntry.date ? { ...e, id: result.returnedEntry.id } : e
-                        ));
-                      }
-
-                      if (!result.success) {
-                        console.error(`[Sync] Failed to upload entry for ${resolution.chosenEntry.date}:`, result.error);
-                      }
-                    })
-                  ).catch(err => {
-                    console.error('[Sync] Error uploading user-chosen entries:', err);
-                  });
-                }
-
-                // Clear conflicts after resolution
-                setPendingConflicts([]);
-                setConflictResolver(null);
-                setIsConflictModalOpen(false);
-              });
-              return; // Don't proceed with sync yet
-            }
-
-            // No conflicts - proceed with normal sync
-            setPendingConflicts([]);
-            setConflictResolver(null);
-            setIsConflictModalOpen(false);
-            setEntries(finalEntries.sort((a, b) => b.date.localeCompare(a.date)));
-
-            // Trigger background upload for unsynced/newer local entries
-            if (entriesToUpload.length > 0) {
-              console.log(`[Sync] Uploading ${entriesToUpload.length} local/edited entries to Supabase...`);
-              Promise.all(
-                entriesToUpload.map(async (entry) => {
-                  const result = await syncTimeEntryToCloud({
-                    userId: currentUser.id,
-                    entry,
-                    saveTimeEntry: (userId, entryToSave) => supabaseData.saveTimeEntry(userId, entryToSave),
-                  });
-
-                  if (result.returnedEntry?.id) {
-                    setEntries(prev => prev.map(e =>
-                      e.date === entry.date ? { ...e, id: result.returnedEntry.id } : e
-                    ));
-                  }
-
-                  if (!result.success) {
-                    console.error(`[Sync] Failed to upload entry for ${entry.date}:`, result.error);
-                  }
-                })
-              ).catch(err => {
-                console.error('[Sync] Error uploading unsynced entries:', err);
-              });
-            }
-          }
-        } catch (onlineError) {
-          console.error('Failed to fetch from Supabase, staying with local data', onlineError);
+        if (!localEntry) {
+          finalEntries.push(remoteEntry);
+          syncResult.pulledCount += 1;
+        } else if (entriesAreDifferent(localEntry, remoteEntry)) {
+          conflicts.push({
+            entryId: remoteEntry.id || localEntry.id,
+            date,
+            localEntry,
+            remoteEntry
+          });
+        } else {
+          finalEntries.push({
+            ...localEntry,
+            id: remoteEntry.id
+          });
+          clearPendingTimeEntrySync(currentUser.id, localEntry);
         }
       }
 
+      for (const [date, localEntry] of localMap) {
+        if (!remoteMap.has(date)) {
+          finalEntries.push(localEntry);
+          entriesToUpload.push(localEntry);
+        }
+      }
+
+      syncResult.conflictCount = conflicts.length;
+      syncResult.uploadCount = entriesToUpload.length;
+
+      if (conflicts.length > 0) {
+        console.log(`[Sync] Found ${conflicts.length} conflicts, pausing sync for user resolution`);
+        setPendingConflicts(conflicts);
+        setIsConflictModalOpen(true);
+        setConflictResolver(() => (resolutions) => {
+          const resolutionMap = new Map(resolutions.map(r => [r.entryId || r.date, r.chosenEntry]));
+          const mergedEntries = [...finalEntries];
+
+          conflicts.forEach(conflict => {
+            const chosen = resolutionMap.get(conflict.entryId || conflict.date);
+            if (chosen) {
+              const existingIndex = mergedEntries.findIndex(e => normalizeDateKey(e.date) === conflict.date);
+              if (existingIndex >= 0) {
+                mergedEntries[existingIndex] = chosen;
+              } else {
+                mergedEntries.push(chosen);
+              }
+            }
+          });
+
+          setEntries(sortEntries(mergedEntries));
+
+          const toUpload = resolutions.filter(r => r.chosenEntry === r.localEntry);
+          if (toUpload.length > 0) {
+            uploadLocalEntries(toUpload.map(resolution => resolution.chosenEntry)).catch(err => {
+              console.error('[Sync] Error uploading user-chosen entries:', err);
+            });
+          }
+
+          setPendingConflicts([]);
+          setConflictResolver(null);
+          setIsConflictModalOpen(false);
+        });
+
+        syncResult.requiresResolution = true;
+        syncResult.mergedCount = finalEntries.length;
+        syncResult.message = `Found ${conflicts.length} conflict${conflicts.length === 1 ? '' : 's'}. Resolve the modal to finish syncing.`;
+        return syncResult;
+      }
+
+      const sortedFinalEntries = sortEntries(finalEntries);
+      setPendingConflicts([]);
+      setConflictResolver(null);
+      setIsConflictModalOpen(false);
+      setEntries(sortedFinalEntries);
+      syncResult.mergedCount = sortedFinalEntries.length;
+
+      const uploadSummary = await uploadLocalEntries(entriesToUpload);
+      syncResult.uploadCount = uploadSummary.uploaded;
+      syncResult.failedUploadCount = uploadSummary.failed;
+
+      if (syncResult.failedUploadCount > 0) {
+        syncResult.success = false;
+        syncResult.message = `Cloud fetch worked, but ${syncResult.failedUploadCount} local entr${syncResult.failedUploadCount === 1 ? 'y' : 'ies'} could not upload.`;
+      } else if (syncResult.pulledCount > 0 || syncResult.uploadCount > 0) {
+        syncResult.message = `Sync completed. Pulled ${syncResult.pulledCount} cloud entr${syncResult.pulledCount === 1 ? 'y' : 'ies'} and uploaded ${syncResult.uploadCount} local entr${syncResult.uploadCount === 1 ? 'y' : 'ies'}.`;
+      } else {
+        syncResult.message = `Sync completed. ${syncResult.remoteCount} cloud entr${syncResult.remoteCount === 1 ? 'y' : 'ies'} checked.`;
+      }
+
+      return syncResult;
     } catch (error) {
-      console.error('loadTimeEntriesData critical error:', error);
+      console.error('Failed to fetch from Supabase, staying with local data', error);
+      return {
+        ...syncResult,
+        success: false,
+        source: 'local',
+        reason: 'cloud_fetch_failed',
+        error,
+        message: error.message || 'Failed to fetch cloud entries.'
+      };
     } finally {
       isLoadingRef.current = false;
     }

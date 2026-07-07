@@ -495,13 +495,22 @@ function Settings() {
         return;
       }
 
-      await loadTimeEntriesData({ forceConflictCheck: true });
+      const result = await loadTimeEntriesData({ forceConflictCheck: true });
+      if (!result?.success) {
+        setNotifModal({
+          isOpen: true,
+          isError: true,
+          message: result?.message || "Sync failed. Please try again.",
+        });
+        return;
+      }
+
       setLastRefreshed(new Date().toISOString());
       refreshSyncStatus();
       setNotifModal({
         isOpen: true,
         isError: false,
-        message: "Sync check completed.",
+        message: result.message || "Sync completed.",
       });
     } catch (error) {
       setNotifModal({
