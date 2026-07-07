@@ -16,9 +16,7 @@ import { useUserPreferences } from "../context/UserPreferencesContext";
 import { notificationManager } from "../utils/notificationManager";
 import CustomSelect from "./CustomSelect";
 import {
-  getInferredPendingTimeEntries,
   getPendingTimeEntrySyncStatus,
-  mergePendingTimeEntrySync,
   SYNC_STATUS_EVENT,
 } from "../utils/timeEntrySyncStatus";
 import "../styles/settings.css";
@@ -175,10 +173,7 @@ const getSyncStatusSnapshot = (currentUser, entries) => {
   const backgroundStatus = backgroundSync.getStatus();
   const offlineStatus = offlineQueue.getStatus();
   const appSaveQueue = getStoredQueueLength("dbSaveQueue");
-  const timeEntrySync = mergePendingTimeEntrySync(
-    getPendingTimeEntrySyncStatus(currentUser?.id),
-    currentUser?.isLocalOnly ? [] : getInferredPendingTimeEntries(entries),
-  );
+  const timeEntrySync = getPendingTimeEntrySyncStatus(currentUser?.id);
 
   return {
     isOnline: navigator.onLine,

@@ -402,6 +402,14 @@ export const TimeEntryProvider = ({ children }) => {
       syncResult.conflictCount = conflicts.length;
       syncResult.uploadCount = entriesToUpload.length;
 
+      const conflictDates = new Set(conflicts.map(conflict => normalizeDateKey(conflict.date)));
+      const cloudConfirmedEntries = (entriesData || []).filter(entry =>
+        entry?.id && !conflictDates.has(normalizeDateKey(entry.date))
+      );
+      if (cloudConfirmedEntries.length > 0) {
+        clearPendingTimeEntrySync(currentUser.id, cloudConfirmedEntries);
+      }
+
       if (conflicts.length > 0) {
         console.log(`[Sync] Found ${conflicts.length} conflicts, pausing sync for user resolution`);
         setPendingConflicts(conflicts);
