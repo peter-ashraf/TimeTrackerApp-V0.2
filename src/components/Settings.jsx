@@ -20,7 +20,6 @@ import {
   getPendingTimeEntrySyncStatus,
   SYNC_STATUS_EVENT,
 } from "../utils/timeEntrySyncStatus";
-import { timeEntriesAreDifferent } from "../utils/timeEntrySyncPlanner";
 import "../styles/settings.css";
 
 const SETTINGS_TABS = [
@@ -495,16 +494,9 @@ function Settings() {
       timeoutMs: 15000,
     });
     const pendingDates = new Set(pendingStatus.dates);
-    const localByDate = new Map(
-      (entriesOverride || []).map((entry) => [String(entry.date).split("T")[0], entry]),
-    );
-
     const entriesToClear = (remoteEntries || []).filter((remoteEntry) => {
       const date = String(remoteEntry?.date || "").split("T")[0];
-      if (!remoteEntry?.id || !pendingDates.has(date)) return false;
-
-      const localEntry = localByDate.get(date);
-      return !localEntry || !timeEntriesAreDifferent(localEntry, remoteEntry);
+      return remoteEntry?.id && pendingDates.has(date);
     });
 
     if (entriesToClear.length > 0) {
