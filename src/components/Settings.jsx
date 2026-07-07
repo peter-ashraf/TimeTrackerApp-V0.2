@@ -16,9 +16,11 @@ import { useUserPreferences } from "../context/UserPreferencesContext";
 import { notificationManager } from "../utils/notificationManager";
 import CustomSelect from "./CustomSelect";
 import {
+  clearPendingTimeEntrySync,
   getPendingTimeEntrySyncStatus,
   SYNC_STATUS_EVENT,
 } from "../utils/timeEntrySyncStatus";
+import { timeEntriesAreDifferent } from "../utils/timeEntrySyncPlanner";
 import "../styles/settings.css";
 
 const SETTINGS_TABS = [
@@ -479,6 +481,51 @@ function Settings() {
     setSyncStatus(getSyncStatusSnapshot(currentUser, entriesOverride));
   }, [currentUser, entries]);
 
+  const reconcilePendingTimeEntries = useCallback(async (entriesOverride = entries) => {
+    if (!currentUser?.id || currentUser.isLocalOnly || !navigator.onLine) {
+      return { cleared: 0 };
+    }
+
+    const pendingStatus = getPendingTimeEntrySyncStatus(currentUser.id);
+    if (!pendingStatus.pending) {
+      return { cleared: 0 };
+    }
+
+    const remoteEntries = await supabaseData.getTimeEntries(currentUser.id, {
+      timeoutMs: 15000,
+    });
+    const pendingDates = new Set(pendingStatus.dates);
+    const localByDate = new Map(
+      (entriesOverride || []).map((entry) => [String(entry.date).split("T")[0], entry]),
+    );
+
+    const entriesToClear = (remoteEntries || []).filter((remoteEntry) => {
+      const date = String(remoteEntry?.date || "").split("T")[0];
+      if (!remoteEntry?.id || !pendingDates.has(date)) return false;
+
+      const localEntry = localByDate.get(date);
+      return !localEntry || !timeEntriesAreDifferent(localEntry, remoteEntry);
+    });
+
+    if (entriesToClear.length > 0) {
+      clearPendingTimeEntrySync(currentUser.id, entriesToClear);
+    }
+
+    return { cleared: entriesToClear.length };
+  }, [currentUser, entries]);
+
+  const handleRefreshSyncStatus = useCallback(async () => {
+    hapticFeedback.buttonClick();
+
+    try {
+      await reconcilePendingTimeEntries();
+    } catch (error) {
+      console.warn("Pending time entry reconciliation failed:", error);
+    } finally {
+      refreshSyncStatus();
+    }
+  }, [reconcilePendingTimeEntries, refreshSyncStatus]);
+
   const handleSyncNow = useCallback(async () => {
     hapticFeedback.buttonClick();
     setIsSyncingNow(true);
@@ -512,13 +559,20 @@ function Settings() {
       }
 
       setLastRefreshed(new Date().toISOString());
-      refreshSyncStatus(result.mergedEntries || entries);
+      const entriesForStatus = result.mergedEntries || entries;
+      await reconcilePendingTimeEntries(entriesForStatus);
+      refreshSyncStatus(entriesForStatus);
       setNotifModal({
         isOpen: true,
         isError: false,
         message: result.message || "Sync completed.",
       });
     } catch (error) {
+      try {
+        await reconcilePendingTimeEntries();
+      } catch (reconcileError) {
+        console.warn("Pending time entry reconciliation failed:", reconcileError);
+      }
       refreshSyncStatus();
       setNotifModal({
         isOpen: true,
@@ -528,7 +582,7 @@ function Settings() {
     } finally {
       setIsSyncingNow(false);
     }
-  }, [entries, loadTimeEntriesData, refreshSyncStatus, setLastRefreshed]);
+  }, [entries, loadTimeEntriesData, reconcilePendingTimeEntries, refreshSyncStatus, setLastRefreshed]);
 
   const handleCheckForAppUpdate = useCallback(async () => {
     hapticFeedback.buttonClick();
@@ -2555,10 +2609,7 @@ function Settings() {
             <button
               type="button"
               className="btn btn-sm btn-outline"
-              onClick={() => {
-                hapticFeedback.buttonClick();
-                refreshSyncStatus();
-              }}
+              onClick={handleRefreshSyncStatus}
             >
               Refresh Status
             </button>
