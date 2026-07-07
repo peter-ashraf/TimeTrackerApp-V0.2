@@ -225,6 +225,32 @@
   font-size: 13px;
 }
 
+.app-version-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.app-version-card > div {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--color-surface) 92%, #000 8%);
+}
+
+.version-check-status {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(23, 162, 184, 0.45);
+  border-radius: 8px;
+  color: var(--color-primary);
+  background: rgba(23, 162, 184, 0.08);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .danger-zone > h2 {
   display: none;
 }
@@ -442,6 +468,14 @@
 
   .sync-status-card {
     padding: 10px;
+  }
+
+  .app-version-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-version-header .btn {
+    width: 100%;
   }
 
   .sync-status-footer {

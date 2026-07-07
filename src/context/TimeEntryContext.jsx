@@ -128,12 +128,25 @@ export const TimeEntryProvider = ({ children }) => {
             // ✅ ADD THIS — merge returned Supabase id back into local state
             const returnedEntry = Array.isArray(savedData) ? savedData[0] : savedData;
             if (returnedEntry?.id && !Array.isArray(entriesToSave)) {
-              setEntries(prev => prev.map(e =>
-                e.date === entriesToSave.date ? { ...e, id: returnedEntry.id } : e
-              ));
+              const repairedEntries = finalEntries.map(e =>
+                normalizeDateKey(e.date) === normalizeDateKey(entriesToSave.date)
+                  ? { ...e, ...returnedEntry }
+                  : e
+              );
+              setEntries(repairedEntries);
+              setSimpleEncryptedItem(entriesKey, repairedEntries, currentUser.username);
+              try {
+                cacheManager.setCachedData('timeEntries', repairedEntries);
+              } catch (cacheError) {
+                console.warn('Failed to cache saved entry with cloud id:', cacheError);
+              }
             }
 
-            clearPendingTimeEntrySync(currentUser.id, entriesToSave);
+            if (returnedEntry?.id || Array.isArray(entriesToSave)) {
+              clearPendingTimeEntrySync(currentUser.id, entriesToSave);
+            } else {
+              markPendingTimeEntrySync(currentUser.id, entriesToSave, 'missing_cloud_id');
+            }
             setLastSaved(new Date().toISOString());
             return { success: true, savedTo: 'supabase' };
           } catch (saveError) {
@@ -194,7 +207,7 @@ export const TimeEntryProvider = ({ children }) => {
         setSaveStatus({ message: '', type: '' });
       }, 2000);
     }
-  }, [currentUser, isAuthenticated]);
+  }, [currentUser, isAuthenticated, normalizeDateKey]);
 
   // Load time entries data
   const loadTimeEntriesData = useCallback(async (options = {}) => {
@@ -220,6 +233,23 @@ export const TimeEntryProvider = ({ children }) => {
 
     const sortEntries = (entryList) =>
       [...entryList].sort((a, b) => normalizeDateKey(b.date).localeCompare(normalizeDateKey(a.date)));
+
+    const persistEntriesSnapshot = (entryList) => {
+      if (!currentUser || !Array.isArray(entryList)) return;
+
+      try {
+        const entriesKey = `timeEntries_${currentUser.id}`;
+        setSimpleEncryptedItem(entriesKey, entryList, currentUser.username);
+      } catch (storageError) {
+        console.warn('Failed to persist synced entries to local storage:', storageError);
+      }
+
+      try {
+        cacheManager.setCachedData('timeEntries', entryList);
+      } catch (cacheError) {
+        console.warn('Failed to persist synced entries to cache:', cacheError);
+      }
+    };
 
     const syncResult = {
       success: true,
@@ -266,7 +296,10 @@ export const TimeEntryProvider = ({ children }) => {
 
       return {
         uploaded: uploadResults.filter(result => result.success).length,
-        failed: uploadResults.filter(result => !result.success).length
+        failed: uploadResults.filter(result => !result.success).length,
+        returnedEntries: uploadResults
+          .filter(result => result.success && result.returnedEntry)
+          .map(result => result.returnedEntry)
       };
     };
 
@@ -384,11 +417,30 @@ export const TimeEntryProvider = ({ children }) => {
       setConflictResolver(null);
       setIsConflictModalOpen(false);
       setEntries(sortedFinalEntries);
+      persistEntriesSnapshot(sortedFinalEntries);
       syncResult.mergedCount = sortedFinalEntries.length;
+      syncResult.mergedEntries = sortedFinalEntries;
 
       const uploadSummary = await uploadLocalEntries(entriesToUpload);
       syncResult.uploadCount = uploadSummary.uploaded;
       syncResult.failedUploadCount = uploadSummary.failed;
+
+      if (uploadSummary.returnedEntries?.length) {
+        const returnedByDate = new Map(
+          uploadSummary.returnedEntries.map((entry) => [normalizeDateKey(entry.date), entry])
+        );
+        const postUploadEntries = sortEntries(
+          sortedFinalEntries.map((entry) => {
+            const returnedEntry = returnedByDate.get(normalizeDateKey(entry.date));
+            return returnedEntry ? { ...entry, ...returnedEntry } : entry;
+          })
+        );
+
+        setEntries(postUploadEntries);
+        persistEntriesSnapshot(postUploadEntries);
+        syncResult.mergedCount = postUploadEntries.length;
+        syncResult.mergedEntries = postUploadEntries;
+      }
 
       if (syncResult.failedUploadCount > 0) {
         syncResult.success = false;

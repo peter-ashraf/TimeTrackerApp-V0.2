@@ -184,8 +184,7 @@ const getSyncStatusSnapshot = (currentUser, entries) => {
     isSyncing:
       backgroundStatus.isSyncing ||
       backgroundStatus.syncInProgress ||
-      offlineStatus.isProcessing ||
-      (navigator.onLine && timeEntrySync.pending > 0),
+      offlineStatus.isProcessing,
     backgroundQueue: Math.max(
       backgroundStatus.queueLength || 0,
       backgroundStatus.queueStatus?.pending || 0,
@@ -463,10 +462,14 @@ function Settings() {
   const [dangerUnlockError, setDangerUnlockError] = useState("");
   const [isUnlockingDanger, setIsUnlockingDanger] = useState(false);
   const [isSyncingNow, setIsSyncingNow] = useState(false);
+  const [isCheckingVersion, setIsCheckingVersion] = useState(false);
+  const [versionCheckStatus, setVersionCheckStatus] = useState("");
   const [settingCurrentPeriodId, setSettingCurrentPeriodId] = useState(null);
   const [syncStatus, setSyncStatus] = useState(() =>
     getSyncStatusSnapshot(currentUser, entries),
   );
+  const appVersion =
+    typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "0.1.0";
   const previewConflictCount = Math.max(
     1,
     Math.min(20, parseInt(conflictPreviewCount, 10) || 1),
@@ -476,8 +479,8 @@ function Settings() {
     [previewConflictCount],
   );
 
-  const refreshSyncStatus = useCallback(() => {
-    setSyncStatus(getSyncStatusSnapshot(currentUser, entries));
+  const refreshSyncStatus = useCallback((entriesOverride = entries) => {
+    setSyncStatus(getSyncStatusSnapshot(currentUser, entriesOverride));
   }, [currentUser, entries]);
 
   const handleSyncNow = useCallback(async () => {
@@ -506,7 +509,7 @@ function Settings() {
       }
 
       setLastRefreshed(new Date().toISOString());
-      refreshSyncStatus();
+      refreshSyncStatus(result.mergedEntries || entries);
       setNotifModal({
         isOpen: true,
         isError: false,
@@ -521,7 +524,57 @@ function Settings() {
     } finally {
       setIsSyncingNow(false);
     }
-  }, [loadTimeEntriesData, refreshSyncStatus, setLastRefreshed]);
+  }, [entries, loadTimeEntriesData, refreshSyncStatus, setLastRefreshed]);
+
+  const handleCheckForAppUpdate = useCallback(async () => {
+    hapticFeedback.buttonClick();
+    setIsCheckingVersion(true);
+    setVersionCheckStatus("");
+
+    try {
+      if (!("serviceWorker" in navigator)) {
+        setVersionCheckStatus("Update checks are not supported in this browser.");
+        return;
+      }
+
+      if (!import.meta.env.PROD) {
+        setVersionCheckStatus("Manual update checks are available in the installed production app.");
+        return;
+      }
+
+      if (!navigator.onLine) {
+        setVersionCheckStatus("You are offline. Connect to the internet and try again.");
+        return;
+      }
+
+      const registration =
+        (await navigator.serviceWorker.getRegistration("/TimeTrackerApp-V0.2/")) ||
+        (await navigator.serviceWorker.ready);
+
+      if (!registration) {
+        setVersionCheckStatus("No app service worker is registered yet.");
+        return;
+      }
+
+      await registration.update();
+
+      if (registration.waiting && navigator.serviceWorker.controller) {
+        window.dispatchEvent(
+          new CustomEvent("app-update-available", {
+            detail: { registration },
+          }),
+        );
+        setVersionCheckStatus("New version found. Use the reload prompt to update.");
+        return;
+      }
+
+      setVersionCheckStatus("You are already on the latest available version.");
+    } catch (error) {
+      setVersionCheckStatus(error.message || "Could not check for updates.");
+    } finally {
+      setIsCheckingVersion(false);
+    }
+  }, []);
 
   const handleOpenExport = () => {
     setShowExportModal(true);
@@ -2626,6 +2679,42 @@ function Settings() {
               : "-"}
           </span>
         </div>
+      </section>
+
+      <section className="settings-section settings-panel settings-panel-data">
+        <div className="settings-section-header app-version-header">
+          <div>
+            <h2>App Version</h2>
+            <p className="settings-description">
+              Check whether a newer installed app build is ready to load.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            onClick={handleCheckForAppUpdate}
+            disabled={isCheckingVersion}
+          >
+            {isCheckingVersion ? "Checking..." : "Check for Updates"}
+          </button>
+        </div>
+
+        <div className="app-version-card">
+          <div>
+            <span className="sync-status-label">Current Version</span>
+            <strong className="sync-status-value">v{appVersion}</strong>
+          </div>
+          <div>
+            <span className="sync-status-label">Update Source</span>
+            <strong className="sync-status-value">
+              {import.meta.env.PROD ? "Installed app" : "Development preview"}
+            </strong>
+          </div>
+        </div>
+
+        {versionCheckStatus && (
+          <p className="version-check-status">{versionCheckStatus}</p>
+        )}
       </section>
 
       {/* NEW: Export/Import Data Section */}

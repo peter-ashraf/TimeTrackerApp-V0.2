@@ -2,14 +2,22 @@ import React, { useState } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 import CustomSelect from './CustomSelect';
+import AlertModal from './AlertModal';
 import '../styles/edit-entry-modal.css';
 
 function EditEntryModal({ entry, onClose }) {
-  const { updateEntry, confirmModal, setConfirmModal } = useTimeTracker();
+  const { updateEntry } = useTimeTracker();
 
   // Track if user made any modifications
   const [hasModifications, setHasModifications] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [alertModal, setAlertModal] = useState({
+    isOpen: false,
+    title: 'Alert',
+    message: '',
+    type: 'info',
+    closeParentOnClose: false
+  });
 
   // ✅ Convert HH:MM:SS to display format (keep seconds)
   const formatTimeForDisplay = (time) => {
@@ -58,28 +66,39 @@ function EditEntryModal({ entry, onClose }) {
     setEditedEntry({ ...editedEntry, intervals: newIntervals });
   };
   const showValidationError = (title, message, type = 'warning') => {
-    setConfirmModal({
+    setAlertModal({
       isOpen: true,
       title,
       message,
       type,
-      confirmText: 'OK',
-      showCancel: false,
-      onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
+      closeParentOnClose: false
     });
   };
 
   // ✅ Show success modal
   const showSuccessModal = () => {
-    setConfirmModal({
+    setAlertModal({
       isOpen: true,
-      title: '✅ Success',
+      title: 'Success',
       message: 'Entry updated successfully!',
       type: 'success',
-      confirmText: 'OK',
-      showCancel: false,
-      onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
+      closeParentOnClose: true
     });
+  };
+
+  const closeAlertModal = () => {
+    const shouldCloseParent = alertModal.closeParentOnClose;
+    setAlertModal({
+      isOpen: false,
+      title: 'Alert',
+      message: '',
+      type: 'info',
+      closeParentOnClose: false
+    });
+
+    if (shouldCloseParent) {
+      onClose();
+    }
   };
 
   // ✅ Handle manual text input (expects HH:MM:SS)
@@ -141,7 +160,7 @@ function EditEntryModal({ entry, onClose }) {
         showValidationError(
           '⚠️ Invalid Time Logic',
           `Check-out time must be after check-in time in Interval ${i + 1}.\n\nPlease correct the time values.`,
-          'error'
+          'danger'
         );
         return;
       }
@@ -176,17 +195,18 @@ function EditEntryModal({ entry, onClose }) {
         doubleHours: editedEntry.doubleHours
       });
 
-      onClose();
+      setIsSaving(false);
       showSuccessModal();
     } catch (error) {
       console.error('[Update] Failed to update entry:', error);
-      showValidationError('Save Failed', 'Failed to save changes. Please try again.', 'error');
+      showValidationError('Save Failed', 'Failed to save changes. Please try again.', 'danger');
       setIsSaving(false);
     }
   };
 
   return (
-    <ModalShell onClose={onClose} contentClassName="edit-entry-modal" closeOnOverlay={false}>
+    <>
+    <ModalShell onClose={isSaving ? undefined : onClose} contentClassName="edit-entry-modal" closeOnOverlay={false}>
       <div className="modal-header">
         <h2>✏️ Edit Entry - {entry.date}</h2>
       </div>
@@ -362,11 +382,21 @@ function EditEntryModal({ entry, onClose }) {
 
       <div className="modal-footer">
         <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave}>💾 Save Changes</button>
+          <button className="btn btn-secondary" onClick={onClose} disabled={isSaving}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? 'Saving...' : 'Save Changes'}
+          </button>
         </div>
       </div>
     </ModalShell>
+    <AlertModal
+      isOpen={alertModal.isOpen}
+      title={alertModal.title}
+      message={alertModal.message}
+      type={alertModal.type}
+      onClose={closeAlertModal}
+    />
+    </>
   );
 }
 
