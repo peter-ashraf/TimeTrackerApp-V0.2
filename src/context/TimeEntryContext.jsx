@@ -41,6 +41,7 @@ export const TimeEntryProvider = ({ children }) => {
   // Refs to track state
   const isRefreshingRef = useRef(false);
   const isLoadingRef = useRef(false);
+  const loadStartedAtRef = useRef(null);
   const isInitialSyncRef = useRef(true);
   const initialSyncTimeoutRef = useRef(null);
   const entriesRef = useRef(entries);
@@ -213,6 +214,8 @@ export const TimeEntryProvider = ({ children }) => {
   const loadTimeEntriesData = useCallback(async (options = {}) => {
     const forceConflictCheck = options?.forceConflictCheck === true;
     const fetchTimeoutMs = options?.fetchTimeoutMs ?? (forceConflictCheck ? 30000 : 20000);
+    const waitForCurrentSyncMs = options?.waitForCurrentSyncMs ?? 0;
+    const staleLoadMs = Math.max(fetchTimeoutMs + 15000, 45000);
 
     if (!currentUser || !isAuthenticated) {
       return {
@@ -223,12 +226,38 @@ export const TimeEntryProvider = ({ children }) => {
     }
 
     if (isLoadingRef.current) {
-      return {
-        success: false,
-        skipped: true,
-        reason: 'already_loading',
-        message: 'A sync is already running.'
-      };
+      const loadAge = Date.now() - (loadStartedAtRef.current || 0);
+
+      if (loadAge > staleLoadMs) {
+        console.warn(`[Sync] Clearing stale sync guard after ${Math.round(loadAge / 1000)} seconds`);
+        isLoadingRef.current = false;
+        loadStartedAtRef.current = null;
+      } else if (waitForCurrentSyncMs > 0) {
+        const waitStartedAt = Date.now();
+
+        while (
+          isLoadingRef.current &&
+          Date.now() - waitStartedAt < waitForCurrentSyncMs
+        ) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+        }
+
+        if (isLoadingRef.current) {
+          return {
+            success: false,
+            skipped: true,
+            reason: 'already_loading',
+            message: 'A sync is already running. Please try again in a few seconds.'
+          };
+        }
+      } else {
+        return {
+          success: false,
+          skipped: true,
+          reason: 'already_loading',
+          message: 'A sync is already running.'
+        };
+      }
     }
 
     const sortEntries = (entryList) =>
@@ -305,6 +334,7 @@ export const TimeEntryProvider = ({ children }) => {
 
     try {
       isLoadingRef.current = true;
+      loadStartedAtRef.current = Date.now();
 
       let localEntries = [];
 
@@ -464,6 +494,7 @@ export const TimeEntryProvider = ({ children }) => {
       };
     } finally {
       isLoadingRef.current = false;
+      loadStartedAtRef.current = null;
     }
   }, [currentUser, isAuthenticated, normalizeDateKey]);
 

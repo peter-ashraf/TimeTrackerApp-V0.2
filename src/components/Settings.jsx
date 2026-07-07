@@ -498,11 +498,14 @@ function Settings() {
         return;
       }
 
-      const result = await loadTimeEntriesData({ forceConflictCheck: true });
+      const result = await loadTimeEntriesData({
+        forceConflictCheck: true,
+        waitForCurrentSyncMs: 10000,
+      });
       if (!result?.success) {
         setNotifModal({
           isOpen: true,
-          isError: true,
+          isError: result?.reason !== "already_loading",
           message: result?.message || "Sync failed. Please try again.",
         });
         return;
