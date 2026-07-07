@@ -36,6 +36,7 @@ const REMINDER_COUNT_PRESETS = ["1", "2", "3", "4", "5"];
 const REMINDER_INTERVAL_PRESETS = ["5", "10", "15", "30"];
 const REMINDER_SAVE_TIMEOUT_MS = 12000;
 const SETTINGS_SAVE_TIMEOUT_MS = 12000;
+const MANUAL_SYNC_TIMEOUT_MS = 35000;
 
 const withTimeout = (promise, timeoutMs, message) =>
   new Promise((resolve, reject) => {
@@ -498,10 +499,14 @@ function Settings() {
         return;
       }
 
-      const result = await loadTimeEntriesData({
-        forceConflictCheck: true,
-        waitForCurrentSyncMs: 10000,
-      });
+      const result = await withTimeout(
+        loadTimeEntriesData({
+          forceConflictCheck: true,
+          waitForCurrentSyncMs: 10000,
+        }),
+        MANUAL_SYNC_TIMEOUT_MS,
+        "Sync took too long. Status has been refreshed; please try again.",
+      );
       if (!result?.success) {
         setNotifModal({
           isOpen: true,
@@ -519,6 +524,7 @@ function Settings() {
         message: result.message || "Sync completed.",
       });
     } catch (error) {
+      refreshSyncStatus();
       setNotifModal({
         isOpen: true,
         isError: true,
