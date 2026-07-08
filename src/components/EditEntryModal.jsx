@@ -7,6 +7,8 @@ import '../styles/edit-entry-modal.css';
 
 function EditEntryModal({ entry, onClose }) {
   const { updateEntry } = useTimeTracker();
+  const activeSaveRef = React.useRef(0);
+  const SAVE_UI_TIMEOUT_MS = 10000;
 
   // Track if user made any modifications
   const [hasModifications, setHasModifications] = useState(false);
@@ -82,6 +84,16 @@ function EditEntryModal({ entry, onClose }) {
       title: 'Success',
       message: 'Entry updated successfully!',
       type: 'success',
+      closeParentOnClose: true
+    });
+  };
+
+  const showLocalSaveFallbackModal = () => {
+    setAlertModal({
+      isOpen: true,
+      title: 'Saved Locally',
+      message: 'Your edit was saved in the app. Cloud sync is taking longer than expected and will continue in the background.',
+      type: 'warning',
       closeParentOnClose: true
     });
   };
@@ -186,17 +198,34 @@ function EditEntryModal({ entry, onClose }) {
 
     // Update entry with all modified fields
     try {
+      const saveAttempt = activeSaveRef.current + 1;
+      activeSaveRef.current = saveAttempt;
       setIsSaving(true);
-      await updateEntry(entry.date, {
-        type: editedEntry.type,
-        intervals: validIntervals,
-        duration: editedEntry.duration,
-        notes: editedEntry.notes,
-        doubleHours: editedEntry.doubleHours
-      });
+      const saveResult = await Promise.race([
+        updateEntry(entry.date, {
+          type: editedEntry.type,
+          intervals: validIntervals,
+          duration: editedEntry.duration,
+          notes: editedEntry.notes,
+          doubleHours: editedEntry.doubleHours
+        }),
+        new Promise(resolve => {
+          setTimeout(() => {
+            resolve({ success: true, savedTo: 'local', timedOut: true });
+          }, SAVE_UI_TIMEOUT_MS);
+        })
+      ]);
+
+      if (activeSaveRef.current !== saveAttempt) return;
 
       setIsSaving(false);
-      showSuccessModal();
+      if (saveResult?.timedOut) {
+        showLocalSaveFallbackModal();
+      } else if (saveResult?.success === false && saveResult?.savedTo !== 'local') {
+        showValidationError('Save Failed', 'Failed to save changes. Please try again.', 'danger');
+      } else {
+        showSuccessModal();
+      }
     } catch (error) {
       console.error('[Update] Failed to update entry:', error);
       showValidationError('Save Failed', 'Failed to save changes. Please try again.', 'danger');
@@ -206,7 +235,7 @@ function EditEntryModal({ entry, onClose }) {
 
   return (
     <>
-    <ModalShell onClose={isSaving ? undefined : onClose} contentClassName="edit-entry-modal" closeOnOverlay={false}>
+    <ModalShell onClose={onClose} contentClassName="edit-entry-modal" closeOnOverlay={false}>
       <div className="modal-header">
         <h2>✏️ Edit Entry - {entry.date}</h2>
       </div>
@@ -382,7 +411,7 @@ function EditEntryModal({ entry, onClose }) {
 
       <div className="modal-footer">
         <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={onClose} disabled={isSaving}>Cancel</button>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
             {isSaving ? 'Saving...' : 'Save Changes'}
           </button>

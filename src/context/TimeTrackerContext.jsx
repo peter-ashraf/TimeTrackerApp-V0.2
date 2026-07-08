@@ -724,10 +724,11 @@ export const TimeTrackerProvider = ({ children }) => {
           ? recalculateEntryFields(updatedEntry)
           : updatedEntry;
 
-        await timeEntryContext.saveTimeEntriesData(entryToSave, showAlert);
+        return await timeEntryContext.saveTimeEntriesData(entryToSave, showAlert);
       } catch (error) {
         console.error("Error updating entry:", error);
         showAlert("Failed to update entry", "error");
+        return { success: false, error };
       }
     },
     [timeEntryContext, ensureTimeSeconds, showAlert, recalculateEntryFields],
