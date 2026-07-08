@@ -34,7 +34,7 @@ const IS_DEV_MODE = import.meta.env.DEV;
 const REMINDER_COUNT_PRESETS = ["1", "2", "3", "4", "5"];
 const REMINDER_INTERVAL_PRESETS = ["5", "10", "15", "30"];
 const REMINDER_SAVE_TIMEOUT_MS = 12000;
-const SETTINGS_SAVE_TIMEOUT_MS = 12000;
+const SETTINGS_SAVE_TIMEOUT_MS = 20000;
 const MANUAL_SYNC_TIMEOUT_MS = 35000;
 
 const withTimeout = (promise, timeoutMs, message) =>
@@ -53,6 +53,9 @@ const withTimeout = (promise, timeoutMs, message) =>
         reject(error);
       });
   });
+
+const getLeaveSettingsUpdatedAtKey = (userId) =>
+  `leaveSettingsUpdatedAt_${userId}`;
 
 const normalizeReminderTime = (value, fallback = "09:00") => {
   if (typeof value !== "string") return fallback;
@@ -379,6 +382,7 @@ function Settings() {
     leaveSettings.annualVacation ?? 10,
   );
   const [sickDays, setSickDays] = useState(leaveSettings.sickDays ?? 7);
+  const [leaveInputsDirty, setLeaveInputsDirty] = useState(false);
 
   // Reminder settings form
   const [remindersEnabled, setRemindersEnabled] = useState(
@@ -429,6 +433,7 @@ function Settings() {
   const [notifModal, setNotifModal] = useState({
     isOpen: false,
     isError: false,
+    title: "",
     message: "",
   });
 
@@ -892,9 +897,10 @@ function Settings() {
   }, [employee]);
 
   useEffect(() => {
+    if (leaveInputsDirty) return;
     setAnnualVacation(leaveSettings.annualVacation ?? 10);
     setSickDays(leaveSettings.sickDays ?? 7);
-  }, [leaveSettings]);
+  }, [leaveSettings, leaveInputsDirty]);
 
   useEffect(() => {
     if (reminderSettings) {
@@ -930,27 +936,38 @@ function Settings() {
     }
   }, [activeSettingsTab, currentUser?.id, refreshNotificationSubscription]);
 
+  const openAddPeriodFlow = useCallback(() => {
+    localStorage.removeItem("shouldOpenAddPeriod");
+    setActiveSettingsTab("periods");
+    setEditingPeriodId(null);
+    setNewPeriodStart("");
+    setNewPeriodEnd("");
+    setShowAddPeriod(true);
+
+    setTimeout(() => {
+      const periodSection = document.querySelector(
+        ".pay-period-settings-section h3",
+      );
+      if (periodSection) {
+        periodSection.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 100);
+  }, []);
+
   // Check if we should open the Add Period modal (from Timesheet navigation)
   useEffect(() => {
-    const shouldOpenAddPeriod = localStorage.getItem("shouldOpenAddPeriod");
-    if (shouldOpenAddPeriod === "true") {
-      localStorage.removeItem("shouldOpenAddPeriod");
-      setActiveSettingsTab("periods");
-      setEditingPeriodId(null);
-      setNewPeriodStart("");
-      setNewPeriodEnd("");
-      setShowAddPeriod(true);
-      // Scroll to the Pay Period Management section
-      setTimeout(() => {
-        const periodSection = document.querySelector(
-          ".pay-period-settings-section h3",
-        );
-        if (periodSection) {
-          periodSection.scrollIntoView({ behavior: "smooth" });
-        }
-      }, 100);
+    const handleOpenAddPeriod = () => openAddPeriodFlow();
+
+    if (localStorage.getItem("shouldOpenAddPeriod") === "true") {
+      openAddPeriodFlow();
     }
-  }, []);
+
+    window.addEventListener("open-add-period-settings", handleOpenAddPeriod);
+
+    return () => {
+      window.removeEventListener("open-add-period-settings", handleOpenAddPeriod);
+    };
+  }, [openAddPeriodFlow]);
 
   // Auto-set full-time employee values when employee type changes
   useEffect(() => {
@@ -1016,7 +1033,7 @@ function Settings() {
         type: "danger",
         confirmText: "OK",
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
+        onConfirm: () => setConfirmModal((prev) => ({ ...prev, isOpen: false })),
       });
       return; // Stop - don't save
     }
@@ -1074,7 +1091,7 @@ function Settings() {
         type: "info",
         confirmText: "OK",
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
+        onConfirm: () => setConfirmModal((prev) => ({ ...prev, isOpen: false })),
       });
       return;
     }
@@ -1215,9 +1232,14 @@ function Settings() {
       annualVacation: parsedVacation,
       sickDays: parsedSickDays,
     };
+    let leaveSettingsCloudWarning = "";
 
     if ((vacationChanged || sickDaysChanged) && currentUser) {
       const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
+      localStorage.setItem(
+        getLeaveSettingsUpdatedAtKey(currentUser.id),
+        String(Date.now()),
+      );
       setSimpleEncryptedItem(
         leaveSettingsKey,
         nextLeaveSettings,
@@ -1229,33 +1251,35 @@ function Settings() {
       );
 
       try {
-        await withTimeout(
-          supabaseData.saveLeaveSettings(currentUser.id, {
+        const savedLeaveSettings = await supabaseData.saveLeaveSettings(
+          currentUser.id,
+          {
             annual_vacation: nextLeaveSettings.annualVacation,
             sick_days: nextLeaveSettings.sickDays,
             personal_days: nextLeaveSettings.personalDays,
             used_vacation_days: nextLeaveSettings.usedVacationDays,
             used_sick_days: nextLeaveSettings.usedSickDays,
             used_personal_days: nextLeaveSettings.usedPersonalDays,
-          }),
-          SETTINGS_SAVE_TIMEOUT_MS,
-          "Leave settings save timed out. Please check your connection and try again.",
+          },
+          { timeoutMs: SETTINGS_SAVE_TIMEOUT_MS },
         );
+        if (!savedLeaveSettings) {
+          leaveSettingsCloudWarning =
+            "Leave settings were saved on this device, but Supabase did not confirm the update.";
+        }
       } catch (error) {
-        setNotifModal({
-          isOpen: true,
-          isError: true,
-          message:
-            error.message ||
-            "Leave settings were saved locally, but Supabase did not update.",
-        });
-        return;
+        leaveSettingsCloudWarning =
+          error.message ||
+          "Leave settings were saved on this device, but Supabase did not update.";
       }
     }
 
     // NOW update local state after database save (or queue)
     setEmployee((prev) => ({ ...prev, ...employeeData }));
     setLeaveSettings(nextLeaveSettings);
+    setAnnualVacation(nextLeaveSettings.annualVacation);
+    setSickDays(nextLeaveSettings.sickDays);
+    setLeaveInputsDirty(false);
 
     // Update reminder settings
     if (
@@ -1350,14 +1374,18 @@ function Settings() {
         "\n\n⚠️ Note: Database connectivity issues detected. Changes will sync when connection is restored.";
     }
 
+    if (leaveSettingsCloudWarning) {
+      summaryMessage += `\n\nWarning: ${leaveSettingsCloudWarning}`;
+    }
+
     setConfirmModal({
       isOpen: true,
       title: "✓ Settings Saved",
       message: summaryMessage,
-      type: queue.length > 0 ? "warning" : "success",
+      type: queue.length > 0 || leaveSettingsCloudWarning ? "warning" : "success",
       confirmText: "OK",
       showCancel: false,
-      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
+      onConfirm: () => setConfirmModal((prev) => ({ ...prev, isOpen: false })),
     });
   };
 
@@ -2026,7 +2054,10 @@ function Settings() {
               inputMode="numeric"
               className="form-control"
               value={annualVacation ?? 10}
-              onChange={(e) => setAnnualVacation(e.target.value)}
+              onChange={(e) => {
+                setLeaveInputsDirty(true);
+                setAnnualVacation(e.target.value);
+              }}
               placeholder="Enter annual vacation days"
               min="0"
               max="365"
@@ -2041,7 +2072,10 @@ function Settings() {
               inputMode="numeric"
               className="form-control"
               value={sickDays ?? 7}
-              onChange={(e) => setSickDays(e.target.value)}
+              onChange={(e) => {
+                setLeaveInputsDirty(true);
+                setSickDays(e.target.value);
+              }}
               placeholder="Enter sick days"
               min="0"
               max="365"
@@ -3122,7 +3156,7 @@ function Settings() {
               {notifModal.isError ? "❌" : "✅"}
             </div>
             <h2 style={{ marginBottom: "15px", color: notifModal.isError ? "#dc3545" : "#28a745" }}>
-              {notifModal.isError ? "Notification Error" : "Success"}
+              {notifModal.title || (notifModal.isError ? "Settings Error" : "Success")}
             </h2>
             <p style={{ fontSize: "16px", lineHeight: "1.5", color: "#666" }}>
               {notifModal.message}

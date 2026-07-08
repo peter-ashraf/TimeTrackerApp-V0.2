@@ -6,7 +6,6 @@ import ManualTimeModal from './ManualTimeModal';
 import AddBreakModal from './AddBreakModal';
 import EditEntryModal from './EditEntryModal';
 import TimesheetCompareModal from './TimesheetCompareModal';
-import NoPeriodPrompt from './NoPeriodPrompt';
 import VirtualizedTimesheetTable from './VirtualizedTimesheetTable';
 import CustomSelect from './CustomSelect';
 import CalendarView from './CalendarView';
@@ -117,7 +116,7 @@ const TimesheetRow = React.memo(({
   );
 });
 
-function Timesheet() {
+function Timesheet({ setCurrentView }) {
   const {
     entries,
     periods,
@@ -139,7 +138,6 @@ function Timesheet() {
   const [showAddBreak, setShowAddBreak] = useState(false);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
-  const [showNoPeriodPrompt, setShowNoPeriodPrompt] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredEntries, setFilteredEntries] = useState([]);
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'calendar'
@@ -288,7 +286,12 @@ function Timesheet() {
             You need to create a pay period to track your time entries.
           </p>
           <button
-            onClick={() => setShowNoPeriodPrompt(true)}
+            onClick={() => {
+              hapticFeedback.buttonClick();
+              localStorage.setItem('shouldOpenAddPeriod', 'true');
+              setCurrentView?.('settings');
+              window.dispatchEvent(new Event('open-add-period-settings'));
+            }}
             style={{
               padding: '12px 24px',
               backgroundColor: '#3498db',
@@ -552,9 +555,6 @@ function Timesheet() {
             />
           )}
           {editingEntry && <EditEntryModal entry={editingEntry} onClose={() => setEditingEntry(null)} />}
-          {showNoPeriodPrompt && <NoPeriodPrompt onOpenSettings={() => {
-            localStorage.setItem('navigateToAddPeriod', 'true');
-          }} onClose={() => setShowNoPeriodPrompt(false)} />}
         </>
       )}
     </main>

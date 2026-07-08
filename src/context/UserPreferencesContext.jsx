@@ -64,6 +64,17 @@ const normalizeReminderTime = (value, fallback = "09:00") => {
   return match ? match[1] : fallback;
 };
 
+const getLeaveSettingsUpdatedAtKey = (userId) =>
+  `leaveSettingsUpdatedAt_${userId}`;
+
+const getTimestampMs = (value) => {
+  if (!value) return 0;
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) return numeric;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 export const useUserPreferences = () => {
   const context = useContext(UserPreferencesContext);
   if (!context) {
@@ -280,16 +291,48 @@ export const UserPreferencesProvider = ({ children }) => {
             if (leaveSettingsData) {
               const normalizedCloudLeaveSettings =
                 normalizeLeaveSettings(leaveSettingsData);
-              setLeaveSettings(normalizedCloudLeaveSettings);
-              setSimpleEncryptedItem(
-                leaveSettingsKey,
-                normalizedCloudLeaveSettings,
-                currentUser.username,
+              const localUpdatedAt = getTimestampMs(
+                localStorage.getItem(getLeaveSettingsUpdatedAtKey(currentUser.id)),
               );
-              cacheManager.setCachedData(
-                leaveSettingsCacheKey,
-                normalizedCloudLeaveSettings,
-              );
+              const cloudUpdatedAt = getTimestampMs(leaveSettingsData.updated_at);
+              const localIsNewer =
+                localUpdatedAt > 0 && cloudUpdatedAt > 0 && localUpdatedAt > cloudUpdatedAt + 1000;
+
+              if (localIsNewer) {
+                const normalizedLocal =
+                  normalizeLeaveSettings(localLeaveSettings);
+
+                try {
+                  await supabaseData.saveLeaveSettings(currentUser.id, {
+                    annual_vacation: normalizedLocal.annualVacation,
+                    sick_days: normalizedLocal.sickDays,
+                    personal_days: normalizedLocal.personalDays,
+                    used_vacation_days: normalizedLocal.usedVacationDays,
+                    used_sick_days: normalizedLocal.usedSickDays,
+                    used_personal_days: normalizedLocal.usedPersonalDays,
+                  });
+                } catch (saveError) {
+                  console.error(
+                    "Failed to push newer local leave settings to Supabase:",
+                    saveError,
+                  );
+                }
+              } else {
+                setLeaveSettings(normalizedCloudLeaveSettings);
+                setSimpleEncryptedItem(
+                  leaveSettingsKey,
+                  normalizedCloudLeaveSettings,
+                  currentUser.username,
+                );
+                localStorage.setItem(
+                  getLeaveSettingsUpdatedAtKey(currentUser.id),
+                  String(cloudUpdatedAt || Date.now()),
+                );
+                cacheManager.setCachedData(
+                  leaveSettingsCacheKey,
+                  normalizedCloudLeaveSettings,
+                );
+              }
             } else {
               // If no settings exist on Supabase, initialize the DB record with local/default data
               const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
@@ -418,6 +461,10 @@ export const UserPreferencesProvider = ({ children }) => {
         leaveSettingsKey,
         normalizedLeaveSettings,
         currentUser.username,
+      );
+      localStorage.setItem(
+        getLeaveSettingsUpdatedAtKey(currentUser.id),
+        String(Date.now()),
       );
 
       // Also save to cacheManager for offline access

@@ -235,28 +235,45 @@ export const supabaseData = {
     }
   },
 
-  async saveLeaveSettings(userId, leaveSettings) {
+  async saveLeaveSettings(userId, leaveSettings, options = {}) {
+    const timeoutMs = options.timeoutMs ?? 20000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
+      const body = {
+        user_id: userId,
+        annual_vacation: leaveSettings.annual_vacation ?? leaveSettings.annualVacation ?? 10,
+        sick_days: leaveSettings.sick_days ?? leaveSettings.sickDays ?? 7,
+        personal_days: leaveSettings.personal_days ?? leaveSettings.personalDays ?? 2,
+        used_vacation_days: leaveSettings.used_vacation_days ?? leaveSettings.usedVacationDays ?? 0,
+        used_sick_days: leaveSettings.used_sick_days ?? leaveSettings.usedSickDays ?? 0,
+        used_personal_days: leaveSettings.used_personal_days ?? leaveSettings.usedPersonalDays ?? 0,
+        updated_at: new Date().toISOString()
+      };
+
       const { data, error } = await supabaseClient
         .from('leave_settings')
-        .upsert({
-          user_id: userId,
-          ...leaveSettings,
-          updated_at: new Date().toISOString()
-        }, {
+        .upsert(body, {
           onConflict: 'user_id'
         })
         .select()
-        .single();
+        .single()
+        .abortSignal(controller.signal);
 
       if (error) throw error;
       return data;
     } catch (error) {
       console.error('Error saving leave settings:', error);
+      if (error.name === 'AbortError') {
+        throw new Error(`Leave settings save timed out after ${Math.round(timeoutMs / 1000)} seconds`);
+      }
       if (error.code === 'PGRST205' || error.code === '23505') {
         return null;
       }
       throw error;
+    } finally {
+      clearTimeout(timeoutId);
     }
   },
 

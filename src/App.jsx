@@ -780,7 +780,7 @@ function App() {
                       className={`view-container timesheet-container ${currentView === "timesheet" ? "active" : ""}`}
                       data-scrollable
                     >
-                      <Timesheet />
+                      <Timesheet setCurrentView={setCurrentView} />
                     </div>
                   </Suspense>
 
