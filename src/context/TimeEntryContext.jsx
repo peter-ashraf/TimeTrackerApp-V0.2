@@ -96,24 +96,30 @@ export const TimeEntryProvider = ({ children }) => {
           finalEntries = entriesToSave;
         } else {
           // Use functional update to avoid stale closure issues and minimize dependency changes
+          // Capture the updated entries for later use
+          let updatedEntriesList;
           setEntries(prev => {
             const updatedEntries = prev.filter(e => e.date !== entriesToSave.date);
             updatedEntries.unshift(entriesToSave);
 
-            // Sync to local storage within the update or right after
+            // Sync to local storage within the update
             setSimpleEncryptedItem(entriesKey, updatedEntries, currentUser.username);
+            
+            // Also save to cacheManager for offline access - use updatedEntries to avoid stale closure
+            try {
+              cacheManager.setCachedData('timeEntries', updatedEntries);
+            } catch (cacheError) {
+              console.warn('Failed to save to cacheManager:', cacheError);
+            }
+            
+            // Capture for later use in Supabase save
+            updatedEntriesList = updatedEntries;
+            
             return updatedEntries;
           });
-          // Get the updated entries for caching
-          finalEntries = [entriesToSave, ...entries.filter(e => e.date !== entriesToSave.date)];
-        }
-
-        // Also save to cacheManager for offline access
-        try {
-          const allEntries = Array.isArray(entriesToSave) ? entriesToSave : finalEntries;
-          cacheManager.setCachedData('timeEntries', allEntries);
-        } catch (cacheError) {
-          console.warn('Failed to save to cacheManager:', cacheError);
+          
+          // Set finalEntries to the captured updated entries
+          finalEntries = updatedEntriesList;
         }
 
         // Try to save to Supabase if online, authenticated, and not local-only

@@ -14,6 +14,22 @@ function AppUpdatePrompt() {
       }
     };
 
+    const handleShowUpdatePrompt = async () => {
+      if (!("serviceWorker" in navigator)) return;
+
+      try {
+        const readyRegistration = await navigator.serviceWorker.ready;
+        if (
+          readyRegistration.waiting &&
+          navigator.serviceWorker.controller
+        ) {
+          setRegistration(readyRegistration);
+        }
+      } catch {
+        // Ignore prompt recovery errors; manual reload remains available.
+      }
+    };
+
     const handleControllerChange = () => {
       if (hasReloadedRef.current) return;
       hasReloadedRef.current = true;
@@ -21,6 +37,7 @@ function AppUpdatePrompt() {
     };
 
     window.addEventListener("app-update-available", handleUpdateAvailable);
+    window.addEventListener("app-update-show-prompt", handleShowUpdatePrompt);
     navigator.serviceWorker?.addEventListener(
       "controllerchange",
       handleControllerChange,
@@ -41,6 +58,7 @@ function AppUpdatePrompt() {
 
     return () => {
       window.removeEventListener("app-update-available", handleUpdateAvailable);
+      window.removeEventListener("app-update-show-prompt", handleShowUpdatePrompt);
       navigator.serviceWorker?.removeEventListener(
         "controllerchange",
         handleControllerChange,

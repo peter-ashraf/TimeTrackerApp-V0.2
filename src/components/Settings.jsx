@@ -466,6 +466,8 @@ function Settings() {
   const [isSyncingNow, setIsSyncingNow] = useState(false);
   const [isCheckingVersion, setIsCheckingVersion] = useState(false);
   const [versionCheckStatus, setVersionCheckStatus] = useState("");
+  const [pendingUpdateRegistration, setPendingUpdateRegistration] =
+    useState(null);
   const [settingCurrentPeriodId, setSettingCurrentPeriodId] = useState(null);
   const [syncStatus, setSyncStatus] = useState(() =>
     getSyncStatusSnapshot(currentUser, entries),
@@ -614,15 +616,18 @@ function Settings() {
       await registration.update();
 
       if (registration.waiting && navigator.serviceWorker.controller) {
+        setPendingUpdateRegistration(registration);
         window.dispatchEvent(
           new CustomEvent("app-update-available", {
             detail: { registration },
           }),
         );
-        setVersionCheckStatus("New version found. Use the reload prompt to update.");
+        window.dispatchEvent(new Event("app-update-show-prompt"));
+        setVersionCheckStatus("New version found. Reload it now or use the reload prompt.");
         return;
       }
 
+      setPendingUpdateRegistration(null);
       setVersionCheckStatus("You are already on the latest available version.");
     } catch (error) {
       setVersionCheckStatus(error.message || "Could not check for updates.");
@@ -630,6 +635,30 @@ function Settings() {
       setIsCheckingVersion(false);
     }
   }, []);
+
+  const handleReloadAppUpdate = useCallback(async () => {
+    hapticFeedback.buttonClick();
+
+    try {
+      const registration =
+        pendingUpdateRegistration ||
+        (await navigator.serviceWorker.getRegistration("/TimeTrackerApp-V0.2/")) ||
+        (await navigator.serviceWorker.ready);
+
+      if (registration?.waiting) {
+        setVersionCheckStatus("Reloading update...");
+        registration.waiting.postMessage({ type: "SKIP_WAITING" });
+        window.setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+        return;
+      }
+
+      window.location.reload();
+    } catch (error) {
+      setVersionCheckStatus(error.message || "Could not reload the update.");
+    }
+  }, [pendingUpdateRegistration]);
 
   const handleOpenExport = () => {
     setShowExportModal(true);
@@ -2778,6 +2807,15 @@ function Settings() {
           >
             {isCheckingVersion ? "Checking..." : "Check for Updates"}
           </button>
+          {pendingUpdateRegistration && (
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={handleReloadAppUpdate}
+            >
+              Reload Update
+            </button>
+          )}
         </div>
 
         <div className="app-version-card">
