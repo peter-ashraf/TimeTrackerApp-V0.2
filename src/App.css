@@ -19,3 +19,27 @@
   cursor: not-allowed;
   pointer-events: none;
 }
+
+.full-width-button-container{
+  margin-bottom: 1rem;
+}
+
+.btn.full-width {
+  width: 100%;
+  margin-bottom: 20px !important; 
+}
+
+.quick-actions .btn.full-width {
+  grid-column: 1 / -1;
+  margin-bottom: 20px !important; 
+}
+
+.full-width-button-container {
+  width: 100%;
+  margin-bottom: 20px !important;
+  display: block;
+}
+
+.full-width-button-container .btn {
+  width: 100%;
+}

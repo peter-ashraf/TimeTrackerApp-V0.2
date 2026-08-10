@@ -6,6 +6,7 @@ import AddBreakModal from './AddBreakModal';
 import AddDayModal from './AddDayModal';
 import ViewHoursModal from './ViewHoursModal';
 import VacationDetailsModal from './VacationDetailsModal';
+import LeaveCalculator from './LeaveCalculator';
 import DashboardSkeleton from './DashboardSkeleton';
 
 const toFiniteNumber = (value, fallback = 0) => {
@@ -31,6 +32,8 @@ function Dashboard() {
   const [showAddBreak, setShowAddBreak] = useState(false);
   const [showAddDay, setShowAddDay] = useState(false);
   const [showViewHours, setShowViewHours] = useState(false);
+  const [showLeaveCalculator, setShowLeaveCalculator] = useState(false);
+  const [calculatorDate, setCalculatorDate] = useState(null);
   const [vacationModalType, setVacationModalType] = useState(null);
 
   // Temporary delay to test skeleton loading
@@ -289,6 +292,16 @@ function Dashboard() {
         }}>View Hours</button>
       </div>
 
+      {/* Leave Calculator Button */}
+      <div className="full-width-button-container" style={{ marginBottom: '1rem' }}>
+        <button className="btn btn-outline full-width" onClick={() => {
+          hapticFeedback.buttonClick();
+          const today = new Date().toISOString().split('T')[0];
+          setCalculatorDate(today);
+          setShowLeaveCalculator(true);
+        }}>🧮 Leave Calculator</button>
+      </div>
+
       {/* Vacation Cards */}
       <div className="vacation-cards">
         {/* Vacation Card */}
@@ -353,6 +366,15 @@ function Dashboard() {
       {showAddBreak && <AddBreakModal onClose={() => setShowAddBreak(false)} />}
       {showAddDay && <AddDayModal onClose={() => setShowAddDay(false)} />}
       {showViewHours && <ViewHoursModal onClose={() => setShowViewHours(false)} />}
+      {showLeaveCalculator && (
+        <LeaveCalculator 
+          selectedDate={calculatorDate} 
+          onClose={() => {
+            setShowLeaveCalculator(false);
+            setCalculatorDate(null);
+          }} 
+        />
+      )}
       {vacationModalType && (
         <VacationDetailsModal 
           type={vacationModalType} 
