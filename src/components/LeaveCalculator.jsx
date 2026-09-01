@@ -3,6 +3,9 @@ import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 import '../styles/leave-calculator.css';
 
+const ALLOWED_BREAK_START_MINS = 13 * 60; // 13:00
+const ALLOWED_BREAK_END_MINS = 13 * 60 + 30; // 13:30
+
 const LeaveCalculator = ({ selectedDate, onClose }) => {
   const { entries, employee, getCurrentPeriod, calculateOvertimeDetails } = useTimeTracker();
   
@@ -19,6 +22,8 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
   const [leaveTime, setLeaveTime] = useState('');
   const [overtimeAmount, setOvertimeAmount] = useState('');
   const [overtimeMode, setOvertimeMode] = useState('spend'); // 'spend' or 'keep'
+  const [userBreakMinutes, setUserBreakMinutes] = useState(0);
+  const [plannedBreakStartTime, setPlannedBreakStartTime] = useState('13:00');
   
   // Calculation results
   const [projectedWorkedMinutes, setProjectedWorkedMinutes] = useState(0);
@@ -41,19 +46,22 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     return 0;
   }, []);
 
-  // Helper: Convert minutes to time string (HH:MM)
+  // Helper: Convert minutes to time string (HH:MM:SS)
   const minutesToTime = useCallback((minutes) => {
     if (minutes < 0) minutes = 0;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+    const totalSeconds = Math.round(minutes * 60);
+    const hours = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   }, []);
 
   // Helper: Format minutes as hours and minutes (e.g., "2h 30m" or "-1h 15m")
   const formatMinutesAsHours = useCallback((minutes) => {
     const absMinutes = Math.abs(minutes);
-    const hours = Math.floor(absMinutes / 60);
-    const mins = absMinutes % 60;
+    const totalSeconds = Math.round(absMinutes * 60);
+    const hours = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
     const sign = minutes < 0 ? '-' : '';
     if (hours > 0 && mins > 0) {
       return `${sign}${hours}h ${mins}m`;
@@ -94,11 +102,22 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
       for (let i = 1; i < existingEntry.intervals.length; i++) {
         const interval = existingEntry.intervals[i];
         if (interval.in && interval.out) {
-          breakMinutes += timeToMinutes(interval.out) - timeToMinutes(interval.in);
+          const inMins = timeToMinutes(interval.in);
+          const outMins = timeToMinutes(interval.out);
+          const isAllowedBreak = 
+            inMins >= ALLOWED_BREAK_START_MINS &&
+            inMins <= ALLOWED_BREAK_END_MINS &&
+            outMins >= ALLOWED_BREAK_START_MINS &&
+            outMins <= ALLOWED_BREAK_END_MINS;
+            
+          if (!isAllowedBreak) {
+            breakMinutes += outMins - inMins;
+          }
         }
       }
     }
     setLoadedBreakMinutes(breakMinutes);
+    setUserBreakMinutes(breakMinutes);
     
     // Load required daily duration from employee settings
     // Support for: normal workdays, half-days, special schedules, days off, user-specific schedules
@@ -150,6 +169,17 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     setProjectedTotalOvertimeMinutes(0);
     setValidationError('');
     
+    // Calculate effective user break minutes based on planned start time
+    const plannedStartMins = timeToMinutes(plannedBreakStartTime);
+    const plannedEndMins = plannedStartMins + userBreakMinutes;
+    const isAllowedPlannedBreak =
+      plannedStartMins >= ALLOWED_BREAK_START_MINS &&
+      plannedStartMins <= ALLOWED_BREAK_END_MINS &&
+      plannedEndMins >= ALLOWED_BREAK_START_MINS &&
+      plannedEndMins <= ALLOWED_BREAK_END_MINS;
+      
+    const effectiveUserBreakMinutes = isAllowedPlannedBreak ? 0 : userBreakMinutes;
+    
     setIsLoading(false);
   }, [selectedDate, entries, employee, timeToMinutes, getCurrentPeriod, calculateOvertimeDetails]);
 
@@ -178,8 +208,19 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
       return;
     }
     
+    // Calculate effective user break minutes based on planned start time
+    const plannedStartMins = timeToMinutes(plannedBreakStartTime);
+    const plannedEndMins = plannedStartMins + userBreakMinutes;
+    const isAllowedPlannedBreak =
+      plannedStartMins >= ALLOWED_BREAK_START_MINS &&
+      plannedStartMins <= ALLOWED_BREAK_END_MINS &&
+      plannedEndMins >= ALLOWED_BREAK_START_MINS &&
+      plannedEndMins <= ALLOWED_BREAK_END_MINS;
+      
+    const effectiveUserBreakMinutes = isAllowedPlannedBreak ? 0 : userBreakMinutes;
+
     // Calculate projected worked minutes
-    const workedMinutes = leaveMinutes - checkInMinutes - loadedBreakMinutes;
+    const workedMinutes = leaveMinutes - checkInMinutes - effectiveUserBreakMinutes;
     setProjectedWorkedMinutes(workedMinutes);
     
     // Calculate daily balance (integer minutes)
@@ -190,23 +231,43 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     // new_period_balance_minutes = current_period_balance_minutes - old_selected_day_contribution_minutes + new_daily_balance_minutes
     
     const existingEntry = entries.find(e => e.date === selectedDate);
+    const dayOfWeek = new Date(selectedDate).getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const entryType = existingEntry?.type || 'Regular';
+    const useDoubleFactor = isWeekend || entryType === 'Holiday' || entryType === 'Vacation';
+    const factor = useDoubleFactor ? 2 : 1.5;
+
     let oldDayContributionMinutes = 0;
     
     // Get old selected day contribution from raw storage (if complete entry exists)
     if (existingEntry && existingEntry.intervals?.[0]?.in && existingEntry.intervals?.[0]?.out) {
       // Calculate the existing entry's contribution using raw minute values
       const existingWorkMinutes = timeToMinutes(existingEntry.intervals[0].out) - timeToMinutes(existingEntry.intervals[0].in) - loadedBreakMinutes;
-      oldDayContributionMinutes = existingWorkMinutes - requiredDailyMinutes;
+      const rawOldDayContribution = existingWorkMinutes - requiredDailyMinutes;
+      oldDayContributionMinutes = rawOldDayContribution > 0 ? rawOldDayContribution * factor : rawOldDayContribution;
     }
     
+    const factoredBalanceMinutes = balanceMinutes > 0 ? balanceMinutes * factor : balanceMinutes;
+    
     // Apply formula: current - old + new
-    const projectedTotal = currentTotalOvertimeMinutes - oldDayContributionMinutes + balanceMinutes;
+    const projectedTotal = currentTotalOvertimeMinutes - oldDayContributionMinutes + factoredBalanceMinutes;
     setProjectedTotalOvertimeMinutes(projectedTotal);
-  }, [hasExistingCheckIn, loadedCheckIn, checkInTime, leaveTime, loadedBreakMinutes, requiredDailyMinutes, timeToMinutes, selectedDate, entries, currentTotalOvertimeMinutes]);
+  }, [hasExistingCheckIn, loadedCheckIn, checkInTime, leaveTime, loadedBreakMinutes, userBreakMinutes, plannedBreakStartTime, requiredDailyMinutes, timeToMinutes, selectedDate, entries, currentTotalOvertimeMinutes]);
 
   // Perform reverse calculation
   const performReverseCalculation = useCallback(() => {
     setValidationError('');
+    
+    // Calculate effective user break minutes based on planned start time
+    const plannedStartMins = timeToMinutes(plannedBreakStartTime);
+    const plannedEndMins = plannedStartMins + userBreakMinutes;
+    const isAllowedPlannedBreak =
+      plannedStartMins >= ALLOWED_BREAK_START_MINS &&
+      plannedStartMins <= ALLOWED_BREAK_END_MINS &&
+      plannedEndMins >= ALLOWED_BREAK_START_MINS &&
+      plannedEndMins <= ALLOWED_BREAK_END_MINS;
+      
+    const effectiveUserBreakMinutes = isAllowedPlannedBreak ? 0 : userBreakMinutes;
     
     // Validate check-in time
     const effectiveCheckIn = hasExistingCheckIn ? loadedCheckIn : checkInTime;
@@ -235,20 +296,39 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
       
       // Get old selected day contribution from raw storage
       const existingEntry = entries.find(e => e.date === selectedDate);
+      const dayOfWeek = new Date(selectedDate).getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const entryType = existingEntry?.type || 'Regular';
+      const useDoubleFactor = isWeekend || entryType === 'Holiday' || entryType === 'Vacation';
+      const factor = useDoubleFactor ? 2 : 1.5;
+      
       let oldDayContributionMinutes = 0;
       
       if (existingEntry && existingEntry.intervals?.[0]?.in && existingEntry.intervals?.[0]?.out) {
         const existingWorkMinutes = timeToMinutes(existingEntry.intervals[0].out) - timeToMinutes(existingEntry.intervals[0].in) - loadedBreakMinutes;
-        oldDayContributionMinutes = existingWorkMinutes - requiredDailyMinutes;
+        const rawOldDayContribution = existingWorkMinutes - requiredDailyMinutes;
+        oldDayContributionMinutes = rawOldDayContribution > 0 ? rawOldDayContribution * factor : rawOldDayContribution;
       }
       
       // Apply formula
       targetDailyContributionMinutes = targetEndingTotalMinutes - currentTotalOvertimeMinutes + oldDayContributionMinutes;
     }
     
+    const dayOfWeek = new Date(selectedDate).getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const existingEntry = entries.find(e => e.date === selectedDate);
+    const entryType = existingEntry?.type || 'Regular';
+    const useDoubleFactor = isWeekend || entryType === 'Holiday' || entryType === 'Vacation';
+    const factor = useDoubleFactor ? 2 : 1.5;
+
+    let rawDailyContributionMinutes = targetDailyContributionMinutes;
+    if (targetDailyContributionMinutes > 0) {
+      rawDailyContributionMinutes = targetDailyContributionMinutes / factor;
+    }
+    
     // Calculate proposed leave time
-    // proposedLeaveMinutes = checkInMinutes + breakMinutes + requiredDailyMinutes + targetDailyContributionMinutes
-    const proposedLeaveMinutes = checkInMinutes + loadedBreakMinutes + requiredDailyMinutes + targetDailyContributionMinutes;
+    // proposedLeaveMinutes = checkInMinutes + effectiveUserBreakMinutes + requiredDailyMinutes + rawDailyContributionMinutes
+    const proposedLeaveMinutes = checkInMinutes + effectiveUserBreakMinutes + requiredDailyMinutes + rawDailyContributionMinutes;
     
     // Validate leave time is after check-in
     if (proposedLeaveMinutes <= checkInMinutes) {
@@ -257,10 +337,10 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     }
     
     setLeaveTime(minutesToTime(proposedLeaveMinutes));
-    const targetWorkedMinutes = requiredDailyMinutes + targetDailyContributionMinutes;
+    const targetWorkedMinutes = requiredDailyMinutes + rawDailyContributionMinutes;
     setProjectedWorkedMinutes(targetWorkedMinutes);
-    setDailyBalanceMinutes(targetDailyContributionMinutes);
-  }, [hasExistingCheckIn, loadedCheckIn, checkInTime, overtimeAmount, overtimeMode, requiredDailyMinutes, loadedBreakMinutes, timeToMinutes, minutesToTime, selectedDate, entries, currentTotalOvertimeMinutes]);
+    setDailyBalanceMinutes(rawDailyContributionMinutes);
+  }, [hasExistingCheckIn, loadedCheckIn, checkInTime, overtimeAmount, overtimeMode, requiredDailyMinutes, loadedBreakMinutes, userBreakMinutes, plannedBreakStartTime, timeToMinutes, minutesToTime, selectedDate, entries, currentTotalOvertimeMinutes]);
 
   // Auto-calculate when inputs change
   useEffect(() => {
@@ -271,7 +351,7 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     } else if (calcMode === 'reverse' && checkInTime && overtimeAmount) {
       performReverseCalculation();
     }
-  }, [calcMode, checkInTime, leaveTime, overtimeAmount, overtimeMode, isLoading, performForwardCalculation, performReverseCalculation]);
+  }, [calcMode, checkInTime, leaveTime, overtimeAmount, overtimeMode, userBreakMinutes, plannedBreakStartTime, isLoading, performForwardCalculation, performReverseCalculation]);
 
   const handleSave = useCallback(() => {
     // This would save the calculated leave time as a check-out
@@ -309,12 +389,43 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
 
         {/* Break Duration */}
         <div className="calculator-section">
-          <label className="calculator-label">Break Duration</label>
-          <div className="calculator-value">
-            {formatMinutesAsHours(loadedBreakMinutes)}
-            {loadedBreakMinutes > 0 && (
-              <span className="calculator-hint"> (Loaded from record)</span>
+          <label className="calculator-label">Expected Break Duration (minutes)</label>
+          <div className="calculator-input-group">
+            <input
+              type="number"
+              className="calculator-input"
+              value={userBreakMinutes === 0 ? '' : userBreakMinutes}
+              onChange={(e) => setUserBreakMinutes(e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0)}
+              min="0"
+              step="5"
+              placeholder="e.g., 60"
+            />
+            {loadedBreakMinutes > 0 && userBreakMinutes !== loadedBreakMinutes && (
+              <button
+                className="btn btn-outline calculator-input-btn"
+                onClick={() => setUserBreakMinutes(loadedBreakMinutes)}
+                title="Use recorded breaks"
+              >
+                Use Logged ({loadedBreakMinutes}m)
+              </button>
             )}
+          </div>
+          <div className="calculator-hint">
+            Time you plan to spend on breaks today
+          </div>
+        </div>
+
+        {/* Planned Break Start Time */}
+        <div className="calculator-section">
+          <label className="calculator-label">Planned Break Start Time</label>
+          <input
+            type="time"
+            className="calculator-input"
+            value={plannedBreakStartTime}
+            onChange={(e) => setPlannedBreakStartTime(e.target.value)}
+          />
+          <div className="calculator-hint">
+            Breaks from 1:00 PM to 1:30 PM (13:00 - 13:30) are paid and do not count against your required hours.
           </div>
         </div>
 

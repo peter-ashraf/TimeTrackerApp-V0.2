@@ -71,7 +71,15 @@ export function calculateHoursWorkedFromIntervals(intervals) {
       const breakDuration = breakEndSeconds - breakStartSeconds;
 
       if (breakDuration > 0 && breakDuration <= 2 * 3600) {
-        totalBreakSeconds += breakDuration;
+        const isAllowedBreak =
+          breakStartSeconds >= ALLOWED_BREAK_START &&
+          breakStartSeconds <= ALLOWED_BREAK_END &&
+          breakEndSeconds >= ALLOWED_BREAK_START &&
+          breakEndSeconds <= ALLOWED_BREAK_END;
+
+        if (!isAllowedBreak) {
+          totalBreakSeconds += breakDuration;
+        }
       }
     }
   }

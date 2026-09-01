@@ -458,7 +458,7 @@ const generateSummaryData = (entries) => {
   const totalHours = entries.reduce((sum, e) => sum + (e.hoursWorked || 0), 0);
   const regularHours = entries.filter(e => e.type === 'Regular')
     .reduce((sum, e) => sum + (e.hoursWorked || 0), 0);
-  const overtimeHours = entries.reduce((sum, e) => sum + (e.extraHours || 0), 0);
+  const overtimeHours = entries.reduce((sum, e) => sum + (e.extraHoursWithFactor || 0), 0);
   const leaveDays = entries.filter(e => e.type !== 'Regular').length;
 
   return [
@@ -476,7 +476,7 @@ const generateAnalyticsData = (entries) => {
   const totalHours = entries.reduce((sum, e) => sum + (e.hoursWorked || 0), 0);
   const regularDays = entries.filter(e => e.type === 'Regular').length;
   const avgHoursPerDay = regularDays > 0 ? totalHours / regularDays : 0;
-  const overtimeHours = entries.reduce((sum, e) => sum + (e.extraHours || 0), 0);
+  const overtimeHours = entries.reduce((sum, e) => sum + (e.extraHoursWithFactor || 0), 0);
   const overtimePercentage = totalHours > 0 ? (overtimeHours / totalHours * 100) : 0;
 
   return [
