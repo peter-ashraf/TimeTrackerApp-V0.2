@@ -57,19 +57,31 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
   }, []);
 
   // Helper: Format minutes as hours and minutes (e.g., "2h 30m" or "-1h 15m")
-  const formatMinutesAsHours = useCallback((minutes) => {
+  const formatMinutesAsHours = useCallback((minutes, showDecimal = false) => {
     const absMinutes = Math.abs(minutes);
-    const totalSeconds = Math.round(absMinutes * 60);
-    const hours = Math.floor(totalSeconds / 3600);
-    const mins = Math.floor((totalSeconds % 3600) / 60);
-    const sign = minutes < 0 ? '-' : '';
+    const roundedMinutes = Math.round(absMinutes);
+    const hours = Math.floor(roundedMinutes / 60);
+    const mins = roundedMinutes % 60;
+    
+    const sign = minutes < 0 && roundedMinutes > 0 ? '-' : '';
+    
+    let result = '';
     if (hours > 0 && mins > 0) {
-      return `${sign}${hours}h ${mins}m`;
+      result = `${sign}${hours}h ${mins}m`;
     } else if (hours > 0) {
-      return `${sign}${hours}h`;
+      result = `${sign}${hours}h`;
     } else {
-      return `${sign}${mins}m`;
+      result = `${sign}${mins}m`;
     }
+    
+    if (showDecimal) {
+      const decimalValue = minutes / 60;
+      const decimalString = Math.abs(decimalValue).toFixed(2);
+      const decSign = decimalValue < 0 ? '-' : '';
+      result += ` (${decSign}${decimalString}h)`;
+    }
+    
+    return result;
   }, []);
 
   // Load data when selected date changes
@@ -151,14 +163,14 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     
     setRequiredDailyMinutes(dailyMinutes);
     
-    // Calculate current total overtime for the period (convert to integer minutes)
+    // Calculate current total overtime for the period (keep exact float for accuracy)
     const currentPeriod = getCurrentPeriod();
     if (currentPeriod && calculateOvertimeDetails) {
       const periodStart = currentPeriod.start_date || currentPeriod.start;
       const periodEnd = currentPeriod.end_date || currentPeriod.end;
       const overtimeDetails = calculateOvertimeDetails(entries, periodStart, periodEnd);
-      // Convert decimal hours to integer minutes
-      setCurrentTotalOvertimeMinutes(Math.round(overtimeDetails.totalExtraHoursWithFactor * 60));
+      // Keep as float minutes to avoid rounding issues that mismatch with the dashboard
+      setCurrentTotalOvertimeMinutes(overtimeDetails.totalExtraHoursWithFactor * 60);
     } else {
       setCurrentTotalOvertimeMinutes(0);
     }
@@ -568,19 +580,19 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
               <>
                 <div className="calculator-result-row">
                   <span className="result-label">Current Total Overtime:</span>
-                  <span className="result-value">{formatMinutesAsHours(currentTotalOvertimeMinutes)}</span>
+                  <span className="result-value">{formatMinutesAsHours(currentTotalOvertimeMinutes, true)}</span>
                 </div>
                 <div className="calculator-result-row">
                   <span className="result-label">Projected Total Overtime:</span>
                   <span className={`result-value ${projectedTotalOvertimeMinutes >= 0 ? 'positive' : 'negative'}`}>
-                    {formatMinutesAsHours(projectedTotalOvertimeMinutes)}
+                    {formatMinutesAsHours(projectedTotalOvertimeMinutes, true)}
                   </span>
                 </div>
                 <div className="calculator-result-row">
                   <span className="result-label">Overtime Change:</span>
                   <span className={`result-value ${projectedTotalOvertimeMinutes >= currentTotalOvertimeMinutes ? 'positive' : 'negative'}`}>
                     {projectedTotalOvertimeMinutes > currentTotalOvertimeMinutes ? '+' : ''}
-                    {formatMinutesAsHours(projectedTotalOvertimeMinutes - currentTotalOvertimeMinutes)}
+                    {formatMinutesAsHours(projectedTotalOvertimeMinutes - currentTotalOvertimeMinutes, true)}
                   </span>
                 </div>
               </>
