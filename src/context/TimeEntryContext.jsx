@@ -45,6 +45,7 @@ export const TimeEntryProvider = ({ children }) => {
   const isInitialSyncRef = useRef(true);
   const initialSyncTimeoutRef = useRef(null);
   const entriesRef = useRef(entries);
+  const realtimeDebounceRef = useRef(null);
 
   useEffect(() => {
     entriesRef.current = entries;
@@ -604,6 +605,60 @@ export const TimeEntryProvider = ({ children }) => {
         }
       };
     }, [currentUser, isAuthenticated, loadTimeEntriesData]);
+
+  // Supabase Realtime subscription — auto-sync when another device changes time entries
+  useEffect(() => {
+    if (!currentUser || !isAuthenticated || currentUser.isLocalOnly) return;
+
+    const channelName = `time_entries_${currentUser.id}`;
+
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'time_entries',
+          filter: `user_id=eq.${currentUser.id}`,
+        },
+        (payload) => {
+          // Ignore changes that originated from this tab's own save
+          // (the save already updates local state synchronously)
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
+            // Debounce rapid-fire events (e.g. bulk imports) to a single sync call
+            if (realtimeDebounceRef.current) {
+              clearTimeout(realtimeDebounceRef.current);
+            }
+            realtimeDebounceRef.current = setTimeout(() => {
+              realtimeDebounceRef.current = null;
+              // Only run if not already syncing and user is still authenticated
+              if (!isLoadingRef.current) {
+                console.log('[Realtime] Remote change detected — triggering sync with conflict check');
+                loadTimeEntriesData({ forceConflictCheck: true }).catch((err) => {
+                  console.warn('[Realtime] Auto-sync after remote change failed:', err);
+                });
+              }
+            }, 1500);
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Realtime] Subscribed to time_entries changes for user', currentUser.id);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('[Realtime] Subscription issue:', status);
+        }
+      });
+
+    return () => {
+      if (realtimeDebounceRef.current) {
+        clearTimeout(realtimeDebounceRef.current);
+        realtimeDebounceRef.current = null;
+      }
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser, isAuthenticated, loadTimeEntriesData]);
 
     const closeConflictModal = useCallback(() => {
       setIsConflictModalOpen(false);
