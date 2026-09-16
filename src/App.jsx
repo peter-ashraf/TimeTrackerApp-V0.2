@@ -229,7 +229,7 @@ function App() {
     if (!currentUser || !isAuthenticated) return;
     try {
       const refreshWithTimeout = Promise.race([
-        loadTimeEntriesData({ forceConflictCheck: true, fetchTimeoutMs: 30000 }),
+        loadTimeEntriesData({ forceConflictCheck: true, fetchTimeoutMs: 30000, waitForCurrentSyncMs: 10000 }),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error("Refresh timed out")), 35000),
         ),
@@ -530,6 +530,7 @@ function App() {
       const result = await loadTimeEntriesData({
         forceConflictCheck: true,
         fetchTimeoutMs: 30000,
+        waitForCurrentSyncMs: 10000,
       });
 
       if (result && !result.success) {

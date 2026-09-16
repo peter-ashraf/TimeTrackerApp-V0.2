@@ -419,8 +419,9 @@ export const TimeEntryProvider = ({ children }) => {
 
       if (conflicts.length > 0) {
         console.log(`[Sync] Found ${conflicts.length} conflicts, pausing sync for user resolution`);
+        // Batch both state updates together so the modal never sees an empty
+        // conflicts array on the first render (race condition fix).
         setPendingConflicts(conflicts);
-        setIsConflictModalOpen(true);
         setConflictResolver(() => (resolutions) => {
           const resolutionMap = new Map(resolutions.map(r => [r.entryId || r.date, r.chosenEntry]));
           const mergedEntries = [...finalEntries];
@@ -450,7 +451,9 @@ export const TimeEntryProvider = ({ children }) => {
           setConflictResolver(null);
           setIsConflictModalOpen(false);
         });
-
+        // Open the modal AFTER setting conflicts and resolver so the modal
+        // always has a populated conflicts array on its first render.
+        setIsConflictModalOpen(true);
         syncResult.requiresResolution = true;
         syncResult.mergedCount = finalEntries.length;
         syncResult.message = `Found ${conflicts.length} conflict${conflicts.length === 1 ? '' : 's'}. Resolve the modal to finish syncing.`;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import '../styles/conflict-resolution-modal.css';
 
@@ -7,13 +7,22 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showBulkControls, setShowBulkControls] = useState(false);
 
+  // Keep a stable, non-empty copy of conflicts so the modal never disappears
+  // due to a transient render where the parent passes an empty array while
+  // React is still batching the isConflictModalOpen → true update.
+  const stableConflictsRef = useRef([]);
+  if (Array.isArray(conflicts) && conflicts.length > 0) {
+    stableConflictsRef.current = conflicts;
+  }
+  const activeConflicts = stableConflictsRef.current;
+
+  const hasConflicts = activeConflicts.length > 0;
+
   useEffect(() => {
     setResolutions({});
     setCurrentIndex(0);
     setShowBulkControls(false);
-  }, [conflicts]);
-
-  const hasConflicts = Array.isArray(conflicts) && conflicts.length > 0;
+  }, [activeConflicts]);
 
   const timeToSeconds = (timeStr) => {
     if (!timeStr || typeof timeStr !== 'string') return null;
@@ -186,17 +195,17 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
 
   const handleBulkChoice = (choice) => {
     const next = {};
-    conflicts.forEach((conflict) => {
+    activeConflicts.forEach((conflict) => {
       next[conflict.date] = choice;
     });
     setResolutions(next);
   };
 
-  const allResolved = hasConflicts && conflicts.every((c) => resolutions[c.date]);
-  const currentConflict = hasConflicts ? conflicts[currentIndex] : null;
+  const allResolved = hasConflicts && activeConflicts.every((c) => resolutions[c.date]);
+  const currentConflict = hasConflicts ? activeConflicts[currentIndex] : null;
   const currentChoice = currentConflict ? resolutions[currentConflict.date] : null;
   const resolvedCount = hasConflicts
-    ? conflicts.filter((conflict) => resolutions[conflict.date]).length
+    ? activeConflicts.filter((conflict) => resolutions[conflict.date]).length
     : 0;
 
   const goToPrevious = () => {
@@ -204,11 +213,11 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
   };
 
   const goToNext = () => {
-    setCurrentIndex((index) => Math.min(conflicts.length - 1, index + 1));
+    setCurrentIndex((index) => Math.min(activeConflicts.length - 1, index + 1));
   };
 
   const handleApply = () => {
-    const resolutionArray = conflicts.map((conflict) => ({
+    const resolutionArray = activeConflicts.map((conflict) => ({
       entryId: conflict.entryId || conflict.date,
       date: conflict.date,
       choice: resolutions[conflict.date],
@@ -225,15 +234,21 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
 
   const modalCountLabel = useMemo(() => {
     if (!hasConflicts) return '';
-    return `${conflicts.length} conflict${conflicts.length > 1 ? 's' : ''}`;
-  }, [conflicts, hasConflicts]);
+    return `${activeConflicts.length} conflict${activeConflicts.length > 1 ? 's' : ''}`;
+  }, [activeConflicts, hasConflicts]);
 
-  if (!hasConflicts) return null;
+  if (!hasConflicts) {
+    // Reset stable cache when closed so the next conflict set starts fresh.
+    stableConflictsRef.current = [];
+    return null;
+  }
 
   const displayRows = getDisplayRows(
     currentConflict.localEntry,
     currentConflict.remoteEntry,
   );
+
+  const totalCount = activeConflicts.length;
 
   const modalMarkup = (
     <div className="conflict-modal-overlay">
@@ -290,7 +305,7 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
               <div>
                 <h3>{formatDate(currentConflict.date)}</h3>
                 <span className="conflict-position">
-                  Conflict {currentIndex + 1} of {conflicts.length}
+                  Conflict {currentIndex + 1} of {totalCount}
                 </span>
               </div>
               {currentChoice && <span className="resolved-badge">Selected</span>}
@@ -368,7 +383,7 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
               type="button"
               className="btn btn-secondary conflict-nav-btn"
               onClick={goToNext}
-              disabled={currentIndex === conflicts.length - 1}
+              disabled={currentIndex === activeConflicts.length - 1}
             >
               <span className="conflict-nav-label">Next</span>
               <span aria-hidden="true">›</span>
