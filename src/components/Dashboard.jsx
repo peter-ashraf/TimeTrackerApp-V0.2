@@ -35,6 +35,7 @@ function Dashboard() {
   const [showLeaveCalculator, setShowLeaveCalculator] = useState(false);
   const [calculatorDate, setCalculatorDate] = useState(null);
   const [vacationModalType, setVacationModalType] = useState(null);
+  const [showOvertimeInHoursMinutes, setShowOvertimeInHoursMinutes] = useState(false);
 
   // Temporary delay to test skeleton loading
   const [isLoading, setIsLoading] = useState(true); // Set to true to show skeleton initially
@@ -151,6 +152,19 @@ function Dashboard() {
 
   const { overtimeMoney, totalSalary } = salaryData;
   
+  const formatOvertime = (hoursDecimal) => {
+    if (!showOvertimeInHoursMinutes) {
+      return `${hoursDecimal.toFixed(2)}h`;
+    }
+    const isNegative = hoursDecimal < 0;
+    const absHours = Math.abs(hoursDecimal);
+    const hours = Math.floor(absHours);
+    const minutes = (absHours - hours) * 60;
+    const minutesStr = parseFloat(minutes.toFixed(1)).toString();
+    const sign = isNegative ? '-' : '';
+    return `${sign}${hours}h ${minutesStr}m`;
+  };
+
   if (isLoading) {
     return <DashboardSkeleton />;
   }
@@ -183,8 +197,16 @@ function Dashboard() {
 
         <div className="overtime-section">
           <p>
-            Overtime: <span className="overtime-hours-amount" style={{color: overtime >= 0 ? '#80FF00' : '#FF9696'}}>
-              <strong>{overtime.toFixed(2)}h</strong>
+            Overtime: <span 
+              className="overtime-hours-amount" 
+              style={{color: overtime >= 0 ? '#80FF00' : '#FF9696', cursor: 'pointer'}}
+              onClick={() => {
+                hapticFeedback.buttonClick();
+                setShowOvertimeInHoursMinutes(!showOvertimeInHoursMinutes);
+              }}
+              title="Click to toggle format"
+            >
+              <strong>{formatOvertime(overtime)}</strong>
             </span>
           </p>
           <p>
