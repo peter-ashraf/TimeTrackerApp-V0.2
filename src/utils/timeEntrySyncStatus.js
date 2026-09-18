@@ -1,5 +1,5 @@
 const PENDING_TIME_ENTRY_SYNC_PREFIX = "pendingTimeEntrySync_";
-const SYNC_STATUS_EVENT = "time-entry-sync-status-changed";
+export const SYNC_STATUS_EVENT = "time-entry-sync-status-changed";
 
 const normalizeDateKey = (date) => {
   if (!date) return "";
@@ -151,5 +151,3 @@ export const mergePendingTimeEntrySync = (storedStatus, inferredItems) => {
     items,
   };
 };
-
-export { SYNC_STATUS_EVENT };
