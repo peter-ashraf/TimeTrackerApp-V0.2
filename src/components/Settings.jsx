@@ -376,6 +376,9 @@ function Settings() {
   const [workDaysPerWeek, setWorkDaysPerWeek] = useState(
     employee.workDaysPerWeek ?? 5,
   );
+  const [breakStartTime, setBreakStartTime] = useState(
+    employee.breakStartTime ?? "13:00",
+  );
 
   // Leave settings form
   const [annualVacation, setAnnualVacation] = useState(
@@ -923,6 +926,7 @@ function Settings() {
     setDailyHours(employee.dailyHours ?? 9);
     setMonthlyHours(employee.monthlyHours ?? 187);
     setWorkDaysPerWeek(employee.workDaysPerWeek ?? 5);
+    setBreakStartTime(employee.breakStartTime ?? "13:00");
   }, [employee]);
 
   useEffect(() => {
@@ -1079,6 +1083,7 @@ function Settings() {
     const workDaysPerWeekChanged =
       parsedWorkDaysPerWeek !== employee.workDaysPerWeek;
     const monthlyHoursChanged = parsedMonthlyHours !== employee.monthlyHours;
+    const breakStartTimeChanged = breakStartTime !== employee.breakStartTime;
 
     const remindersEnabledChanged =
       remindersEnabled !== reminderSettings.enabled;
@@ -1099,6 +1104,7 @@ function Settings() {
       dailyHoursChanged ||
       workDaysPerWeekChanged ||
       monthlyHoursChanged ||
+      breakStartTimeChanged ||
       remindersEnabledChanged ||
       reminderStartTimeChanged ||
       reminderCountChanged ||
