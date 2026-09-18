@@ -795,15 +795,17 @@ function App() {
                   </Suspense>
                 </div>
 
-                <ConflictResolutionModal
-                  conflicts={isConflictModalOpen ? pendingConflicts : []}
-                  onResolve={(resolutions) => {
-                    if (conflictResolver) {
-                      conflictResolver(resolutions);
-                    }
-                  }}
-                  onClose={closeConflictModal}
-                />
+                {isConflictModalOpen && (
+                  <ConflictResolutionModal
+                    conflicts={pendingConflicts}
+                    onResolve={(resolutions) => {
+                      if (conflictResolver) {
+                        conflictResolver(resolutions);
+                      }
+                    }}
+                    onClose={closeConflictModal}
+                  />
+                )}
 
                 <RefreshIndicator lastRefreshed={lastRefreshed} />
                 <NetworkStatus onRefresh={handleRefresh} />

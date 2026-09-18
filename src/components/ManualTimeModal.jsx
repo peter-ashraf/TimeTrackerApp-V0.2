@@ -24,7 +24,7 @@ function ManualTimeModal({ mode, onClose }) {
         type: 'warning',
         confirmText: 'OK',
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
       });
       return;
     }
@@ -57,7 +57,7 @@ function ManualTimeModal({ mode, onClose }) {
             type: 'info',
             confirmText: 'OK',
             showCancel: false,
-            onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+            onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
           });
           return;
         }
@@ -94,7 +94,7 @@ function ManualTimeModal({ mode, onClose }) {
         confirmText: 'OK',
         showCancel: false,
         onConfirm: () => {
-          setConfirmModal({ ...confirmModal, isOpen: false });
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
           onClose();
         }
       });
@@ -109,7 +109,7 @@ function ManualTimeModal({ mode, onClose }) {
           type: 'warning',
           confirmText: 'OK',
           showCancel: false,
-          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+          onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
         });
         return;
       }
@@ -122,7 +122,7 @@ function ManualTimeModal({ mode, onClose }) {
           type: 'info',
           confirmText: 'OK',
           showCancel: false,
-          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+          onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
         });
         return;
       }
@@ -146,7 +146,7 @@ function ManualTimeModal({ mode, onClose }) {
         confirmText: 'OK',
         showCancel: false,
         onConfirm: () => {
-          setConfirmModal({ ...confirmModal, isOpen: false });
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
           onClose();
         }
       });
@@ -206,18 +206,6 @@ function ManualTimeModal({ mode, onClose }) {
           </div>
         </div>
       </ModalShell>
-
-      <ConfirmModal
-        isOpen={confirmModal?.isOpen}
-        title={confirmModal?.title}
-        message={confirmModal?.message}
-        type={confirmModal?.type}
-        confirmText={confirmModal?.confirmText || 'OK'}
-        cancelText={confirmModal?.cancelText || 'Cancel'}
-        showCancel={confirmModal?.showCancel !== false}
-        onConfirm={confirmModal?.onConfirm}
-        onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
-      />
     </>
   );
 }

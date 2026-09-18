@@ -1492,7 +1492,7 @@ function Settings() {
         type: "warning",
         confirmText: "OK",
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
       });
       return;
     }
@@ -1514,7 +1514,7 @@ function Settings() {
         type: "danger",
         confirmText: "OK",
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
       });
       return;
     }
@@ -1569,7 +1569,7 @@ function Settings() {
       type: "success",
       confirmText: "OK",
       showCancel: false,
-      onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
+      onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
     });
   };
 
@@ -1584,7 +1584,7 @@ function Settings() {
         type: "warning",
         confirmText: "OK",
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
       });
       return;
     }
@@ -1625,7 +1625,7 @@ function Settings() {
             confirmText: "OK",
             showCancel: false,
             onConfirm: () =>
-              setConfirmModal({ ...confirmModal, isOpen: false }),
+              setConfirmModal(prev => ({ ...prev, isOpen: false })),
           });
         } catch (error) {
           // Still delete from local state even if Supabase fails
@@ -1646,7 +1646,7 @@ function Settings() {
             confirmText: "OK",
             showCancel: false,
             onConfirm: () =>
-              setConfirmModal({ ...confirmModal, isOpen: false }),
+              setConfirmModal(prev => ({ ...prev, isOpen: false })),
           });
         }
       },
@@ -1665,7 +1665,7 @@ function Settings() {
         type: "info",
         confirmText: "OK",
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
       });
       return;
     }
@@ -1692,7 +1692,7 @@ function Settings() {
           type: "success",
           confirmText: "OK",
           showCancel: false,
-          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
+          onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
         });
       },
     });
@@ -1716,7 +1716,7 @@ function Settings() {
         type: "info",
         confirmText: "OK",
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
       });
       return;
     }
@@ -1749,7 +1749,7 @@ function Settings() {
           type: "success",
           confirmText: "OK",
           showCancel: false,
-          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }),
+          onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
         });
       },
     });
@@ -1788,7 +1788,7 @@ function Settings() {
             confirmText: "OK",
             showCancel: false,
             onConfirm: () =>
-              setConfirmModal({ ...confirmModal, isOpen: false }),
+              setConfirmModal(prev => ({ ...prev, isOpen: false })),
           });
         } else {
           setConfirmModal({
@@ -1799,11 +1799,11 @@ function Settings() {
             confirmText: "OK",
             showCancel: false,
             onConfirm: () =>
-              setConfirmModal({ ...confirmModal, isOpen: false }),
+              setConfirmModal(prev => ({ ...prev, isOpen: false })),
           });
         }
       },
-      onCancel: () => setConfirmModal({ ...confirmModal, isOpen: false }),
+      onCancel: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
     });
   };
 
@@ -1844,7 +1844,7 @@ function Settings() {
               confirmText: "OK",
               showCancel: false,
               onConfirm: () => {
-                setConfirmModal({ ...confirmModal, isOpen: false });
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
                 window.location.reload();
               },
             });
@@ -1857,7 +1857,7 @@ function Settings() {
               confirmText: "OK",
               showCancel: false,
               onConfirm: () =>
-                setConfirmModal({ ...confirmModal, isOpen: false }),
+                setConfirmModal(prev => ({ ...prev, isOpen: false })),
             });
           }
         } else {
@@ -1869,11 +1869,11 @@ function Settings() {
             confirmText: "OK",
             showCancel: false,
             onConfirm: () =>
-              setConfirmModal({ ...confirmModal, isOpen: false }),
+              setConfirmModal(prev => ({ ...prev, isOpen: false })),
           });
         }
       },
-      onCancel: () => setConfirmModal({ ...confirmModal, isOpen: false }),
+      onCancel: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
     });
   };
 

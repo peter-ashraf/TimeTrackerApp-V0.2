@@ -374,7 +374,7 @@ function ExportModal({ onClose }) {
 
           showCancel: false,
 
-          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+          onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
 
         });
 
@@ -404,7 +404,7 @@ function ExportModal({ onClose }) {
 
           showCancel: false,
 
-          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+          onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
 
         });
 
@@ -448,7 +448,7 @@ function ExportModal({ onClose }) {
 
           showCancel: false,
 
-          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+          onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
 
         });
 
@@ -472,7 +472,7 @@ function ExportModal({ onClose }) {
 
           showCancel: false,
 
-          onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+          onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
 
         });
 
@@ -806,7 +806,7 @@ function ExportModal({ onClose }) {
 
       onConfirm: () => {
 
-        setConfirmModal({ ...confirmModal, isOpen: false });
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
 
         onClose();
 
@@ -840,7 +840,7 @@ function ExportModal({ onClose }) {
             type: 'warning',
             confirmText: 'OK',
             showCancel: false,
-            onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+            onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
           });
           return;
         }
@@ -859,7 +859,7 @@ function ExportModal({ onClose }) {
             type: 'warning',
             confirmText: 'OK',
             showCancel: false,
-            onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+            onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
           });
           return;
         }
@@ -878,7 +878,7 @@ function ExportModal({ onClose }) {
             type: 'warning',
             confirmText: 'OK',
             showCancel: false,
-            onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+            onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
           });
           return;
         }
@@ -933,7 +933,7 @@ function ExportModal({ onClose }) {
             type: 'warning',
             confirmText: 'OK',
             showCancel: false,
-            onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+            onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
           });
           return;
         }
@@ -960,7 +960,7 @@ function ExportModal({ onClose }) {
           confirmText: 'OK',
           showCancel: false,
           onConfirm: () => {
-            setConfirmModal({ ...confirmModal, isOpen: false });
+            setConfirmModal(prev => ({ ...prev, isOpen: false }));
             onClose();
           }
         });
@@ -979,7 +979,7 @@ function ExportModal({ onClose }) {
         confirmText: 'OK',
         showCancel: false,
         onConfirm: () => {
-          setConfirmModal({ ...confirmModal, isOpen: false });
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
           onClose();
         }
       });
@@ -996,7 +996,7 @@ function ExportModal({ onClose }) {
         type: 'danger',
         confirmText: 'OK',
         showCancel: false,
-        onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
       });
     } finally {
       setIsExporting(false);
