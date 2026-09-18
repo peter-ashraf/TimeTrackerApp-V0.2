@@ -1146,6 +1146,10 @@ function Settings() {
       changedItems.push(
         `• Monthly Hours: ${employee.monthlyHours} → ${parsedMonthlyHours}`,
       );
+    if (breakStartTimeChanged)
+      changedItems.push(
+        `• Break Start Time: ${employee.breakStartTime} → ${breakStartTime}`,
+      );
     if (vacationChanged)
       changedItems.push(
         `• Vacation Days: ${leaveSettings.annualVacation} → ${parsedVacation}`,
@@ -1173,6 +1177,7 @@ function Settings() {
       dailyHours: parsedDailyHours,
       monthlyHours: parsedMonthlyHours,
       workDaysPerWeek: parsedWorkDaysPerWeek,
+      breakStartTime: breakStartTime,
     };
     if (!hideSalary) {
       employeeData.salary = parsedSalary;
@@ -1200,6 +1205,7 @@ function Settings() {
               daily_hours: parsedDailyHours,
               monthly_hours: parsedMonthlyHours,
               work_days_per_week: parsedWorkDaysPerWeek,
+              break_start_time: breakStartTime,
               updated_at: new Date().toISOString(),
             })
             .eq("id", currentUser.id);
@@ -1236,7 +1242,8 @@ function Settings() {
         employeeTypeChanged ||
         dailyHoursChanged ||
         workDaysPerWeekChanged ||
-        monthlyHoursChanged
+        monthlyHoursChanged ||
+        breakStartTimeChanged
       ) {
         if (currentUser) {
           try {
@@ -1245,6 +1252,7 @@ function Settings() {
               daily_hours: parsedDailyHours,
               monthly_hours: parsedMonthlyHours,
               work_days_per_week: parsedWorkDaysPerWeek,
+              break_start_time: breakStartTime,
             });
           } catch (error) {
             console.error(
@@ -2072,6 +2080,28 @@ function Settings() {
               {employeeType === "part-time"
                 ? `Monthly hours will be calculated based on actual hours worked during each pay period. This ensures accurate hourly rates for overtime calculations.`
                 : "Fixed at 187 hours for full-time employees"}
+            </p>
+          </div>
+
+          {/* Daily Break Start Time */}
+          <div className="form-group">
+            <label className="form-label">Daily Break Start Time</label>
+            <input
+              type="time"
+              className="form-control"
+              value={breakStartTime}
+              onChange={(e) => setBreakStartTime(e.target.value)}
+              required
+            />
+            <p
+              className="help-text"
+              style={{
+                color: "#6c757d",
+                marginTop: "8px",
+                fontSize: "0.875rem",
+              }}
+            >
+              💡 A 30-minute unpaid break starts at this time every workday.
             </p>
           </div>
 

@@ -130,6 +130,7 @@ export const UserPreferencesProvider = ({ children }) => {
     dailyHours: 9,
     monthlyHours: 187,
     workDaysPerWeek: 5,
+    breakStartTime: "13:00",
   });
 
   // Leave Settings
@@ -285,6 +286,7 @@ export const UserPreferencesProvider = ({ children }) => {
                 dailyHours: profileData.daily_hours ?? 9,
                 monthlyHours: profileData.monthly_hours ?? 187,
                 workDaysPerWeek: profileData.work_days_per_week ?? 5,
+                breakStartTime: profileData.break_start_time ?? "13:00",
               }));
             }
 
@@ -438,6 +440,7 @@ export const UserPreferencesProvider = ({ children }) => {
           daily_hours: employee.dailyHours,
           monthly_hours: employee.monthlyHours,
           work_days_per_week: employee.workDaysPerWeek,
+          break_start_time: employee.breakStartTime,
         });
       } catch (error) {
         console.error("Failed to save employee data:", error);

@@ -131,8 +131,9 @@ export const TimeTrackerProvider = ({ children }) => {
 
       const grossSeconds = lastOutSeconds - firstInSeconds;
 
-      const ALLOWED_START = 13 * 3600;
-      const ALLOWED_END = 13 * 3600 + 30 * 60;
+      const breakStartTimeStr = userPreferencesContext?.employee?.breakStartTime || "13:00";
+      const ALLOWED_START = timeToSeconds(breakStartTimeStr);
+      const ALLOWED_END = ALLOWED_START + 30 * 60;
 
       let deductedBreakSeconds = 0;
 
@@ -164,8 +165,9 @@ export const TimeTrackerProvider = ({ children }) => {
       if (!intervals || intervals.length <= 1) return 0;
 
       const breakIntervals = intervals.slice(1);
-      const ALLOWED_START = 13 * 3600;
-      const ALLOWED_END = 13 * 3600 + 30 * 60;
+      const breakStartTimeStr = userPreferencesContext?.employee?.breakStartTime || "13:00";
+      const ALLOWED_START = timeToSeconds(breakStartTimeStr);
+      const ALLOWED_END = ALLOWED_START + 30 * 60;
 
       let hoursSpentOutside = 0;
       breakIntervals.forEach((interval) => {

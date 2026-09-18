@@ -1,9 +1,5 @@
 import { useCallback } from 'react';
 
-// Constants for break time validation
-const ALLOWED_BREAK_START = 13 * 3600; // 13:00:00
-const ALLOWED_BREAK_END = 13 * 3600 + 30 * 60; // 13:30:00
-
 export const timeToSeconds = (timeStr) => {
   if (!timeStr || timeStr.trim() === '') return 0;
   const parts = timeStr.split(':').map(Number);
@@ -45,7 +41,7 @@ export const validateIntervalStructure = (intervals) => {
   return true;
 };
 
-export function calculateHoursWorkedFromIntervals(intervals) {
+export function calculateHoursWorkedFromIntervals(intervals, breakStartTimeStr = "13:00") {
   if (!intervals || intervals.length === 0) return 0;
 
   const hasIncompleteInterval = intervals.some(interval =>
@@ -71,11 +67,14 @@ export function calculateHoursWorkedFromIntervals(intervals) {
       const breakDuration = breakEndSeconds - breakStartSeconds;
 
       if (breakDuration > 0 && breakDuration <= 2 * 3600) {
+        const allowedBreakStart = timeToSeconds(breakStartTimeStr);
+        const allowedBreakEnd = allowedBreakStart + 30 * 60;
+
         const isAllowedBreak =
-          breakStartSeconds >= ALLOWED_BREAK_START &&
-          breakStartSeconds <= ALLOWED_BREAK_END &&
-          breakEndSeconds >= ALLOWED_BREAK_START &&
-          breakEndSeconds <= ALLOWED_BREAK_END;
+          breakStartSeconds >= allowedBreakStart &&
+          breakStartSeconds <= allowedBreakEnd &&
+          breakEndSeconds >= allowedBreakStart &&
+          breakEndSeconds <= allowedBreakEnd;
 
         if (!isAllowedBreak) {
           totalBreakSeconds += breakDuration;
@@ -87,7 +86,7 @@ export function calculateHoursWorkedFromIntervals(intervals) {
   return secondsToHours(Math.max(0, workDuration - totalBreakSeconds));
 }
 
-export function calculateHoursSpentOutsideFromIntervals(intervals) {
+export function calculateHoursSpentOutsideFromIntervals(intervals, breakStartTimeStr = "13:00") {
   if (!intervals || intervals.length < 2) return 0;
 
   const breakIntervals = intervals.slice(1);
@@ -100,11 +99,14 @@ export function calculateHoursSpentOutsideFromIntervals(intervals) {
       const breakDuration = breakEndSeconds - breakStartSeconds;
 
       if (breakDuration > 0 && breakDuration <= 2 * 3600) {
+        const allowedBreakStart = timeToSeconds(breakStartTimeStr);
+        const allowedBreakEnd = allowedBreakStart + 30 * 60;
+
         const isAllowedBreak =
-          breakStartSeconds >= ALLOWED_BREAK_START &&
-          breakStartSeconds <= ALLOWED_BREAK_END &&
-          breakEndSeconds >= ALLOWED_BREAK_START &&
-          breakEndSeconds <= ALLOWED_BREAK_END;
+          breakStartSeconds >= allowedBreakStart &&
+          breakStartSeconds <= allowedBreakEnd &&
+          breakEndSeconds >= allowedBreakStart &&
+          breakEndSeconds <= allowedBreakEnd;
 
         if (!isAllowedBreak) {
           hoursSpentOutside += secondsToHours(breakDuration);
@@ -116,7 +118,7 @@ export function calculateHoursSpentOutsideFromIntervals(intervals) {
   return hoursSpentOutside;
 }
 
-export function calculateOvertimeDetailsForEntries(entries, periodStart, periodEnd) {
+export function calculateOvertimeDetailsForEntries(entries, periodStart, periodEnd, breakStartTimeStr = "13:00") {
   if (!entries || entries.length === 0) {
     return { totalHoursWorked: 0, totalExtraHours: 0, totalExtraHoursWithFactor: 0 };
   }
@@ -134,7 +136,7 @@ export function calculateOvertimeDetailsForEntries(entries, periodStart, periodE
       const isComplete = entry.intervals.every(interval => interval.in && interval.out);
       if (!isComplete) return;
 
-      const hoursWorked = calculateHoursWorkedFromIntervals(entry.intervals);
+      const hoursWorked = calculateHoursWorkedFromIntervals(entry.intervals, breakStartTimeStr);
       totalHoursWorked += hoursWorked;
 
       const dayOfWeek = new Date(entry.date).getDay();
@@ -154,19 +156,19 @@ export function calculateOvertimeDetailsForEntries(entries, periodStart, periodE
   return { totalHoursWorked, totalExtraHours, totalExtraHoursWithFactor };
 }
 
-export function useCalculations() {
+export function useCalculations(breakStartTimeStr = "13:00") {
   // Calculate total work time: first interval is work, rest are breaks
   const calculateHoursWorked = useCallback((intervals, date) => {
-    return calculateHoursWorkedFromIntervals(intervals);
-  }, []);
+    return calculateHoursWorkedFromIntervals(intervals, breakStartTimeStr);
+  }, [breakStartTimeStr]);
 
   const calculateHoursSpentOutside = useCallback((intervals) => {
-    return calculateHoursSpentOutsideFromIntervals(intervals);
-  }, []);
+    return calculateHoursSpentOutsideFromIntervals(intervals, breakStartTimeStr);
+  }, [breakStartTimeStr]);
 
   const calculateOvertimeDetails = useCallback((entries, periodStart, periodEnd) => {
-    return calculateOvertimeDetailsForEntries(entries, periodStart, periodEnd);
-  }, []);
+    return calculateOvertimeDetailsForEntries(entries, periodStart, periodEnd, breakStartTimeStr);
+  }, [breakStartTimeStr]);
 
   return { calculateHoursWorked, calculateHoursSpentOutside, calculateOvertimeDetails, timeToSeconds, secondsToHours };
 }
