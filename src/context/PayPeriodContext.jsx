@@ -147,86 +147,65 @@ export const PayPeriodProvider = ({ children }) => {
     }
   }, [currentUser, isAuthenticated, normalizeCurrentFlags, persistCurrentPeriodId]);
 
-  // Save pay periods data
+  // Save pay periods data — only syncs periods that actually need cloud saving (new temp-ID ones).
+  // Previously this re-saved ALL periods on every state change, causing slow sequential awaits
+  // and a stuck "Saving..." state if any call hung or errored.
   useEffect(() => {
     if (!currentUser || !periods) return;
     if (isSavingPeriodsRef.current) return;
     if (isSettingCurrentRef.current) return;
 
-    const savePayPeriodsData = async () => {
+    const periodsKey = `payPeriods_${currentUser.id}`;
+
+    // Always persist locally immediately
+    setSimpleEncryptedItem(periodsKey, periods, currentUser.username);
+    if (periods.length > 0) {
+      try {
+        cacheManager.setCachedData('payPeriods', periods);
+        if (currentPeriodId) cacheManager.setCachedData('currentPeriod', currentPeriodId);
+      } catch (cacheError) {
+        console.warn('Failed to save to cacheManager:', cacheError);
+      }
+    }
+    multiTabSync.notifyDataChange('payPeriods', periods, currentUser.username);
+
+    // Only cloud-sync periods that still have a temp client-generated ID
+    const periodsNeedingSync = periods.filter(p => !p.id || String(p.id).startsWith('period-'));
+    if (!navigator.onLine || currentUser.isLocalOnly || periodsNeedingSync.length === 0) return;
+
+    const saveNewPeriods = async () => {
       isSavingPeriodsRef.current = true;
       try {
-        // Always save to localStorage first for offline access
-        const periodsKey = `payPeriods_${currentUser.id}`;
-        setSimpleEncryptedItem(periodsKey, periods, currentUser.username);
+        let changed = false;
+        const updatedPeriods = [...periods];
 
-        // Also save to cacheManager for offline access, but only if data is not empty
-        if (periods.length > 0) {
+        for (const period of periodsNeedingSync) {
           try {
-            cacheManager.setCachedData('payPeriods', periods);
-            if (currentPeriodId) {
-              cacheManager.setCachedData('currentPeriod', currentPeriodId);
+            const saved = await supabaseData.savePayPeriod(currentUser.id, period);
+            if (saved?.id) {
+              const idx = updatedPeriods.findIndex(p => String(p.id) === String(period.id));
+              if (idx >= 0) {
+                updatedPeriods[idx] = { ...updatedPeriods[idx], ...saved };
+                changed = true;
+              }
             }
-          } catch (cacheError) {
-            console.warn('Failed to save to cacheManager:', cacheError);
+          } catch (periodError) {
+            console.error(`Failed to save period ${period.id}:`, periodError);
           }
         }
 
-        // Deduplicate periods by normalizing dates to avoid conflicts
-        const uniquePeriods = [];
-        const seenPeriods = new Map();
-        
-        for (const period of periods) {
-          // Normalize dates to ISO format for consistent comparison
-          const startDate = new Date(period.startDate || period.start_date).toISOString().split('T')[0];
-          const endDate = new Date(period.endDate || period.end_date).toISOString().split('T')[0];
-          const key = `${startDate}_${endDate}`;
-          
-          if (!seenPeriods.has(key)) {
-            seenPeriods.set(key, period);
-            uniquePeriods.push(period);
-          } else {
-            // If we find a duplicate, keep the one with an ID (database version) over client-generated one
-            const existing = seenPeriods.get(key);
-            if (period.id && !existing.id?.startsWith('period-')) {
-              // Replace client-generated with database version
-              const index = uniquePeriods.indexOf(existing);
-              uniquePeriods[index] = period;
-              seenPeriods.set(key, period);
-            }
-          }
-        }
-
-        const updatedPeriods = [];
-        for (const period of uniquePeriods) {
-          
-          const saved = await supabaseData.savePayPeriod(currentUser.id, period);
-          if (saved) {
-            updatedPeriods.push({ ...period, id: saved.id });
-          } else {
-            // If save failed, keep original period with existing id
-            updatedPeriods.push(period);
-          }
-        }
-
-        // Only update state if periods actually changed
-        if (updatedPeriods.length !== periods.length || 
-            updatedPeriods.some((p, i) => p.id !== periods[i]?.id)) {
+        if (changed) {
           setPeriods(updatedPeriods);
+          setSimpleEncryptedItem(periodsKey, updatedPeriods, currentUser.username);
+          try { cacheManager.setCachedData('payPeriods', updatedPeriods); } catch (_) {}
         }
-        
-      } catch (error) {
-        console.error('Failed to save pay periods:', error);
-        const periodsKey = `payPeriods_${currentUser.id}`;
-        setSimpleEncryptedItem(periodsKey, periods, currentUser.username);
       } finally {
         isSavingPeriodsRef.current = false;
       }
     };
 
-    savePayPeriodsData();
-    multiTabSync.notifyDataChange('payPeriods', periods, currentUser.username);
-  }, [periods, currentUser]);
+    saveNewPeriods();
+  }, [periods, currentUser, currentPeriodId]);
 
   // Get current period
   const getCurrentPeriod = useCallback(() => {
