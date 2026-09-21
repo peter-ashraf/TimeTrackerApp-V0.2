@@ -23,9 +23,18 @@ jobs:
       - name: Install dependencies
         run: npm ci || npm install
 
-      - name: Deploy to GitHub Pages
+      - name: Build
+        run: npm run build
+
+      - name: Copy 404.html into dist (for SPA routing)
+        run: cp 404.html dist/404.html
+
+      - name: Deploy to gh-pages branch
         run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          npm run deploy
+          cd dist
+          git init -b gh-pages
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m "Deploy: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          git push --force https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:gh-pages
