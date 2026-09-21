@@ -38,7 +38,7 @@ export default defineConfig({
         (l.search ? '&q=' + l.search.slice(1).replace(/&/g, '~and~') : '') +
         l.hash
       );
-    </script>
+    <\/script>
   </head>
   <body>
   </body>
@@ -88,18 +88,24 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          // React core
-          'react-vendor': ['react', 'react-dom'],
-          // Router
-          'router': ['react-router-dom'],
-          // Supabase (large)
-          'supabase': ['@supabase/supabase-js'],
-          // Export/PDF libraries are very large, better to put them in their own chunks
-          'xlsx-vendor': ['xlsx'],
-          'pdf-vendor': ['jspdf', '@react-pdf/renderer', 'html2canvas'],
-          // Local utilities
-          'utils': ['crypto-js', 'emailjs-com']
+        // Function-based resolver so we can pin specific local modules into
+        // the main chunk, preventing circular dynamic-import chunk splitting
+        // from breaking named exports (e.g. SYNC_STATUS_EVENT).
+        manualChunks(id) {
+          // Always keep timeEntrySyncStatus in the main bundle — backgroundSync
+          // dynamically imports supabaseData/offlineQueue which causes Vite to
+          // try to split this module into a deferred chunk where its exports
+          // aren't initialized yet, crashing with "Export is not defined".
+          if (id.includes('timeEntrySyncStatus')) return 'index';
+
+          if (id.includes('node_modules')) {
+            if (id.includes('react-dom') || id.includes('react/')) return 'react-vendor';
+            if (id.includes('react-router-dom')) return 'router';
+            if (id.includes('@supabase/supabase-js')) return 'supabase';
+            if (id.includes('xlsx')) return 'xlsx-vendor';
+            if (id.includes('jspdf') || id.includes('@react-pdf') || id.includes('html2canvas')) return 'pdf-vendor';
+            if (id.includes('crypto-js') || id.includes('emailjs-com')) return 'utils';
+          }
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
