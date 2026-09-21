@@ -5,6 +5,7 @@
 
 import { offlineStorage } from './offlineStorage.js';
 import { offlineQueue } from './offlineQueue.js';
+import { supabaseData } from './supabaseData.js';
 import { saveToStorage, loadFromStorage } from './storage.js';
 import { setSimpleEncryptedItem, getSimpleEncryptedItem } from './simple-encryption.js';
 import { multiTabSync } from './multiTabSync.js';
@@ -385,8 +386,6 @@ class BackgroundSync {
       if (this.isOnline) {
         try {
           // Import supabaseData dynamically to avoid circular dependencies
-          const { supabaseData } = await import('./supabaseData.js');
-          
           // Get current user to check if they're local-only
           const currentUserData = loadFromStorage('currentUser', username);
           
@@ -418,8 +417,6 @@ class BackgroundSync {
   async queueDeleteOperation(data, username) {
     try {
       // Import offlineQueue dynamically
-      const { offlineQueue } = await import('./offlineQueue.js');
-      
       // Add delete operation to queue
       await offlineQueue.addAction('delete_entry', data, username);
     } catch (queueError) {
