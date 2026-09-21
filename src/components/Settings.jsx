@@ -357,7 +357,7 @@ function Settings() {
     calculateMonthlyHours,
   } = useTimeTracker();
 
-  const { setPeriods } = usePayPeriod();
+  const { setPeriods, markPeriodDirty } = usePayPeriod();
   const { reminderSettings, setReminderSettings } = useUserPreferences();
 
   // ✅ ADDED: Get auth functions
@@ -1546,7 +1546,8 @@ function Settings() {
     const autoLabel = `${formatDate(startDate)} - ${formatDate(endDate)} ${endDate.getFullYear()}`;
 
     if (editingPeriodId) {
-      // Edit existing period
+      // Edit existing period — mark it dirty so it gets synced to Supabase
+      markPeriodDirty(editingPeriodId);
       setPeriods(
         periods.map((p) =>
           p.id === editingPeriodId

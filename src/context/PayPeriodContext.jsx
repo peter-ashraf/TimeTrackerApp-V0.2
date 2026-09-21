@@ -26,6 +26,8 @@ export const PayPeriodProvider = ({ children }) => {
   const isSavingPeriodsRef = useRef(false);
   const isSettingCurrentRef = useRef(false);
   const refreshKeyRef = useRef(0);
+  // Tracks real-ID periods that were modified and need to be synced to Supabase
+  const dirtyPeriodIdsRef = useRef(new Set());
 
   const normalizeCurrentFlags = useCallback((periodList, selectedId) => {
     if (!Array.isArray(periodList)) return [];
@@ -147,8 +149,16 @@ export const PayPeriodProvider = ({ children }) => {
     }
   }, [currentUser, isAuthenticated, normalizeCurrentFlags, persistCurrentPeriodId]);
 
-  // Save pay periods data — only syncs periods that actually need cloud saving (new temp-ID ones).
-  // Previously this re-saved ALL periods on every state change, causing slow sequential awaits
+  // Mark a real-ID period as dirty (modified) so the save effect will sync it
+  const markPeriodDirty = useCallback((periodId) => {
+    if (periodId && !String(periodId).startsWith('period-')) {
+      dirtyPeriodIdsRef.current.add(String(periodId));
+    }
+  }, []);
+
+  // Save pay periods data.
+  // Syncs: (1) new periods with temp 'period-' IDs, (2) existing periods explicitly marked dirty.
+  // Previously re-saved ALL periods on every state change — caused slow sequential awaits
   // and a stuck "Saving..." state if any call hung or errored.
   useEffect(() => {
     if (!currentUser || !periods) return;
@@ -169,12 +179,18 @@ export const PayPeriodProvider = ({ children }) => {
     }
     multiTabSync.notifyDataChange('payPeriods', periods, currentUser.username);
 
-    // Only cloud-sync periods that still have a temp client-generated ID
-    const periodsNeedingSync = periods.filter(p => !p.id || String(p.id).startsWith('period-'));
+    // Sync new (temp-ID) periods + explicitly dirty (modified) real-ID periods
+    const periodsNeedingSync = periods.filter(p =>
+      !p.id ||
+      String(p.id).startsWith('period-') ||
+      dirtyPeriodIdsRef.current.has(String(p.id))
+    );
     if (!navigator.onLine || currentUser.isLocalOnly || periodsNeedingSync.length === 0) return;
 
-    const saveNewPeriods = async () => {
+    const savePeriods = async () => {
       isSavingPeriodsRef.current = true;
+      // Snapshot dirty IDs to clear after save (new mutations during save stay dirty)
+      const savedDirtyIds = new Set(dirtyPeriodIdsRef.current);
       try {
         let changed = false;
         const updatedPeriods = [...periods];
@@ -188,11 +204,16 @@ export const PayPeriodProvider = ({ children }) => {
                 updatedPeriods[idx] = { ...updatedPeriods[idx], ...saved };
                 changed = true;
               }
+              // Clear dirty flag only for successfully saved real-ID periods
+              savedDirtyIds.delete(String(saved.id));
             }
           } catch (periodError) {
             console.error(`Failed to save period ${period.id}:`, periodError);
           }
         }
+
+        // Remove successfully saved IDs from the dirty set
+        savedDirtyIds.forEach(id => dirtyPeriodIdsRef.current.delete(id));
 
         if (changed) {
           setPeriods(updatedPeriods);
@@ -204,7 +225,7 @@ export const PayPeriodProvider = ({ children }) => {
       }
     };
 
-    saveNewPeriods();
+    savePeriods();
   }, [periods, currentUser, currentPeriodId]);
 
   // Get current period
@@ -316,6 +337,7 @@ export const PayPeriodProvider = ({ children }) => {
     // Helper functions
     getCurrentPeriod,
     setCurrentPeriod,
+    markPeriodDirty,
     
     // Refresh key for component updates
     refreshKey: refreshKeyRef.current
