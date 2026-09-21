@@ -419,6 +419,11 @@ export const TimeEntryProvider = ({ children }) => {
 
       if (conflicts.length > 0) {
         console.log(`[Sync] Found ${conflicts.length} conflicts, pausing sync for user resolution`);
+        // Apply non-conflicting entries immediately so new cloud entries are
+        // visible even while the user resolves conflicts.
+        const sortedFinalEntries = sortEntries(finalEntries);
+        setEntries(sortedFinalEntries);
+        persistEntriesSnapshot(sortedFinalEntries);
         // Batch both state updates together so the modal never sees an empty
         // conflicts array on the first render (race condition fix).
         setPendingConflicts(conflicts);
