@@ -89,12 +89,17 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          // Pin sync-status modules to the main entry chunk so their exports
-          // are always initialized before any lazy chunk (e.g. Settings) tries to use them.
-          if (id.includes('timeEntrySyncStatus') || id.includes('timeEntrySyncManager')) {
-            return undefined; // let Rollup keep them in the entry chunk naturally
+          // ── APPLICATION CODE ──
+          // Pin ALL utility and context modules to a single chunk.
+          // This prevents Rollup from creating "shared" chunks when these
+          // modules are imported by both the entry AND lazy-loaded components
+          // (e.g. App.jsx + Settings.jsx both import backgroundSync).
+          // Shared chunks cause "Export X is not defined" at runtime.
+          if (id.includes('/src/utils/') || id.includes('/src/context/')) {
+            return 'app-core';
           }
-          // Vendor chunks
+
+          // ── VENDOR CHUNKS ──
           if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) return 'react-vendor';
           if (id.includes('node_modules/react-router-dom/') || id.includes('node_modules/react-router/')) return 'router';
           if (id.includes('node_modules/@supabase/')) return 'supabase';
