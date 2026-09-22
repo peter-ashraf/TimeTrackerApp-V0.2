@@ -183,13 +183,13 @@ export const supabaseData = {
 
       const { data, error } = await supabaseClient
         .from('profiles')
-        .upsert({
-          id: userId,
+        .update({
           username,
           email,
           ...profileData,
           updated_at: new Date().toISOString()
         })
+        .eq('id', userId)
         .select()
         .single();
 

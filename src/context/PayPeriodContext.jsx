@@ -209,6 +209,14 @@ export const PayPeriodProvider = ({ children }) => {
             }
           } catch (periodError) {
             console.error(`Failed to save period ${period.id}:`, periodError);
+            if (String(period.id).startsWith('period-')) {
+              // Fallback to local-only ID to prevent permanent "Saving..." state
+              const idx = updatedPeriods.findIndex(p => String(p.id) === String(period.id));
+              if (idx >= 0) {
+                updatedPeriods[idx] = { ...updatedPeriods[idx], id: period.id.replace('period-', 'local-') };
+                changed = true;
+              }
+            }
           }
         }
 
