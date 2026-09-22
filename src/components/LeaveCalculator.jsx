@@ -414,7 +414,8 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
 
   return (
     <ModalShell isOpen={true} onClose={onClose} title="Leave Time Calculator">
-      <div className="leave-calculator">
+      <div className="modal-header"><h2>Leave Calculator</h2></div>
+      <div className="modal-body leave-calculator">
         {/* Date Display */}
         <div className="calculator-section">
           <label className="calculator-label">Selected Date</label>
