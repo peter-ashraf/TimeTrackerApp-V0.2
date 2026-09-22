@@ -384,9 +384,6 @@ class BackgroundSync {
       // Then, try to delete from Supabase if online and user is not local-only
       if (this.isOnline) {
         try {
-          // Import supabaseData dynamically to avoid circular dependencies
-          const { supabaseData } = await import('./supabaseData.js');
-          
           // Get current user to check if they're local-only
           const currentUserData = loadFromStorage('currentUser', username);
           
@@ -417,9 +414,6 @@ class BackgroundSync {
    */
   async queueDeleteOperation(data, username) {
     try {
-      // Import offlineQueue dynamically
-      const { offlineQueue } = await import('./offlineQueue.js');
-      
       // Add delete operation to queue
       await offlineQueue.addAction('delete_entry', data, username);
     } catch (queueError) {
