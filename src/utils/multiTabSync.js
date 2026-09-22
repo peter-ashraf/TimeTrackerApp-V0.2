@@ -3,7 +3,9 @@
  * Keeps data consistent across multiple browser tabs
  */
 
-import { backgroundSync } from './backgroundSync.js';
+// No import of backgroundSync here — that would create a circular dependency.
+// backgroundSync registers its performSync callback via multiTabSync.setSyncCallback()
+// after both modules are initialized.
 
 class MultiTabSync {
   constructor() {
@@ -14,6 +16,16 @@ class MultiTabSync {
     this.isMaster = false;
     this.heartbeatInterval = null;
     this.lastHeartbeat = {};
+    // Registered by backgroundSync after both singletons are created
+    this.syncCallback = null;
+  }
+
+  /**
+   * Register the function to call when a refresh is requested by another tab.
+   * Called by backgroundSync to avoid a circular import.
+   */
+  setSyncCallback(fn) {
+    this.syncCallback = fn;
   }
 
   /**
@@ -232,7 +244,9 @@ class MultiTabSync {
     const syncStatus = this.getStatus();
     if (syncStatus.isMaster) {
       try {
-        await backgroundSync.performSync();
+        if (this.syncCallback) {
+          await this.syncCallback();
+        }
         this.notifySyncComplete({
           success: true,
           requesterTabId: senderTabId,
