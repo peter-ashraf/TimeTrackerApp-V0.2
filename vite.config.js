@@ -88,18 +88,19 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          // React core
-          'react-vendor': ['react', 'react-dom'],
-          // Router
-          'router': ['react-router-dom'],
-          // Supabase (large)
-          'supabase': ['@supabase/supabase-js'],
-          // Export/PDF libraries are very large, better to put them in their own chunks
-          'xlsx-vendor': ['xlsx'],
-          'pdf-vendor': ['jspdf', '@react-pdf/renderer', 'html2canvas'],
-          // Local utilities
-          'utils': ['crypto-js', 'emailjs-com']
+        manualChunks(id) {
+          // Pin sync-status modules to the main entry chunk so their exports
+          // are always initialized before any lazy chunk (e.g. Settings) tries to use them.
+          if (id.includes('timeEntrySyncStatus') || id.includes('timeEntrySyncManager')) {
+            return undefined; // let Rollup keep them in the entry chunk naturally
+          }
+          // Vendor chunks
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) return 'react-vendor';
+          if (id.includes('node_modules/react-router-dom/') || id.includes('node_modules/react-router/')) return 'router';
+          if (id.includes('node_modules/@supabase/')) return 'supabase';
+          if (id.includes('node_modules/xlsx')) return 'xlsx-vendor';
+          if (id.includes('node_modules/jspdf') || id.includes('node_modules/@react-pdf') || id.includes('node_modules/html2canvas')) return 'pdf-vendor';
+          if (id.includes('node_modules/crypto-js') || id.includes('node_modules/emailjs-com')) return 'utils';
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',

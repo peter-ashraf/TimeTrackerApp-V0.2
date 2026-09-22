@@ -18,8 +18,10 @@ import CustomSelect from "./CustomSelect";
 import {
   clearPendingTimeEntrySync,
   getPendingTimeEntrySyncStatus,
-  SYNC_STATUS_EVENT,
 } from "../utils/timeEntrySyncStatus";
+// Defined locally to avoid a cross-chunk named-export that fails in some bundler configurations.
+// Must match the string dispatched by timeEntrySyncStatus.js.
+const SYNC_STATUS_EVENT = "time-entry-sync-status-changed";
 import "../styles/settings.css";
 
 const SETTINGS_TABS = [
