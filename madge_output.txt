@@ -1,0 +1,8 @@
+- Finding files
+Processed 117 files (453ms) (1 warning)
+
+× Found 2 circular dependencies!
+
+1) context/TimeTrackerContext.jsx > components/ExportModal.jsx
+2) components/Timesheet.jsx > components/VirtualizedTimesheetTable.jsx
+

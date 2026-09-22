@@ -1372,14 +1372,8 @@ function Settings() {
                 "Reminder settings were saved locally, but Supabase did not update.",
             });
           }
-          setNotifModal({
-            isOpen: true,
-            isError: true,
-            message:
-              error.message ||
-              "Reminder settings were saved locally, but Supabase did not update.",
-          });
-          return;
+          leaveSettingsCloudWarning = (leaveSettingsCloudWarning ? leaveSettingsCloudWarning + "\n" : "") + 
+            (error.message || "Reminder settings were saved locally, but Supabase did not update.");
         }
       }
 

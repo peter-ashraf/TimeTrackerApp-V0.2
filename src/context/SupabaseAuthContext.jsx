@@ -433,6 +433,10 @@ export const SupabaseAuthProvider = ({ children }) => {
                   session.user.user_metadata?.full_name ||
                   session.user.user_metadata?.username ||
                   "User",
+                name:
+                  session.user.user_metadata?.full_name ||
+                  session.user.user_metadata?.username ||
+                  "User",
               };
               // Cache user with fallback username for offline access
               localStorage.setItem(
@@ -461,6 +465,7 @@ export const SupabaseAuthProvider = ({ children }) => {
                   profile.full_name ||
                   profile.username ||
                   "User",
+                name: profile.full_name || profile.username || "User",
                 ...profile,
               };
               setCurrentUser(fullUser);

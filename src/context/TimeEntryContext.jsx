@@ -136,18 +136,20 @@ export const TimeEntryProvider = ({ children }) => {
             // ✅ ADD THIS — merge returned Supabase id back into local state
             const returnedEntry = Array.isArray(savedData) ? savedData[0] : savedData;
             if (returnedEntry?.id && !Array.isArray(entriesToSave)) {
-              const repairedEntries = finalEntries.map(e =>
-                normalizeDateKey(e.date) === normalizeDateKey(entriesToSave.date)
-                  ? { ...e, ...returnedEntry }
-                  : e
-              );
-              setEntries(repairedEntries);
-              setSimpleEncryptedItem(entriesKey, repairedEntries, currentUser.username);
-              try {
-                cacheManager.setCachedData('timeEntries', repairedEntries);
-              } catch (cacheError) {
-                console.warn('Failed to cache saved entry with cloud id:', cacheError);
-              }
+              setEntries(prev => {
+                const repairedEntries = prev.map(e =>
+                  normalizeDateKey(e.date) === normalizeDateKey(entriesToSave.date)
+                    ? { ...e, ...returnedEntry }
+                    : e
+                );
+                setSimpleEncryptedItem(entriesKey, repairedEntries, currentUser.username);
+                try {
+                  cacheManager.setCachedData('timeEntries', repairedEntries);
+                } catch (cacheError) {
+                  console.warn('Failed to cache saved entry with cloud id:', cacheError);
+                }
+                return repairedEntries;
+              });
             }
 
             if (returnedEntry?.id || Array.isArray(entriesToSave)) {

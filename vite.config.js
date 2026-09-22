@@ -106,10 +106,13 @@ export default defineConfig({
         assetFileNames: 'assets/[name]-[hash].[ext]'
       }
     },
-    esbuild: {
-      drop: ['console', 'debugger'],
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
     },
-    minify: 'esbuild',
     chunkSizeWarningLimit: 1000 // Increase threshold temporarily
   }
 })
