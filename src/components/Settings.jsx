@@ -213,10 +213,8 @@ const validateEmployeeData = (
 ) => {
   const errors = [];
 
-  // Validate name
-  if (!name || name.trim().length === 0) {
-    errors.push("Employee name is required");
-  } else if (name.trim().length < 2) {
+  // Validate name (optional - user may not have set one yet)
+  if (name && name.trim().length > 0 && name.trim().length < 2) {
     errors.push("Employee name must be at least 2 characters");
   }
 
@@ -2163,9 +2161,9 @@ function Settings() {
 
           {/* Single Save Button */}
           <button
-            type="submit"
+            type="button"
             className="btn btn-primary"
-            onClick={() => hapticFeedback.buttonClick()}
+            onClick={(e) => { hapticFeedback.buttonClick(); handleSaveAll(e); }}
           >
             💾 Save All Settings
           </button>
