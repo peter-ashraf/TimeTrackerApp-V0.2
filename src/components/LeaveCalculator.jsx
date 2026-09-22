@@ -3,9 +3,6 @@ import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 import '../styles/leave-calculator.css';
 
-const ALLOWED_BREAK_START_MINS = 13 * 60; // 13:00
-const ALLOWED_BREAK_END_MINS = 13 * 60 + 30; // 13:30
-
 const LeaveCalculator = ({ selectedDate, onClose }) => {
   const { entries, employee, getCurrentPeriod, calculateOvertimeDetails } = useTimeTracker();
   
@@ -46,6 +43,18 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     return 0;
   }, []);
 
+  const allowedBreakStartMins = useMemo(() => employee?.breakStartTime ? timeToMinutes(employee.breakStartTime) : (13 * 60), [employee?.breakStartTime, timeToMinutes]);
+  const allowedBreakEndMins = useMemo(() => allowedBreakStartMins + 30, [allowedBreakStartMins]);
+
+  // Format time (HH:MM) to 12-hour format string (e.g. "1:00 PM")
+  const formatTime12Hour = useCallback((timeStr) => {
+    if (!timeStr) return '';
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    return `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`;
+  }, []);
+
   // Helper: Convert minutes to time string (HH:MM:SS)
   const minutesToTime = useCallback((minutes) => {
     if (minutes < 0) minutes = 0;
@@ -84,6 +93,27 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     return result;
   }, []);
 
+  // Calculate Exact Minimum Leave Time to fulfill the day
+  const fulfillmentLeaveTime = useMemo(() => {
+    const effectiveCheckIn = hasExistingCheckIn ? loadedCheckIn : checkInTime;
+    if (!effectiveCheckIn) return null;
+
+    const checkInMinutes = timeToMinutes(effectiveCheckIn);
+    const plannedStartMins = timeToMinutes(plannedBreakStartTime);
+    const plannedEndMins = plannedStartMins + (userBreakMinutes || 0);
+    
+    const isAllowedPlannedBreak =
+      plannedStartMins >= allowedBreakStartMins &&
+      plannedStartMins <= allowedBreakEndMins &&
+      plannedEndMins >= allowedBreakStartMins &&
+      plannedEndMins <= allowedBreakEndMins;
+      
+    const effectiveUserBreakMinutes = isAllowedPlannedBreak ? 0 : (userBreakMinutes || 0);
+
+    const leaveMinutes = checkInMinutes + requiredDailyMinutes + effectiveUserBreakMinutes;
+    return minutesToTime(leaveMinutes);
+  }, [hasExistingCheckIn, loadedCheckIn, checkInTime, plannedBreakStartTime, userBreakMinutes, allowedBreakStartMins, allowedBreakEndMins, requiredDailyMinutes, timeToMinutes, minutesToTime]);
+
   // Load data when selected date changes
   useEffect(() => {
     if (!selectedDate) {
@@ -117,10 +147,10 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
           const inMins = timeToMinutes(interval.in);
           const outMins = timeToMinutes(interval.out);
           const isAllowedBreak = 
-            inMins >= ALLOWED_BREAK_START_MINS &&
-            inMins <= ALLOWED_BREAK_END_MINS &&
-            outMins >= ALLOWED_BREAK_START_MINS &&
-            outMins <= ALLOWED_BREAK_END_MINS;
+            inMins >= allowedBreakStartMins &&
+            inMins <= allowedBreakEndMins &&
+            outMins >= allowedBreakStartMins &&
+            outMins <= allowedBreakEndMins;
             
           if (!isAllowedBreak) {
             breakMinutes += outMins - inMins;
@@ -185,10 +215,10 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     const plannedStartMins = timeToMinutes(plannedBreakStartTime);
     const plannedEndMins = plannedStartMins + userBreakMinutes;
     const isAllowedPlannedBreak =
-      plannedStartMins >= ALLOWED_BREAK_START_MINS &&
-      plannedStartMins <= ALLOWED_BREAK_END_MINS &&
-      plannedEndMins >= ALLOWED_BREAK_START_MINS &&
-      plannedEndMins <= ALLOWED_BREAK_END_MINS;
+      plannedStartMins >= allowedBreakStartMins &&
+      plannedStartMins <= allowedBreakEndMins &&
+      plannedEndMins >= allowedBreakStartMins &&
+      plannedEndMins <= allowedBreakEndMins;
       
     const effectiveUserBreakMinutes = isAllowedPlannedBreak ? 0 : userBreakMinutes;
     
@@ -224,10 +254,10 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     const plannedStartMins = timeToMinutes(plannedBreakStartTime);
     const plannedEndMins = plannedStartMins + userBreakMinutes;
     const isAllowedPlannedBreak =
-      plannedStartMins >= ALLOWED_BREAK_START_MINS &&
-      plannedStartMins <= ALLOWED_BREAK_END_MINS &&
-      plannedEndMins >= ALLOWED_BREAK_START_MINS &&
-      plannedEndMins <= ALLOWED_BREAK_END_MINS;
+      plannedStartMins >= allowedBreakStartMins &&
+      plannedStartMins <= allowedBreakEndMins &&
+      plannedEndMins >= allowedBreakStartMins &&
+      plannedEndMins <= allowedBreakEndMins;
       
     const effectiveUserBreakMinutes = isAllowedPlannedBreak ? 0 : userBreakMinutes;
 
@@ -274,10 +304,10 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     const plannedStartMins = timeToMinutes(plannedBreakStartTime);
     const plannedEndMins = plannedStartMins + userBreakMinutes;
     const isAllowedPlannedBreak =
-      plannedStartMins >= ALLOWED_BREAK_START_MINS &&
-      plannedStartMins <= ALLOWED_BREAK_END_MINS &&
-      plannedEndMins >= ALLOWED_BREAK_START_MINS &&
-      plannedEndMins <= ALLOWED_BREAK_END_MINS;
+      plannedStartMins >= allowedBreakStartMins &&
+      plannedStartMins <= allowedBreakEndMins &&
+      plannedEndMins >= allowedBreakStartMins &&
+      plannedEndMins <= allowedBreakEndMins;
       
     const effectiveUserBreakMinutes = isAllowedPlannedBreak ? 0 : userBreakMinutes;
     
@@ -437,7 +467,7 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
             onChange={(e) => setPlannedBreakStartTime(e.target.value)}
           />
           <div className="calculator-hint">
-            Breaks from 1:00 PM to 1:30 PM (13:00 - 13:30) are paid and do not count against your required hours.
+            Breaks from {formatTime12Hour(minutesToTime(allowedBreakStartMins).substring(0,5))} to {formatTime12Hour(minutesToTime(allowedBreakEndMins).substring(0,5))} ({minutesToTime(allowedBreakStartMins).substring(0,5)} - {minutesToTime(allowedBreakEndMins).substring(0,5)}) are paid and do not count against your required hours.
           </div>
         </div>
 
@@ -488,6 +518,19 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
               : 'Enter desired overtime to calculate when to leave'}
           </div>
         </div>
+
+        {/* Minimum Required Leave Time Display */}
+        {fulfillmentLeaveTime && (
+          <div className="calculator-section" style={{ marginBottom: calcMode === 'forward' ? '15px' : '20px', padding: '12px', backgroundColor: 'var(--bg-tertiary, rgba(0,0,0,0.2))', borderRadius: '8px', borderLeft: '3px solid var(--primary-color)' }}>
+            <label className="calculator-label" style={{ marginBottom: '8px' }}>Fulfillment Leave Time</label>
+            <div className="calculator-value" style={{ fontSize: '1.1rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>
+              {formatTime12Hour(fulfillmentLeaveTime.substring(0, 5))} <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>({fulfillmentLeaveTime.substring(0, 5)})</span>
+              <div className="calculator-hint" style={{ marginTop: '6px', fontSize: '0.85rem' }}>
+                Leave at this time to fulfill your required {formatMinutesAsHours(requiredDailyMinutes)} without any overtime.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Forward Mode: Leave Time Input */}
         {calcMode === 'forward' && (
