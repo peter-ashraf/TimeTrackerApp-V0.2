@@ -5,6 +5,7 @@ import { usePayPeriod } from "../context/PayPeriodContext";
 import { supabaseData } from "../utils/supabaseData";
 import hapticFeedback from "../utils/hapticFeedback";
 import cacheManager from "../utils/cacheManager";
+import { backgroundSync } from "../utils/backgroundSync";
 import { offlineQueue } from "../utils/offlineQueue";
 const ExportModal = React.lazy(() => import("./ExportModal"));
 const ImportModal = React.lazy(() => import("./ImportModal"));
@@ -175,8 +176,7 @@ const getStoredQueueLength = (key) => {
 };
 
 const getSyncStatusSnapshot = (currentUser, entries) => {
-  // Access backgroundSync via window to avoid Vite chunking bugs
-  const backgroundStatus = window.backgroundSync ? window.backgroundSync.getStatus() : { isSyncing: false };
+  const backgroundStatus = backgroundSync.getStatus();
   const offlineStatus = offlineQueue.getStatus();
   const appSaveQueue = getStoredQueueLength("dbSaveQueue");
   const timeEntrySync = getPendingTimeEntrySyncStatus(currentUser?.id);
@@ -904,9 +904,7 @@ function Settings() {
     window.addEventListener("offline", updateStatus);
     window.addEventListener(SYNC_STATUS_EVENT, updateStatus);
     window.addEventListener("storage", updateStatus);
-    if (window.backgroundSync) {
-      window.backgroundSync.addListener(updateStatus);
-    }
+    backgroundSync.addListener(updateStatus);
     offlineQueue.addListener(updateStatus);
 
     const intervalId = window.setInterval(updateStatus, 30000);
@@ -917,9 +915,7 @@ function Settings() {
       window.removeEventListener("offline", updateStatus);
       window.removeEventListener(SYNC_STATUS_EVENT, updateStatus);
       window.removeEventListener("storage", updateStatus);
-      if (window.backgroundSync) {
-        window.backgroundSync.removeListener(updateStatus);
-      }
+      backgroundSync.removeListener(updateStatus);
       offlineQueue.removeListener(updateStatus);
       window.clearInterval(intervalId);
     };
