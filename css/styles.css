@@ -5542,3 +5542,42 @@ body::-webkit-scrollbar-track,
   display: none !important;
   background: transparent !important;
 }
+
+/* Global Modal Layout Enforcements */
+.modal-content {
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: 85vh !important;
+  overflow: hidden !important;
+}
+
+.modal-content .modal-header,
+.modal-content .user-settings-header,
+.modal-content .calculator-header,
+.modal-content > h2 {
+  flex-shrink: 0 !important;
+}
+
+.modal-content .modal-footer,
+.modal-content .modal-actions,
+.modal-content .form-actions,
+.modal-content .calculator-actions {
+  flex-shrink: 0 !important;
+}
+
+.modal-content .modal-body,
+.modal-content .form-container,
+.modal-content .calculator-body {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  min-height: 0;
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.modal-content .modal-body::-webkit-scrollbar,
+.modal-content .form-container::-webkit-scrollbar,
+.modal-content .calculator-body::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
