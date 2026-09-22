@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import ConfirmModal from "./ConfirmModal";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { useSupabaseAuth, supabase } from "../context/SupabaseAuthContext";
 import { usePayPeriod } from "../context/PayPeriodContext";
@@ -3413,7 +3414,21 @@ function Settings() {
           </div>
         </ModalShell>
       )}
+
+      {confirmModal && confirmModal.isOpen && (
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={confirmModal.onCancel}
+          confirmText={confirmModal.confirmText}
+          type={confirmModal.type}
+          showCancel={confirmModal.showCancel}
+        />
+      )}
     </main>
+
   );
 }
 

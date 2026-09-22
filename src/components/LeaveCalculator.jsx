@@ -657,22 +657,22 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
           </div>
         )}
 
-        {/* Actions */}
-        <div className="calculator-actions">
-          <button className="btn btn-secondary" onClick={onClose}>
-            Cancel
+        {/* Actions (Moved outside modal-body for fixed footer) */}
+      </div>
+      <div className="modal-footer calculator-actions">
+        <button className="btn btn-secondary" onClick={onClose}>
+          Cancel
+        </button>
+        {calcMode === 'forward' && leaveTime && !validationError && (
+          <button className="btn btn-primary" onClick={handleSave}>
+            Use This Leave Time
           </button>
-          {calcMode === 'forward' && leaveTime && !validationError && (
-            <button className="btn btn-primary" onClick={handleSave}>
-              Use This Leave Time
-            </button>
-          )}
-          {calcMode === 'reverse' && leaveTime && !validationError && (
-            <button className="btn btn-primary" onClick={handleSave}>
-              Use Calculated Time
-            </button>
-          )}
-        </div>
+        )}
+        {calcMode === 'reverse' && leaveTime && !validationError && (
+          <button className="btn btn-primary" onClick={handleSave}>
+            Use Calculated Time
+          </button>
+        )}
       </div>
     </ModalShell>
   );
