@@ -38,7 +38,11 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     if (!timeStr) return 0;
     const parts = timeStr.split(':').map(Number);
     if (parts.length >= 2) {
-      return parts[0] * 60 + parts[1];
+      let minutes = parts[0] * 60 + parts[1];
+      if (parts.length >= 3 && !isNaN(parts[2])) {
+        minutes += parts[2] / 60;
+      }
+      return minutes;
     }
     return 0;
   }, []);
