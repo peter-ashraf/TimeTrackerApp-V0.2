@@ -46,13 +46,16 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
   const allowedBreakStartMins = useMemo(() => employee?.breakStartTime ? timeToMinutes(employee.breakStartTime) : (13 * 60), [employee?.breakStartTime, timeToMinutes]);
   const allowedBreakEndMins = useMemo(() => allowedBreakStartMins + 30, [allowedBreakStartMins]);
 
-  // Format time (HH:MM) to 12-hour format string (e.g. "1:00 PM")
+  // Format time (HH:MM or HH:MM:SS) to 12-hour format string (e.g. "1:00 PM" or "1:00:30 PM")
   const formatTime12Hour = useCallback((timeStr) => {
     if (!timeStr) return '';
-    const [hours, minutes] = timeStr.split(':').map(Number);
+    const parts = timeStr.split(':');
+    const hours = Number(parts[0]);
+    const minutes = Number(parts[1]);
+    const seconds = parts[2] ? `:${parts[2]}` : '';
     const period = hours >= 12 ? 'PM' : 'AM';
     const displayHours = hours % 12 || 12;
-    return `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`;
+    return `${displayHours}:${String(minutes).padStart(2, '0')}${seconds} ${period}`;
   }, []);
 
   // Helper: Convert minutes to time string (HH:MM:SS)
@@ -521,10 +524,10 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
 
         {/* Minimum Required Leave Time Display */}
         {fulfillmentLeaveTime && (
-          <div className="calculator-section" style={{ marginBottom: calcMode === 'forward' ? '15px' : '20px', padding: '12px', backgroundColor: 'var(--bg-tertiary, rgba(0,0,0,0.2))', borderRadius: '8px', borderLeft: '3px solid var(--primary-color)' }}>
-            <label className="calculator-label" style={{ marginBottom: '8px' }}>Fulfillment Leave Time</label>
-            <div className="calculator-value" style={{ fontSize: '1.1rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>
-              {formatTime12Hour(fulfillmentLeaveTime.substring(0, 5))} <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>({fulfillmentLeaveTime.substring(0, 5)})</span>
+          <div className="calculator-section">
+            <label className="calculator-label">Fulfillment Leave Time</label>
+            <div className="calculator-value readonly" style={{ fontWeight: 'bold' }}>
+              {formatTime12Hour(fulfillmentLeaveTime)} <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>({fulfillmentLeaveTime})</span>
               <div className="calculator-hint" style={{ marginTop: '6px', fontSize: '0.85rem' }}>
                 Leave at this time to fulfill your required {formatMinutesAsHours(requiredDailyMinutes)} without any overtime.
               </div>

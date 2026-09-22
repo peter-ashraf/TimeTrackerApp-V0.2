@@ -1014,418 +1014,434 @@ function Settings() {
   }, [employeeType]);
 
   const handleSaveAll = async (e, options = {}) => {
-    e.preventDefault();
-    const forceReminderSave = options.forceReminderSave === true;
-    if (forceReminderSave) {
-      setReminderSaveStatus({
-        type: "saving",
-        message: "Saving reminder settings...",
-      });
+    if (e && e.preventDefault) {
+      e.preventDefault();
     }
-
-    // Parse values
-    const parsedSalary = parseFloat(salary) || 0;
-    const parsedVacation = parseFloat(annualVacation) || 0;
-    const parsedSickDays = parseFloat(sickDays) || 0;
-    const parsedDailyHours = parseFloat(dailyHours) || 9;
-    const parsedWorkDaysPerWeek = parseFloat(workDaysPerWeek) || 5;
-    const parsedMonthlyHours = parseFloat(monthlyHours) || 187;
-    const normalizedReminderStartTime =
-      normalizeReminderTime(reminderStartTime);
-    const finalReminderCount =
-      reminderCount === "custom"
-        ? parseInt(customReminderCount, 10)
-        : parseInt(reminderCount, 10);
-    const finalReminderInterval =
-      reminderInterval === "custom"
-        ? parseInt(customReminderInterval, 10)
-        : parseInt(reminderInterval, 10);
-
-    // Run validation
-    const errors = validateEmployeeData(
-      name,
-      parsedSalary,
-      parsedVacation,
-      parsedSickDays,
-      employeeType,
-      parsedDailyHours,
-      parsedWorkDaysPerWeek,
-      parsedMonthlyHours,
-    );
-
-    // If validation fails, show errors
-    if (errors.length > 0) {
+    
+    try {
+      const forceReminderSave = options.forceReminderSave === true;
       if (forceReminderSave) {
         setReminderSaveStatus({
-          type: "error",
-          message: "Reminder settings were not saved. Please fix the validation errors.",
+          type: "saving",
+          message: "Saving reminder settings...",
         });
       }
+
+      // Parse values
+      const parsedSalary = parseFloat(salary) || 0;
+      const parsedVacation = parseFloat(annualVacation) || 0;
+      const parsedSickDays = parseFloat(sickDays) || 0;
+      const parsedDailyHours = parseFloat(dailyHours) || 9;
+      const parsedWorkDaysPerWeek = parseFloat(workDaysPerWeek) || 5;
+      const parsedMonthlyHours = parseFloat(monthlyHours) || 187;
+      const normalizedReminderStartTime =
+        normalizeReminderTime(reminderStartTime);
+      const finalReminderCount =
+        reminderCount === "custom"
+          ? parseInt(customReminderCount, 10)
+          : parseInt(reminderCount, 10);
+      const finalReminderInterval =
+        reminderInterval === "custom"
+          ? parseInt(customReminderInterval, 10)
+          : parseInt(reminderInterval, 10);
+
+      // Run validation
+      const errors = validateEmployeeData(
+        name,
+        parsedSalary,
+        parsedVacation,
+        parsedSickDays,
+        employeeType,
+        parsedDailyHours,
+        parsedWorkDaysPerWeek,
+        parsedMonthlyHours,
+      );
+
+      // If validation fails, show errors
+      if (errors.length > 0) {
+        if (forceReminderSave) {
+          setReminderSaveStatus({
+            type: "error",
+            message: "Reminder settings were not saved. Please fix the validation errors.",
+          });
+        }
+        setConfirmModal({
+          isOpen: true,
+          title: "⚠️ Validation Error",
+          message: `Please fix the following errors:\n\n${errors.join("\n")}`,
+          type: "danger",
+          confirmText: "OK",
+          showCancel: false,
+          onConfirm: () => setConfirmModal((prev) => ({ ...prev, isOpen: false })),
+        });
+        return; // Stop - don't save
+      }
+
+      // Check what changed (exclude salary if it's hidden) - use original employee state
+      const originalName = employee?.name;
+      const nameChanged = name !== originalName;
+
+      const salaryChanged = !hideSalary && parsedSalary !== employee?.salary;
+      const vacationChanged = parsedVacation !== leaveSettings?.annualVacation;
+      const sickDaysChanged = parsedSickDays !== leaveSettings?.sickDays;
+      const employeeTypeChanged = employeeType !== employee?.employeeType;
+      const dailyHoursChanged = parsedDailyHours !== employee?.dailyHours;
+      const workDaysPerWeekChanged =
+        parsedWorkDaysPerWeek !== employee?.workDaysPerWeek;
+      const monthlyHoursChanged = parsedMonthlyHours !== employee?.monthlyHours;
+      const breakStartTimeChanged = breakStartTime !== employee?.breakStartTime;
+
+      const remindersEnabledChanged =
+        remindersEnabled !== reminderSettings?.enabled;
+      const reminderStartTimeChanged =
+        normalizedReminderStartTime !==
+        normalizeReminderTime(reminderSettings?.startTime);
+      const reminderCountChanged =
+        finalReminderCount !== Number(reminderSettings?.reminderCount);
+      const reminderIntervalChanged =
+        finalReminderInterval !== Number(reminderSettings?.intervalMinutes);
+
+      const anyChanges =
+        nameChanged ||
+        salaryChanged ||
+        vacationChanged ||
+        sickDaysChanged ||
+        employeeTypeChanged ||
+        dailyHoursChanged ||
+        workDaysPerWeekChanged ||
+        monthlyHoursChanged ||
+        breakStartTimeChanged ||
+        remindersEnabledChanged ||
+        reminderStartTimeChanged ||
+        reminderCountChanged ||
+        reminderIntervalChanged ||
+        forceReminderSave;
+
+      // If nothing changed, alert user
+      if (!anyChanges) {
+        if (forceReminderSave) {
+          setReminderSaveStatus({
+            type: "info",
+            message: "Reminder settings are already up to date.",
+          });
+        }
+        setConfirmModal({
+          isOpen: true,
+          title: "No Changes Detected",
+          message: "You haven't made any changes to save.",
+          type: "info",
+          confirmText: "OK",
+          showCancel: false,
+          onConfirm: () => setConfirmModal((prev) => ({ ...prev, isOpen: false })),
+        });
+        return;
+      }
+
+      // Build list of what changed (exclude salary if hidden)
+      const changedItems = [];
+      if (nameChanged) changedItems.push(`• Name: ${employee?.name} → ${name}`);
+      if (salaryChanged)
+        changedItems.push(`• Salary: ${employee?.salary} → ${parsedSalary}`);
+      if (employeeTypeChanged)
+        changedItems.push(
+          `• Employee Type: ${employee?.employeeType} → ${employeeType}`,
+        );
+      if (dailyHoursChanged)
+        changedItems.push(
+          `• Daily Hours: ${employee?.dailyHours} → ${parsedDailyHours}`,
+        );
+      if (workDaysPerWeekChanged)
+        changedItems.push(
+          `• Work Days/Week: ${employee?.workDaysPerWeek} → ${parsedWorkDaysPerWeek}`,
+        );
+      if (monthlyHoursChanged)
+        changedItems.push(
+          `• Monthly Hours: ${employee?.monthlyHours} → ${parsedMonthlyHours}`,
+        );
+      if (breakStartTimeChanged)
+        changedItems.push(
+          `• Break Start Time: ${employee?.breakStartTime} → ${breakStartTime}`,
+        );
+      if (vacationChanged)
+        changedItems.push(
+          `• Vacation Days: ${leaveSettings?.annualVacation} → ${parsedVacation}`,
+        );
+      if (sickDaysChanged)
+        changedItems.push(
+          `• Sick Days: ${leaveSettings?.sickDays} → ${parsedSickDays}`,
+        );
+      if (remindersEnabledChanged)
+        changedItems.push(
+          `• Check-in Reminders: ${reminderSettings?.enabled ? "On" : "Off"} → ${remindersEnabled ? "On" : "Off"}`,
+        );
+      if (reminderStartTimeChanged)
+        changedItems.push(
+          `• Reminder Start Time: ${normalizeReminderTime(reminderSettings?.startTime)} → ${normalizedReminderStartTime}`,
+        );
+      if (forceReminderSave && changedItems.length === 0) {
+        changedItems.push("• Reminder settings synced to cloud");
+      }
+
+      // Save all data (preserves unchanged values automatically, excludes salary if hidden)
+      const employeeData = {
+        name: name,
+        employeeType: employeeType,
+        dailyHours: parsedDailyHours,
+        monthlyHours: parsedMonthlyHours,
+        workDaysPerWeek: parsedWorkDaysPerWeek,
+        breakStartTime: breakStartTime,
+      };
+      if (!hideSalary) {
+        employeeData.salary = parsedSalary;
+      }
+
+      // IMPORTANT: Save to database FIRST before updating local state
+      // This prevents conflicts with TimeTrackerContext's auto-save useEffect
+      // Set flag to prevent auto-save during manual name changes
+      localStorage.setItem("manualNameChange", "true");
+
+      // NEW: Save display name to localStorage and DB when name changes
+      if (nameChanged && name.trim()) {
+        localStorage.setItem("userDisplayName", name.trim());
+        localStorage.setItem("userDisplayNameTimestamp", Date.now().toString());
+
+        // Also save full_name to database when user explicitly changes it in Settings
+        if (currentUser) {
+          try {
+            // Use direct Supabase client to bypass any potential wrapper issues
+            const { error } = await supabase
+              .from("profiles")
+              .update({
+                full_name: name.trim(),
+                employee_type: employeeType,
+                daily_hours: parsedDailyHours,
+                monthly_hours: parsedMonthlyHours,
+                work_days_per_week: parsedWorkDaysPerWeek,
+                break_start_time: breakStartTime,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", currentUser.id);
+
+            if (error) {
+              console.error(
+                "[Settings] Failed to save display name to database:",
+                error.message,
+              );
+            } else {
+              setEmployee((prev) => ({ ...prev, name: name.trim() }));
+
+              // Set flag to disable background sync permanently (until page refresh)
+              localStorage.setItem("disableBackgroundSync", "true");
+              // Don't auto-remove - let user refresh page to reset
+
+              // Clear manual name change flag after save is complete
+              setTimeout(() => {
+                localStorage.removeItem("manualNameChange");
+              }, 1000);
+            }
+          } catch (error) {
+            console.error(
+              "[Settings] Failed to save display name to database:",
+              error.message,
+            );
+          }
+        } else {
+          console.warn("[Settings] No currentUser, skipping DB save");
+        }
+      } else {
+        // Only save employee type fields if name didn't change but other fields did
+        if (
+          employeeTypeChanged ||
+          dailyHoursChanged ||
+          workDaysPerWeekChanged ||
+          monthlyHoursChanged ||
+          breakStartTimeChanged
+        ) {
+          if (currentUser) {
+            try {
+              const result = await supabaseData.saveUserProfile(currentUser.id, {
+                employee_type: employeeType,
+                daily_hours: parsedDailyHours,
+                monthly_hours: parsedMonthlyHours,
+                work_days_per_week: parsedWorkDaysPerWeek,
+                break_start_time: breakStartTime,
+              });
+            } catch (error) {
+              console.error(
+                "[Settings] Failed to save employee settings to database:",
+                error,
+              );
+            }
+          }
+        }
+      }
+
+      const nextLeaveSettings = {
+        ...leaveSettings,
+        annualVacation: parsedVacation,
+        sickDays: parsedSickDays,
+      };
+      let leaveSettingsCloudWarning = "";
+
+      if ((vacationChanged || sickDaysChanged) && currentUser) {
+        const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
+        localStorage.setItem(
+          getLeaveSettingsUpdatedAtKey(currentUser.id),
+          String(Date.now()),
+        );
+        setSimpleEncryptedItem(
+          leaveSettingsKey,
+          nextLeaveSettings,
+          currentUser.username,
+        );
+        cacheManager.setCachedData(
+          `leaveSettings_${currentUser.id}`,
+          nextLeaveSettings,
+        );
+
+        try {
+          const savedLeaveSettings = await supabaseData.saveLeaveSettings(
+            currentUser.id,
+            {
+              annual_vacation: nextLeaveSettings.annualVacation,
+              sick_days: nextLeaveSettings.sickDays,
+              personal_days: nextLeaveSettings.personalDays,
+              used_vacation_days: nextLeaveSettings.usedVacationDays,
+              used_sick_days: nextLeaveSettings.usedSickDays,
+              used_personal_days: nextLeaveSettings.usedPersonalDays,
+            },
+            { timeoutMs: REMINDER_SAVE_TIMEOUT_MS },
+          );
+          if (!savedLeaveSettings) {
+            leaveSettingsCloudWarning =
+              "Leave settings were saved on this device, but Supabase did not confirm the update.";
+          }
+        } catch (error) {
+          leaveSettingsCloudWarning =
+            error.message ||
+            "Leave settings were saved on this device, but Supabase did not update.";
+        }
+      }
+
+      // NOW update local state after database save (or queue)
+      setEmployee((prev) => ({ ...prev, ...employeeData }));
+      setLeaveSettings(nextLeaveSettings);
+      setAnnualVacation(nextLeaveSettings.annualVacation);
+      setSickDays(nextLeaveSettings.sickDays);
+      setLeaveInputsDirty(false);
+
+      // Update reminder settings
+      if (
+        remindersEnabledChanged ||
+        reminderStartTimeChanged ||
+        reminderCountChanged ||
+        reminderIntervalChanged ||
+        forceReminderSave
+      ) {
+        const nextReminderSettings = {
+          enabled: remindersEnabled,
+          startTime: normalizedReminderStartTime,
+          reminderCount: finalReminderCount,
+          intervalMinutes: finalReminderInterval,
+          timezone:
+            reminderSettings?.timezone ||
+            Intl.DateTimeFormat().resolvedOptions().timeZone ||
+            "UTC",
+        };
+
+        setReminderSettings((prev) => ({
+          ...prev,
+          ...nextReminderSettings,
+        }));
+
+        if (currentUser) {
+          try {
+            await withTimeout(
+              supabaseData.saveReminderPreferences(currentUser.id, {
+                enabled: nextReminderSettings.enabled,
+                start_time: nextReminderSettings.startTime,
+                reminder_count: nextReminderSettings.reminderCount,
+                interval_minutes: nextReminderSettings.intervalMinutes,
+                timezone: nextReminderSettings.timezone,
+              }),
+              REMINDER_SAVE_TIMEOUT_MS,
+              "Reminder settings save timed out. Please check your connection and try again.",
+            );
+          } catch (error) {
+            if (forceReminderSave) {
+              setReminderSaveStatus({
+                type: "error",
+                message:
+                  error.message ||
+                  "Reminder settings were saved locally, but Supabase did not update.",
+              });
+            }
+            leaveSettingsCloudWarning = (leaveSettingsCloudWarning ? leaveSettingsCloudWarning + "\n" : "") + 
+              (error.message || "Reminder settings were saved locally, but Supabase did not update.");
+          }
+        }
+
+        if (forceReminderSave) {
+          setReminderSaveStatus({
+            type: "success",
+            message: `Reminder settings saved at ${new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}.`,
+          });
+        }
+      }
+
+      // ✅ IMMEDIATE SAVE: Force immediate salary save to localStorage
+      if (salaryChanged && !hideSalary && currentUser) {
+        const salaryKey = `salary_${currentUser.id}`;
+        // Save using the same encryption method as the TimeTrackerContext
+        setSimpleEncryptedItem(salaryKey, parsedSalary, currentUser.username);
+      }
+
+      // Show success with what changed
+      let summaryMessage;
+      if (changedItems.length === 1) {
+        // Single change - simple message
+        const item = changedItems[0].replace("• ", "");
+        summaryMessage = item;
+      } else {
+        // Multiple changes - formatted list
+        summaryMessage = `${changedItems.length} settings updated:\n\n${changedItems.join("\n")}`;
+      }
+
+      // Check if there are queued database saves to add warning
+      const queue = JSON.parse(localStorage.getItem("dbSaveQueue") || "[]");
+      if (queue.length > 0) {
+        summaryMessage +=
+          "\n\n⚠️ Note: Database connectivity issues detected. Changes will sync when connection is restored.";
+      }
+
+      if (leaveSettingsCloudWarning) {
+        summaryMessage += `\n\nWarning: ${leaveSettingsCloudWarning}`;
+      }
+
       setConfirmModal({
         isOpen: true,
-        title: "⚠️ Validation Error",
-        message: `Please fix the following errors:\n\n${errors.join("\n")}`,
+        title: "✓ Settings Saved",
+        message: summaryMessage,
+        type: queue.length > 0 || leaveSettingsCloudWarning ? "warning" : "success",
+        confirmText: "OK",
+        showCancel: false,
+        onConfirm: () => setConfirmModal((prev) => ({ ...prev, isOpen: false })),
+      });
+    } catch (error) {
+      console.error("[Settings] Unhandled error during save:", error);
+      setConfirmModal({
+        isOpen: true,
+        title: "❌ Error Saving Settings",
+        message: `An unexpected error occurred while saving: ${error.message}`,
         type: "danger",
         confirmText: "OK",
         showCancel: false,
         onConfirm: () => setConfirmModal((prev) => ({ ...prev, isOpen: false })),
       });
-      return; // Stop - don't save
     }
-
-    // Check what changed (exclude salary if it's hidden) - use original employee state
-    const originalName = employee.name;
-    const nameChanged = name !== originalName;
-
-    const salaryChanged = !hideSalary && parsedSalary !== employee.salary;
-    const vacationChanged = parsedVacation !== leaveSettings.annualVacation;
-    const sickDaysChanged = parsedSickDays !== leaveSettings.sickDays;
-    const employeeTypeChanged = employeeType !== employee.employeeType;
-    const dailyHoursChanged = parsedDailyHours !== employee.dailyHours;
-    const workDaysPerWeekChanged =
-      parsedWorkDaysPerWeek !== employee.workDaysPerWeek;
-    const monthlyHoursChanged = parsedMonthlyHours !== employee.monthlyHours;
-    const breakStartTimeChanged = breakStartTime !== employee.breakStartTime;
-
-    const remindersEnabledChanged =
-      remindersEnabled !== reminderSettings.enabled;
-    const reminderStartTimeChanged =
-      normalizedReminderStartTime !==
-      normalizeReminderTime(reminderSettings.startTime);
-    const reminderCountChanged =
-      finalReminderCount !== Number(reminderSettings.reminderCount);
-    const reminderIntervalChanged =
-      finalReminderInterval !== Number(reminderSettings.intervalMinutes);
-
-    const anyChanges =
-      nameChanged ||
-      salaryChanged ||
-      vacationChanged ||
-      sickDaysChanged ||
-      employeeTypeChanged ||
-      dailyHoursChanged ||
-      workDaysPerWeekChanged ||
-      monthlyHoursChanged ||
-      breakStartTimeChanged ||
-      remindersEnabledChanged ||
-      reminderStartTimeChanged ||
-      reminderCountChanged ||
-      reminderIntervalChanged ||
-      forceReminderSave;
-
-    // If nothing changed, alert user
-    if (!anyChanges) {
-      if (forceReminderSave) {
-        setReminderSaveStatus({
-          type: "info",
-          message: "Reminder settings are already up to date.",
-        });
-      }
-      setConfirmModal({
-        isOpen: true,
-        title: "No Changes Detected",
-        message: "You haven't made any changes to save.",
-        type: "info",
-        confirmText: "OK",
-        showCancel: false,
-        onConfirm: () => setConfirmModal((prev) => ({ ...prev, isOpen: false })),
-      });
-      return;
-    }
-
-    // Build list of what changed (exclude salary if hidden)
-    const changedItems = [];
-    if (nameChanged) changedItems.push(`• Name: ${employee.name} → ${name}`);
-    if (salaryChanged)
-      changedItems.push(`• Salary: ${employee.salary} → ${parsedSalary}`);
-    if (employeeTypeChanged)
-      changedItems.push(
-        `• Employee Type: ${employee.employeeType} → ${employeeType}`,
-      );
-    if (dailyHoursChanged)
-      changedItems.push(
-        `• Daily Hours: ${employee.dailyHours} → ${parsedDailyHours}`,
-      );
-    if (workDaysPerWeekChanged)
-      changedItems.push(
-        `• Work Days/Week: ${employee.workDaysPerWeek} → ${parsedWorkDaysPerWeek}`,
-      );
-    if (monthlyHoursChanged)
-      changedItems.push(
-        `• Monthly Hours: ${employee.monthlyHours} → ${parsedMonthlyHours}`,
-      );
-    if (breakStartTimeChanged)
-      changedItems.push(
-        `• Break Start Time: ${employee.breakStartTime} → ${breakStartTime}`,
-      );
-    if (vacationChanged)
-      changedItems.push(
-        `• Vacation Days: ${leaveSettings.annualVacation} → ${parsedVacation}`,
-      );
-    if (sickDaysChanged)
-      changedItems.push(
-        `• Sick Days: ${leaveSettings.sickDays} → ${parsedSickDays}`,
-      );
-    if (remindersEnabledChanged)
-      changedItems.push(
-        `• Check-in Reminders: ${reminderSettings.enabled ? "On" : "Off"} → ${remindersEnabled ? "On" : "Off"}`,
-      );
-    if (reminderStartTimeChanged)
-      changedItems.push(
-        `• Reminder Start Time: ${normalizeReminderTime(reminderSettings.startTime)} → ${normalizedReminderStartTime}`,
-      );
-    if (forceReminderSave && changedItems.length === 0) {
-      changedItems.push("• Reminder settings synced to cloud");
-    }
-
-    // Save all data (preserves unchanged values automatically, excludes salary if hidden)
-    const employeeData = {
-      name: name,
-      employeeType: employeeType,
-      dailyHours: parsedDailyHours,
-      monthlyHours: parsedMonthlyHours,
-      workDaysPerWeek: parsedWorkDaysPerWeek,
-      breakStartTime: breakStartTime,
-    };
-    if (!hideSalary) {
-      employeeData.salary = parsedSalary;
-    }
-
-    // IMPORTANT: Save to database FIRST before updating local state
-    // This prevents conflicts with TimeTrackerContext's auto-save useEffect
-    // Set flag to prevent auto-save during manual name changes
-    localStorage.setItem("manualNameChange", "true");
-
-    // NEW: Save display name to localStorage and DB when name changes
-    if (nameChanged && name.trim()) {
-      localStorage.setItem("userDisplayName", name.trim());
-      localStorage.setItem("userDisplayNameTimestamp", Date.now().toString());
-
-      // Also save full_name to database when user explicitly changes it in Settings
-      if (currentUser) {
-        try {
-          // Use direct Supabase client to bypass any potential wrapper issues
-          const { error } = await supabase
-            .from("profiles")
-            .update({
-              full_name: name.trim(),
-              employee_type: employeeType,
-              daily_hours: parsedDailyHours,
-              monthly_hours: parsedMonthlyHours,
-              work_days_per_week: parsedWorkDaysPerWeek,
-              break_start_time: breakStartTime,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", currentUser.id);
-
-          if (error) {
-            console.error(
-              "[Settings] Failed to save display name to database:",
-              error.message,
-            );
-          } else {
-            setEmployee((prev) => ({ ...prev, name: name.trim() }));
-
-            // Set flag to disable background sync permanently (until page refresh)
-            localStorage.setItem("disableBackgroundSync", "true");
-            // Don't auto-remove - let user refresh page to reset
-
-            // Clear manual name change flag after save is complete
-            setTimeout(() => {
-              localStorage.removeItem("manualNameChange");
-            }, 1000);
-          }
-        } catch (error) {
-          console.error(
-            "[Settings] Failed to save display name to database:",
-            error.message,
-          );
-        }
-      } else {
-        console.warn("[Settings] No currentUser, skipping DB save");
-      }
-    } else {
-      // Only save employee type fields if name didn't change but other fields did
-      if (
-        employeeTypeChanged ||
-        dailyHoursChanged ||
-        workDaysPerWeekChanged ||
-        monthlyHoursChanged ||
-        breakStartTimeChanged
-      ) {
-        if (currentUser) {
-          try {
-            const result = await supabaseData.saveUserProfile(currentUser.id, {
-              employee_type: employeeType,
-              daily_hours: parsedDailyHours,
-              monthly_hours: parsedMonthlyHours,
-              work_days_per_week: parsedWorkDaysPerWeek,
-              break_start_time: breakStartTime,
-            });
-          } catch (error) {
-            console.error(
-              "[Settings] Failed to save employee settings to database:",
-              error,
-            );
-          }
-        }
-      }
-    }
-
-    const nextLeaveSettings = {
-      ...leaveSettings,
-      annualVacation: parsedVacation,
-      sickDays: parsedSickDays,
-    };
-    let leaveSettingsCloudWarning = "";
-
-    if ((vacationChanged || sickDaysChanged) && currentUser) {
-      const leaveSettingsKey = `leaveSettings_${currentUser.id}`;
-      localStorage.setItem(
-        getLeaveSettingsUpdatedAtKey(currentUser.id),
-        String(Date.now()),
-      );
-      setSimpleEncryptedItem(
-        leaveSettingsKey,
-        nextLeaveSettings,
-        currentUser.username,
-      );
-      cacheManager.setCachedData(
-        `leaveSettings_${currentUser.id}`,
-        nextLeaveSettings,
-      );
-
-      try {
-        const savedLeaveSettings = await supabaseData.saveLeaveSettings(
-          currentUser.id,
-          {
-            annual_vacation: nextLeaveSettings.annualVacation,
-            sick_days: nextLeaveSettings.sickDays,
-            personal_days: nextLeaveSettings.personalDays,
-            used_vacation_days: nextLeaveSettings.usedVacationDays,
-            used_sick_days: nextLeaveSettings.usedSickDays,
-            used_personal_days: nextLeaveSettings.usedPersonalDays,
-          },
-          { timeoutMs: SETTINGS_SAVE_TIMEOUT_MS },
-        );
-        if (!savedLeaveSettings) {
-          leaveSettingsCloudWarning =
-            "Leave settings were saved on this device, but Supabase did not confirm the update.";
-        }
-      } catch (error) {
-        leaveSettingsCloudWarning =
-          error.message ||
-          "Leave settings were saved on this device, but Supabase did not update.";
-      }
-    }
-
-    // NOW update local state after database save (or queue)
-    setEmployee((prev) => ({ ...prev, ...employeeData }));
-    setLeaveSettings(nextLeaveSettings);
-    setAnnualVacation(nextLeaveSettings.annualVacation);
-    setSickDays(nextLeaveSettings.sickDays);
-    setLeaveInputsDirty(false);
-
-    // Update reminder settings
-    if (
-      remindersEnabledChanged ||
-      reminderStartTimeChanged ||
-      reminderCountChanged ||
-      reminderIntervalChanged ||
-      forceReminderSave
-    ) {
-      const nextReminderSettings = {
-        enabled: remindersEnabled,
-        startTime: normalizedReminderStartTime,
-        reminderCount: finalReminderCount,
-        intervalMinutes: finalReminderInterval,
-        timezone:
-          reminderSettings.timezone ||
-          Intl.DateTimeFormat().resolvedOptions().timeZone ||
-          "UTC",
-      };
-
-      setReminderSettings((prev) => ({
-        ...prev,
-        ...nextReminderSettings,
-      }));
-
-      if (currentUser) {
-        try {
-          await withTimeout(
-            supabaseData.saveReminderPreferences(currentUser.id, {
-              enabled: nextReminderSettings.enabled,
-              start_time: nextReminderSettings.startTime,
-              reminder_count: nextReminderSettings.reminderCount,
-              interval_minutes: nextReminderSettings.intervalMinutes,
-              timezone: nextReminderSettings.timezone,
-            }),
-            REMINDER_SAVE_TIMEOUT_MS,
-            "Reminder settings save timed out. Please check your connection and try again.",
-          );
-        } catch (error) {
-          if (forceReminderSave) {
-            setReminderSaveStatus({
-              type: "error",
-              message:
-                error.message ||
-                "Reminder settings were saved locally, but Supabase did not update.",
-            });
-          }
-          leaveSettingsCloudWarning = (leaveSettingsCloudWarning ? leaveSettingsCloudWarning + "\n" : "") + 
-            (error.message || "Reminder settings were saved locally, but Supabase did not update.");
-        }
-      }
-
-      if (forceReminderSave) {
-        setReminderSaveStatus({
-          type: "success",
-          message: `Reminder settings saved at ${new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}.`,
-        });
-      }
-    }
-
-    // ✅ IMMEDIATE SAVE: Force immediate salary save to localStorage
-    if (salaryChanged && !hideSalary && currentUser) {
-      const salaryKey = `salary_${currentUser.id}`;
-      // Save using the same encryption method as the TimeTrackerContext
-      setSimpleEncryptedItem(salaryKey, parsedSalary, currentUser.username);
-    }
-
-    // Show success with what changed
-    let summaryMessage;
-    if (changedItems.length === 1) {
-      // Single change - simple message
-      const item = changedItems[0].replace("• ", "");
-      summaryMessage = item;
-    } else {
-      // Multiple changes - formatted list
-      summaryMessage = `${changedItems.length} settings updated:\n\n${changedItems.join("\n")}`;
-    }
-
-    // Check if there are queued database saves to add warning
-    const queue = JSON.parse(localStorage.getItem("dbSaveQueue") || "[]");
-    if (queue.length > 0) {
-      summaryMessage +=
-        "\n\n⚠️ Note: Database connectivity issues detected. Changes will sync when connection is restored.";
-    }
-
-    if (leaveSettingsCloudWarning) {
-      summaryMessage += `\n\nWarning: ${leaveSettingsCloudWarning}`;
-    }
-
-    setConfirmModal({
-      isOpen: true,
-      title: "✓ Settings Saved",
-      message: summaryMessage,
-      type: queue.length > 0 || leaveSettingsCloudWarning ? "warning" : "success",
-      confirmText: "OK",
-      showCancel: false,
-      onConfirm: () => setConfirmModal((prev) => ({ ...prev, isOpen: false })),
-    });
   };
 
   const categorizePeriods = () => {
