@@ -88,24 +88,18 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          // ── APPLICATION CODE ──
-          // Pin ALL utility and context modules to a single chunk.
-          // This prevents Rollup from creating "shared" chunks when these
-          // modules are imported by both the entry AND lazy-loaded components
-          // (e.g. App.jsx + Settings.jsx both import backgroundSync).
-          // Shared chunks cause "Export X is not defined" at runtime.
-          if (id.includes('/src/utils/') || id.includes('/src/context/')) {
-            return 'app-core';
-          }
-
-          // ── VENDOR CHUNKS ──
-          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) return 'react-vendor';
-          if (id.includes('node_modules/react-router-dom/') || id.includes('node_modules/react-router/')) return 'router';
-          if (id.includes('node_modules/@supabase/')) return 'supabase';
-          if (id.includes('node_modules/xlsx')) return 'xlsx-vendor';
-          if (id.includes('node_modules/jspdf') || id.includes('node_modules/@react-pdf') || id.includes('node_modules/html2canvas')) return 'pdf-vendor';
-          if (id.includes('node_modules/crypto-js') || id.includes('node_modules/emailjs-com')) return 'utils';
+        manualChunks: {
+          // React core
+          'react-vendor': ['react', 'react-dom'],
+          // Router
+          'router': ['react-router-dom'],
+          // Supabase (large)
+          'supabase': ['@supabase/supabase-js'],
+          // Export/PDF libraries are very large, better to put them in their own chunks
+          'xlsx-vendor': ['xlsx'],
+          'pdf-vendor': ['jspdf', '@react-pdf/renderer', 'html2canvas'],
+          // Local utilities
+          'utils': ['crypto-js', 'emailjs-com']
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
