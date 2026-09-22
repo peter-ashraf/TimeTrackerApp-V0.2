@@ -198,14 +198,23 @@ export const PayPeriodProvider = ({ children }) => {
         for (const period of periodsNeedingSync) {
           try {
             const saved = await supabaseData.savePayPeriod(currentUser.id, period);
-            if (saved?.id) {
+            if (saved && saved.id) {
               const idx = updatedPeriods.findIndex(p => String(p.id) === String(period.id));
               if (idx >= 0) {
                 updatedPeriods[idx] = { ...updatedPeriods[idx], ...saved };
                 changed = true;
               }
-              // Clear dirty flag only for successfully saved real-ID periods
               savedDirtyIds.delete(String(saved.id));
+            } else {
+              // It returned null without throwing (e.g. swallowed constraint error)
+              console.error(`savePayPeriod returned null for period ${period.id}`);
+              if (String(period.id).startsWith('period-')) {
+                const idx = updatedPeriods.findIndex(p => String(p.id) === String(period.id));
+                if (idx >= 0) {
+                  updatedPeriods[idx] = { ...updatedPeriods[idx], id: period.id.replace('period-', 'local-') };
+                  changed = true;
+                }
+              }
             }
           } catch (periodError) {
             console.error(`Failed to save period ${period.id}:`, periodError);
