@@ -509,6 +509,10 @@ class BackgroundSync {
 // Export singleton instance
 export const backgroundSync = new BackgroundSync();
 
+// Expose globally to prevent lazy chunks (e.g. Settings.jsx) from statically importing
+// it, which forces Rollup to generate cross-chunk exports that occasionally break with "Export X is not defined"
+window.backgroundSync = backgroundSync;
+
 // Register performSync callback on multiTabSync to break the circular dependency.
 // multiTabSync cannot import backgroundSync (circular), so backgroundSync pushes
 // the callback to multiTabSync after both singletons are initialized.

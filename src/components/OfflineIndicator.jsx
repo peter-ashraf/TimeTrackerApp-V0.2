@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { useOfflineQueue } from '../hooks/useOfflineQueue';
-import { backgroundSync } from '../utils/backgroundSync';
+// Access backgroundSync via window to prevent chunking bugs
 import '../styles/offline-indicator.css';
 
 const OfflineIndicator = ({ onRefresh, isRefreshing }) => {
@@ -50,7 +50,9 @@ const OfflineIndicator = ({ onRefresh, isRefreshing }) => {
   // Handle force sync (existing functionality)
   const handleForceSync = async () => {
     try {
-      await backgroundSync.forceSync();
+      if (window.backgroundSync) {
+        await window.backgroundSync.forceSync();
+      }
       if (onRefresh) {
         await onRefresh();
       }
