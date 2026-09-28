@@ -421,6 +421,14 @@ export const TimeEntryProvider = ({ children }) => {
 
       if (conflicts.length > 0) {
         console.log(`[Sync] Found ${conflicts.length} conflicts, pausing sync for user resolution`);
+        
+        const entriesWithLocalConflicts = sortEntries([
+          ...finalEntries,
+          ...conflicts.map(c => c.localEntry)
+        ]);
+        setEntries(entriesWithLocalConflicts);
+        persistEntriesSnapshot(entriesWithLocalConflicts);
+
         // Batch both state updates together so the modal never sees an empty
         // conflicts array on the first render (race condition fix).
         setPendingConflicts(conflicts);
@@ -440,7 +448,9 @@ export const TimeEntryProvider = ({ children }) => {
             }
           });
 
-          setEntries(sortEntries(mergedEntries));
+          const finalMerged = sortEntries(mergedEntries);
+          setEntries(finalMerged);
+          persistEntriesSnapshot(finalMerged);
 
           const toUpload = resolutions.filter(r => r.chosenEntry === r.localEntry);
           if (toUpload.length > 0) {
