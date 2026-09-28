@@ -85,12 +85,26 @@ export const buildTimeEntrySyncPlan = ({ localEntries = [], remoteEntries = [] }
       finalEntries.push(remoteEntry);
       pulledCount += 1;
     } else if (timeEntriesAreDifferent(localEntry, remoteEntry)) {
-      conflicts.push({
-        entryId: remoteEntry.id || localEntry.id,
-        date,
-        localEntry,
-        remoteEntry,
-      });
+      const localTime = new Date(localEntry.lastModified || localEntry.updated_at || 0).getTime();
+      const remoteTime = new Date(remoteEntry.updated_at || remoteEntry.lastModified || 0).getTime();
+
+      if (remoteTime > localTime + 2000) {
+        // Remote is newer, auto-resolve to remote
+        finalEntries.push({ ...remoteEntry });
+        pulledCount += 1;
+      } else if (localTime > remoteTime + 2000) {
+        // Local is newer, auto-resolve to local
+        finalEntries.push(localEntry);
+        entriesToUpload.push(localEntry);
+      } else {
+        // Genuine conflict, or timestamps are missing/too close
+        conflicts.push({
+          entryId: remoteEntry.id || localEntry.id,
+          date,
+          localEntry,
+          remoteEntry,
+        });
+      }
     } else {
       finalEntries.push({
         ...localEntry,
