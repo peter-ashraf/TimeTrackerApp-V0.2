@@ -23,7 +23,8 @@ import {
 // Defined locally to avoid a cross-chunk named-export that fails in some bundler configurations.
 // Must match the string dispatched by timeEntrySyncStatus.js.
 const SYNC_STATUS_EVENT = "time-entry-sync-status-changed";
-import "../styles/settings.css";
+import '../styles/settings.css';
+import './bento-settings.css';
 
 const SETTINGS_TABS = [
   { id: "profile", label: "Profile", icon: "fa-user" },
@@ -359,7 +360,7 @@ function Settings() {
   } = useTimeTracker();
 
   const { setPeriods, markPeriodDirty } = usePayPeriod();
-  const { reminderSettings, setReminderSettings } = useUserPreferences();
+  const { reminderSettings, setReminderSettings, userPreferences, updatePreferences } = useUserPreferences();
 
   // ✅ ADDED: Get auth functions
   const { currentUser, deleteUser, verifyPassword } = useSupabaseAuth();
@@ -420,6 +421,9 @@ function Settings() {
     message: "",
   });
   // Period management
+  
+  const [activeModal, setActiveModal] = useState(null);
+
   const [showAddPeriod, setShowAddPeriod] = useState(false);
   const [editingPeriodId, setEditingPeriodId] = useState(null);
   const [newPeriodStart, setNewPeriodStart] = useState("");
@@ -1903,20 +1907,92 @@ function Settings() {
     });
   };
 
+  
   return (
-    <main className="settings-page">
-      <div className="settings-header">
-        <div>
-          <h1>⚙️ Settings</h1>
-          <p style={{ margin: "4px 0 0 0", color: "var(--text-secondary)" }}>Manage your preferences, data, and account</p>
-        </div>
+    <main className="settings-page main-content" style={{ background: 'var(--bg-primary)' }}>
+      <div className="settings-header" style={{ padding: '24px 20px 16px', display: 'flex', flexDirection: 'column' }}>
+        <h1 style={{ fontSize: '32px', marginBottom: '8px' }}>⚙️ Settings</h1>
+        <p style={{ margin: "4px 0 0 0", color: "var(--text-secondary)" }}>Manage your preferences, data, and account</p>
       </div>
 
-      <div className="settings-panels-scroll">
-        <div className="settings-bento-grid-layout">
-        {/* ✅ UNIFIED EMPLOYEE INFORMATION & LEAVE SETTINGS */}
-      <div className="settings-bento-card col-span-3">
-        <h2>👤 Employee Information</h2>
+      {activeModal === null && (
+        <div className="settings-panels-scroll" style={{ padding: '0 20px 24px' }}>
+          <div className="settings-bento-grid-layout" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            
+            <button type="button" className="settings-menu-item" onClick={() => setActiveModal('theme')}>
+              <div className="settings-menu-left"><i className="fa-solid fa-palette"></i> <span>Theme & Design</span></div>
+              <i className="fa-solid fa-chevron-right chevron-icon"></i>
+            </button>
+
+            <button type="button" className="settings-menu-item" onClick={() => setActiveModal('employee')}>
+              <div className="settings-menu-left"><i className="fa-solid fa-user"></i> <span>Employee Information</span></div>
+              <i className="fa-solid fa-chevron-right chevron-icon"></i>
+            </button>
+            
+            <button type="button" className="settings-menu-item" onClick={() => setActiveModal('reminders')}>
+              <div className="settings-menu-left"><i className="fa-solid fa-bell"></i> <span>Check-in Reminders</span></div>
+              <i className="fa-solid fa-chevron-right chevron-icon"></i>
+            </button>
+            
+            <button type="button" className="settings-menu-item" onClick={() => setActiveModal('periods')}>
+              <div className="settings-menu-left"><i className="fa-solid fa-calendar-days"></i> <span>Pay Period Management</span></div>
+              <i className="fa-solid fa-chevron-right chevron-icon"></i>
+            </button>
+
+            <button type="button" className="settings-menu-item" onClick={() => setActiveModal('data')}>
+              <div className="settings-menu-left"><i className="fa-solid fa-database"></i> <span>Data Management</span></div>
+              <i className="fa-solid fa-chevron-right chevron-icon"></i>
+            </button>
+
+            <button type="button" className="settings-menu-item danger-item" onClick={() => setActiveModal('danger')}>
+              <div className="settings-menu-left"><i className="fa-solid fa-triangle-exclamation"></i> <span>Danger Zone</span></div>
+              <i className="fa-solid fa-chevron-right chevron-icon"></i>
+            </button>
+
+          </div>
+        </div>
+      )}
+
+      {/* Theme Modal */}
+      {activeModal === 'theme' && (
+        <ModalShell onClose={() => setActiveModal(null)} closeOnOverlay={true} contentClassName="settings-spoke-modal" showCloseButton={false}>
+          <div className="modal-header" style={{ padding: '24px 24px 16px', borderBottom: '1px solid var(--border-light)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+               <div>
+                  <h2 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-primary)' }}><i className="fa-solid fa-palette"></i> Theme & Design</h2>
+                  <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)' }}>Switch between the modern Bento grid and the Legacy UI.</p>
+               </div>
+               <button type="button" className="text-btn" style={{ color: 'var(--accent-cyan)', fontWeight: '600', background: 'transparent', border: 'none', padding: '8px', cursor: 'pointer' }} onClick={() => setActiveModal(null)}>Done</button>
+            </div>
+          </div>
+          <div className="modal-body settings-bento-grid-layout" style={{ padding: '24px', overflowY: 'auto' }}>
+            <div className="settings-bento-card" style={{ gridColumn: '1 / -1' }}>
+              <div className="settings-bento-card-label">🎨 UI Version</div>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.9rem' }}>Choose your preferred interface. This updates the entire layout of the app instantly.</p>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button type="button" className={`btn ${userPreferences?.designVersion === 'legacy' ? 'btn-secondary' : 'btn-primary'}`} style={{ flex: 1, padding: '12px' }} onClick={() => updatePreferences({ designVersion: 'bento' })}>Bento (V2)</button>
+                <button type="button" className={`btn ${userPreferences?.designVersion === 'legacy' ? 'btn-primary' : 'btn-secondary'}`} style={{ flex: 1, padding: '12px' }} onClick={() => updatePreferences({ designVersion: 'legacy' })}>Legacy (V1)</button>
+              </div>
+            </div>
+          </div>
+        </ModalShell>
+      )}
+
+      {activeModal === 'employee' && (
+        <ModalShell onClose={() => setActiveModal(null)} closeOnOverlay={true} contentClassName="settings-spoke-modal" showCloseButton={false}>
+          <div className="modal-header" style={{ padding: '24px 24px 16px', borderBottom: '1px solid var(--border-light)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+               <div>
+                  <h2 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-primary)' }}><i className="fa-solid fa-user"></i> Employee Information</h2>
+                  <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)' }}>Manage your profile, working hours, and leave balances.</p>
+               </div>
+               <button type="button" className="text-btn" style={{ color: 'var(--accent-cyan)', fontWeight: '600', background: 'transparent', border: 'none', padding: '8px', cursor: 'pointer' }} onClick={() => setActiveModal(null)}>Done</button>
+            </div>
+          </div>
+          <div className="modal-body settings-bento-grid-layout" style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            
+        {/* ✅ UNIFIED EMPLOYEE INFORMATION & LEAVE SETTINGS */}<div className="settings-bento-card col-span-3">
+        
 
         <form onSubmit={handleSaveAll} className="settings-nested-grid">
           
@@ -2123,8 +2199,30 @@ function Settings() {
       </div>
 
       {/* Check-in Reminders Settings */}
-      <div className="settings-bento-card col-span-3">
-        <h2>⏰ Check-in Reminders</h2>
+          </div>
+          
+          <div className="modal-footer" style={{ padding: '16px 24px 24px', display: 'flex', gap: '12px', borderTop: '1px solid var(--border-light)', background: 'var(--bg-secondary)', marginTop: 'auto' }}>
+            <button type="button" className="btn-secondary bento-modal-btn-outline" style={{ flex: 1 }} onClick={() => setActiveModal(null)}>Cancel</button>
+            <button type="button" className="btn-primary bento-modal-btn-glow" style={{ flex: 2 }} onClick={(e) => { handleSaveAll(e); setActiveModal(null); }}>Save Settings</button>
+          </div>
+
+        </ModalShell>
+      )}
+
+      {activeModal === 'reminders' && (
+        <ModalShell onClose={() => setActiveModal(null)} closeOnOverlay={true} contentClassName="settings-spoke-modal" showCloseButton={false}>
+          <div className="modal-header" style={{ padding: '24px 24px 16px', borderBottom: '1px solid var(--border-light)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+               <div>
+                  <h2 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-primary)' }}><i className="fa-solid fa-bell"></i> Check-in Reminders</h2>
+                  <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)' }}>Configure your automated check-in notifications.</p>
+               </div>
+               <button type="button" className="text-btn" style={{ color: 'var(--accent-cyan)', fontWeight: '600', background: 'transparent', border: 'none', padding: '8px', cursor: 'pointer' }} onClick={() => setActiveModal(null)}>Done</button>
+            </div>
+          </div>
+          <div className="modal-body settings-bento-grid-layout" style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="settings-bento-card col-span-3">
+        
         <p className="settings-description">
           Configure daily check-in reminders so you never forget to log your
           time.
@@ -2323,9 +2421,8 @@ function Settings() {
         </form>
       </div>
 
-      {/* Haptic Feedback Settings */}
-      <div className="settings-bento-card col-span-3">
-        <h2>📳 Haptic Feedback</h2>
+      {/* Haptic Feedback Settings */}<div className="settings-bento-card col-span-3">
+        
         <p className="settings-description">
           Control vibration feedback for button interactions and other UI
           actions.
@@ -2393,8 +2490,29 @@ function Settings() {
           </div>
         )}
       </div>
+          </div>
+          
+          <div className="modal-footer" style={{ padding: '16px 24px 24px', display: 'flex', gap: '12px', borderTop: '1px solid var(--border-light)', background: 'var(--bg-secondary)', marginTop: 'auto' }}>
+            <button type="button" className="btn-secondary bento-modal-btn-outline" style={{ flex: 1 }} onClick={() => setActiveModal(null)}>Cancel</button>
+            <button type="button" className="btn-primary bento-modal-btn-glow" style={{ flex: 2 }} onClick={(e) => { handleSaveAll(e); setActiveModal(null); }}>Save Settings</button>
+          </div>
 
-      <div className="settings-bento-card col-span-3 pay-period-settings-section">
+        </ModalShell>
+      )}
+
+      {activeModal === 'periods' && (
+        <ModalShell onClose={() => setActiveModal(null)} closeOnOverlay={true} contentClassName="settings-spoke-modal" showCloseButton={false}>
+          <div className="modal-header" style={{ padding: '24px 24px 16px', borderBottom: '1px solid var(--border-light)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+               <div>
+                  <h2 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-primary)' }}><i className="fa-solid fa-calendar-days"></i> Pay Period Management</h2>
+                  <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)' }}>Setup and manage your pay periods.</p>
+               </div>
+               <button type="button" className="text-btn" style={{ color: 'var(--accent-cyan)', fontWeight: '600', background: 'transparent', border: 'none', padding: '8px', cursor: 'pointer' }} onClick={() => setActiveModal(null)}>Done</button>
+            </div>
+          </div>
+          <div className="modal-body settings-bento-grid-layout" style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="settings-bento-card col-span-3 pay-period-settings-section">
         <h3>📅 Pay Period Management</h3>
         <p className="settings-description">
           Define custom pay periods for your timesheet. Periods must be
@@ -2655,10 +2773,26 @@ function Settings() {
           </ModalShell>
         )}
       </div>
+          </div>
+          
+        </ModalShell>
+      )}
 
-      <div className="settings-bento-card col-span-3">
+      {activeModal === 'data' && (
+        <ModalShell onClose={() => setActiveModal(null)} closeOnOverlay={true} contentClassName="settings-spoke-modal" showCloseButton={false}>
+          <div className="modal-header" style={{ padding: '24px 24px 16px', borderBottom: '1px solid var(--border-light)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+               <div>
+                  <h2 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-primary)' }}><i className="fa-solid fa-database"></i> Data Management</h2>
+                  <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)' }}>Export, backup, or optimize your tracking data.</p>
+               </div>
+               <button type="button" className="text-btn" style={{ color: 'var(--accent-cyan)', fontWeight: '600', background: 'transparent', border: 'none', padding: '8px', cursor: 'pointer' }} onClick={() => setActiveModal(null)}>Done</button>
+            </div>
+          </div>
+          <div className="modal-body settings-bento-grid-layout" style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="settings-bento-card col-span-3">
         <div className="settings-section-header">
-          <h2>Sync Status</h2>
+          
           <div className="sync-status-actions">
             <button
               type="button"
@@ -2788,12 +2922,10 @@ function Settings() {
               : "-"}
           </span>
         </div>
-      </div>
-
-      <div className="settings-bento-card col-span-3">
+      </div><div className="settings-bento-card col-span-3">
         <div className="settings-section-header app-version-header">
           <div>
-            <h2>App Version</h2>
+            
             <p className="settings-description">
               Check whether a newer installed app build is ready to load.
             </p>
@@ -2835,9 +2967,8 @@ function Settings() {
         )}
       </div>
 
-      {/* NEW: Export/Import Data Section */}
-      <div className="settings-bento-card col-span-3">
-        <h2>📊 Data Management</h2>
+      {/* NEW: Export/Import Data Section */}<div className="settings-bento-card col-span-3">
+        
         <p className="settings-description">
           Export your timesheet data to Excel or import data from a previous
           backup.
@@ -2873,10 +3004,10 @@ function Settings() {
           isDangerUnlocked ? "is-unlocked" : "is-locked"
         }`}
       >
-        <h2>⚠️ Danger Zone</h2>
+        
 
         <div className="danger-zone-header">
-          <h2>Danger Zone</h2>
+          
           {isDangerUnlocked ? (
             <button
               type="button"
@@ -2989,10 +3120,8 @@ function Settings() {
             associated data. This cannot be undone!
           </p>
         </fieldset>
-      </div>
-
-      <div className="settings-bento-card col-span-6">
-        <h2>🔧 Diagnostics</h2>
+      </div><div className="settings-bento-card col-span-6">
+        
         <p className="settings-description">
           Developer tools for troubleshooting and deployment verification.
         </p>
@@ -3158,8 +3287,29 @@ function Settings() {
           </table>
         </div>
       </div>
-      </div>
-      </div>
+          </div>
+          
+        </ModalShell>
+      )}
+
+      {activeModal === 'danger' && (
+        <ModalShell onClose={() => setActiveModal(null)} closeOnOverlay={true} contentClassName="settings-spoke-modal" showCloseButton={false}>
+          <div className="modal-header" style={{ padding: '24px 24px 16px', borderBottom: '1px solid var(--border-light)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+               <div>
+                  <h2 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-primary)' }}><i className="fa-solid fa-triangle-exclamation"></i> Danger Zone</h2>
+                  <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)' }}>Irreversible actions for your account and data.</p>
+               </div>
+               <button type="button" className="text-btn" style={{ color: 'var(--accent-cyan)', fontWeight: '600', background: 'transparent', border: 'none', padding: '8px', cursor: 'pointer' }} onClick={() => setActiveModal(null)}>Done</button>
+            </div>
+          </div>
+          <div className="modal-body settings-bento-grid-layout" style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            
+          </div>
+          
+        </ModalShell>
+      )}
+
 
       {/* Export Modal */}
       <React.Suspense

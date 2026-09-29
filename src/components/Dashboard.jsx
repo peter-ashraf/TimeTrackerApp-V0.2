@@ -125,7 +125,7 @@ function Dashboard() {
   }
 
   return (
-    <main className="bento-main">
+    <main className="bento-main main-content">
       <div className="bento-header-section">
         <h1>{employee.name ? `Hi, ${employee.name.split(' ')[0]}` : 'Dashboard'}</h1>
         <p>{currentPeriod?.label || 'No Period'}</p>
