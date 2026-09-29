@@ -1,0 +1,96 @@
+/* ============================================================
+   BENTO SETTINGS — Hyper-Premium Grid Layout
+   ============================================================ */
+
+.settings-bento-container {
+  padding: var(--screen-padding);
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.settings-bento-grid-layout {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 24px;
+  width: 100%;
+}
+
+.settings-bento-card {
+  background: var(--bg-secondary);
+  border-radius: 24px;
+  padding: 32px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.bento-card-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-bento-card h2,
+.settings-bento-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.settings-bento-card p.settings-description {
+  margin: 0 0 16px 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Form Styles Inside Bento */
+.settings-bento-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 24px;
+}
+
+/* Col spans */
+.col-span-2 { grid-column: span 2; }
+.col-span-3 { grid-column: span 3; }
+.col-span-4 { grid-column: span 4; }
+.col-span-6 { grid-column: 1 / -1; }
+
+@media (max-width: 1100px) {
+  .settings-bento-grid-layout {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .col-span-3 { grid-column: span 4; }
+}
+
+@media (max-width: 768px) {
+  .settings-bento-grid-layout {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .settings-bento-card {
+    grid-column: span 4;
+  }
+  .col-span-6, .col-span-4, .col-span-3 {
+    grid-column: span 4;
+  }
+  .col-span-2 {
+    grid-column: span 2;
+  }
+}

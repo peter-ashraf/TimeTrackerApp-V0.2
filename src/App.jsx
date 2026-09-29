@@ -29,6 +29,7 @@ import NetworkStatus from "./components/NetworkStatus";
 import ConflictResolutionModal from "./components/ConflictResolutionModal";
 
 import AppUpdatePrompt from "./components/AppUpdatePrompt";
+import BottomNav from "./components/BottomNav";
 
 import "./styles/app-transitions.css";
 
@@ -674,15 +675,7 @@ function App() {
   // ✅ NOW CONDITIONAL RENDERING IS SAFE - ALL HOOKS ARE ABOVE
 
   if (authLoading) {
-    return (
-      <div className="app-loading">
-        <div className="loading-spinner">
-          <div className="spinner"></div>
-
-          <p>Loading...</p>
-        </div>
-      </div>
-    );
+    return <AppLoading />;
   }
 
   // Public routes that don't require authentication
@@ -719,7 +712,7 @@ function App() {
               <AppLoading />
             ) : (
               <div
-                className={`app ${isSwiping ? "swiping" : ""}`}
+                className={`app bento-theme ${isSwiping ? "swiping" : ""}`}
                 ref={containerRef}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -758,12 +751,12 @@ function App() {
                   className="main-content"
                   data-scrollable
                   style={{
-                    paddingTop: "140px",
-
+                    paddingTop: "80px",
+                    paddingBottom: "100px",
                     flex: 1,
-
+                    minWidth: 0,
+                    maxWidth: "100%",
                     overflowY: "auto",
-
                     WebkitOverflowScrolling: "touch",
                   }}
                 >
@@ -780,6 +773,7 @@ function App() {
                     <div
                       className={`view-container timesheet-container ${currentView === "timesheet" ? "active" : ""}`}
                       data-scrollable
+                      style={{ overflowX: 'visible', overflowY: 'visible' }}
                     >
                       <Timesheet setCurrentView={setCurrentView} />
                     </div>
@@ -794,6 +788,8 @@ function App() {
                     </div>
                   </Suspense>
                 </div>
+
+                <BottomNav currentView={currentView} setCurrentView={setCurrentView} />
 
                 {isConflictModalOpen && (
                   <ConflictResolutionModal
@@ -889,31 +885,7 @@ function App() {
                   </button>
                 )}
 
-                {/* Add fade-in and fade-out animation styles */}
 
-                <style>{`
-
-                @keyframes fadeIn {
-
-                  from {
-
-                    opacity: 0;
-
-                    transform: translateY(20px);
-
-                  }
-
-                  to {
-
-                    opacity: 0.5;
-
-                    transform: translateY(0);
-
-                  }
-
-                }
-
-              `}</style>
               </div>
             )
           ) : (

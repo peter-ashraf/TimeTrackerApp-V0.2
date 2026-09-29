@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSupabaseAuth } from '../context/SupabaseAuthContext';
 import { useUsernameValidation } from '../hooks/useUsernameValidation';
 import '../styles/login-screen.css';
+import ModalShell from './ModalShell';
 
 // Lazy load modal components for better code splitting
 const RecoveryModal = React.lazy(() => import('./RecoveryModal'));
 
 const LoginScreen = () => {
-  const { login, register, resetPassword, isLoading, isFailsafeMode, networkStatus } = useSupabaseAuth();
+  const { login, register, loginAsGuest, resetPassword, isLoading, isFailsafeMode, networkStatus } = useSupabaseAuth();
   const loginButtonRef = useRef(null);
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [formData, setFormData] = useState({
@@ -138,6 +139,18 @@ const LoginScreen = () => {
     }
   };
 
+  const handleGuestLogin = async () => {
+    setIsSubmitting(true);
+    try {
+      await loginAsGuest();
+    } catch (error) {
+      setErrorKey(prev => prev + 1);
+      setErrors({ general: "Failed to enter Test Mode. " + error.message });
+      setShowError(true);
+      setIsSubmitting(false);
+    }
+  };
+
   const handleResetPassword = async () => {
     if (!resetEmail.trim()) {
       setErrors({ reset: 'Username or email is required for password reset' });
@@ -212,11 +225,9 @@ const LoginScreen = () => {
   if (isLoading) {
     return (
       <div className="login-screen">
-        <div className="login-container">
-          <div className="loading-spinner">
-            <div className="spinner"></div>
-            <p>Loading...</p>
-          </div>
+        <div className="login-glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+          <div className="spinner" style={{ width: '40px', height: '40px', border: '3px solid rgba(0, 240, 255, 0.2)', borderTopColor: '#00f0ff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
+          <p style={{ color: 'white', marginTop: '16px', fontWeight: 600 }}>Loading...</p>
         </div>
       </div>
     );
@@ -224,51 +235,46 @@ const LoginScreen = () => {
 
   return (
     <div className="login-screen">
-      <div className="login-container">
+      <div className="login-glass-card">
         {/* Offline/Status Indicator */}
         {(isFailsafeMode || !networkStatus.isOnline) && (
-          <div className={`status-indicator ${!networkStatus.isOnline ? 'offline' : 'failsafe'}`}>
-            <div className="status-content">
-              <span className="status-icon">
+          <div style={{ marginBottom: '24px', padding: '16px', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '16px', color: '#f59e0b', textAlign: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 600 }}>
+              <span style={{ fontSize: '20px' }}>
                 {!networkStatus.isOnline ? '📴' : '⚠️'}
               </span>
-              <span className="status-text">
+              <span>
                 {!networkStatus.isOnline ? 'Offline Mode' : 'Supabase Unavailable - Using Local Mode'}
               </span>
             </div>
           </div>
         )}
 
-        <div className="login-header">
-          <div className="app-icon">🕐</div>
-          <h1>TimeTracker</h1>
-          <p className="app-subtitle">
+        <div className="login-header-group">
+          <div className="login-app-icon">🕐</div>
+          <h1 className="login-title">TimeTracker</h1>
+          <p className="login-subtitle">
             Professional Time Management
             {isFailsafeMode && (
-              <span className="offline-badge"> (Offline Mode)</span>
+              <span style={{ background: 'rgba(255, 0, 128, 0.2)', border: '1px solid rgba(255, 0, 128, 0.4)', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '12px', marginLeft: '8px', fontWeight: 'bold' }}>Offline</span>
             )}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
           {errors.general && (
-            <div
-              className={`error-message show animate`}
-              key={errorKey}
-            >
-              <div className="error-content">
-                <div className="error-icon">⚠️</div>
-                <div className="error-text">
-                  <strong>Login Error</strong>
-                  <p>{errors.general}</p>
-                </div>
+            <div className="login-error-message" key={errorKey}>
+              <span style={{ fontSize: '20px' }}>⚠️</span>
+              <div>
+                <strong style={{ display: 'block', marginBottom: '4px', color: '#ff0080' }}>Login Error</strong>
+                <p style={{ margin: 0 }}>{errors.general}</p>
               </div>
             </div>
           )}
 
           {/* Email field - only shown in registration mode */}
           {!isLoginMode && (
-            <div className="form-group">
+            <div className="login-form-group">
               <label htmlFor="email">Email</label>
               <input
                 type="email"
@@ -276,18 +282,16 @@ const LoginScreen = () => {
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className={`form-input ${errors.email ? 'error' : ''}`}
+                className={`login-input ${errors.email ? 'error' : ''}`}
                 placeholder="Enter your email"
                 autoComplete="email"
                 required
               />
-              {errors.email && (
-                <span className="field-error">{errors.email}</span>
-              )}
+              {errors.email && <span className="login-field-error">{errors.email}</span>}
             </div>
           )}
 
-          <div className="form-group">
+          <div className="login-form-group">
             <label htmlFor="username">
               {isLoginMode ? 'Username' : 'Username (Display Name)'}
             </label>
@@ -297,14 +301,13 @@ const LoginScreen = () => {
               name="username"
               value={formData.username}
               onChange={handleInputChange}
-              className={`form-input ${errors.username ? 'error' : ''} ${!isLoginMode && usernameValidation.isChecking ? 'checking' : ''} ${!isLoginMode && usernameValidation.isAvailable === true ? 'available' : ''} ${!isLoginMode && usernameValidation.isAvailable === false ? 'unavailable' : ''}`}
+              className={`login-input ${errors.username ? 'error' : ''} ${!isLoginMode && usernameValidation.isChecking ? 'checking' : ''}`}
               placeholder={isLoginMode ? "Enter your username" : "Choose a username"}
               autoComplete="username"
               required
             />
-            {errors.username && (
-              <span className="field-error">{errors.username}</span>
-            )}
+            {errors.username && <span className="login-field-error">{errors.username}</span>}
+            
             {!isLoginMode && !errors.username && formData.username && (
               <div className="username-status">
                 {usernameValidation.isChecking && (
@@ -321,7 +324,7 @@ const LoginScreen = () => {
           </div>
 
           {!isLoginMode && (
-            <div className="form-group">
+            <div className="login-form-group">
               <label htmlFor="fullName">Full Name</label>
               <input
                 type="text"
@@ -329,18 +332,16 @@ const LoginScreen = () => {
                 name="fullName"
                 value={formData.fullName}
                 onChange={handleInputChange}
-                className={`form-input ${errors.fullName ? 'error' : ''}`}
+                className={`login-input ${errors.fullName ? 'error' : ''}`}
                 placeholder="Enter your full name"
                 autoComplete="name"
                 required
               />
-              {errors.fullName && (
-                <span className="field-error">{errors.fullName}</span>
-              )}
+              {errors.fullName && <span className="login-field-error">{errors.fullName}</span>}
             </div>
           )}
 
-          <div className="form-group">
+          <div className="login-form-group">
             <label htmlFor="password">Password</label>
             <input
               type="password"
@@ -348,33 +349,29 @@ const LoginScreen = () => {
               name="password"
               value={formData.password}
               onChange={handleInputChange}
-              className={`form-input ${errors.password ? 'error' : ''}`}
+              className={`login-input ${errors.password ? 'error' : ''}`}
               placeholder="Enter your password"
               autoComplete={isLoginMode ? 'current-password' : 'new-password'}
               required
             />
-            {errors.password && (
-              <span className="field-error">{errors.password}</span>
-            )}
+            {errors.password && <span className="login-field-error">{errors.password}</span>}
           </div>
 
           {isLoginMode && (
-            <div className="form-group remember-me-group">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="rememberMe"
-                  checked={formData.rememberMe}
-                  onChange={handleInputChange}
-                  className="checkbox-input"
-                />
-                <span className="checkbox-text">Remember me for 30 days</span>
-              </label>
-            </div>
+            <label className="login-checkbox-group">
+              <input
+                type="checkbox"
+                name="rememberMe"
+                checked={formData.rememberMe}
+                onChange={handleInputChange}
+                className="login-checkbox"
+              />
+              <span>Remember me for 30 days</span>
+            </label>
           )}
 
           {!isLoginMode && (
-            <div className="form-group">
+            <div className="login-form-group">
               <label htmlFor="confirmPassword">Confirm Password</label>
               <input
                 type="password"
@@ -382,21 +379,19 @@ const LoginScreen = () => {
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
-                className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
+                className={`login-input ${errors.confirmPassword ? 'error' : ''}`}
                 placeholder="Confirm your password"
                 autoComplete="new-password"
                 required
               />
-              {errors.confirmPassword && (
-                <span className="field-error">{errors.confirmPassword}</span>
-              )}
+              {errors.confirmPassword && <span className="login-field-error">{errors.confirmPassword}</span>}
             </div>
           )}
 
           <button
             ref={loginButtonRef}
             type="submit"
-            className="btn btn-primary login-btn"
+            className="login-primary-btn"
             disabled={isSubmitting}
           >
             {isSubmitting ? (
@@ -409,50 +404,48 @@ const LoginScreen = () => {
             )}
           </button>
 
+          {isLoginMode && (
+            <button
+              type="button"
+              className="login-secondary-btn"
+              onClick={handleGuestLogin}
+              disabled={isSubmitting}
+            >
+              🚀 Continue in Test / Guest Mode
+            </button>
+          )}
+
           {!isLoginMode && (
             <button
               type="button"
-              className="btn btn-secondary back-btn"
+              className="login-secondary-btn"
               onClick={toggleMode}
               disabled={isSubmitting}
             >
               ← Back to Login
             </button>
           )}
-        </form>
 
-        <div className="login-footer">
-          <p>
-            {isLoginMode ? "Don't have an account?" : "Already have an account?"}
-            <button
-              type="button"
-              className="link-btn"
-              onClick={toggleMode}
-            >
-              {isLoginMode ? 'Sign Up' : 'Sign In'}
-            </button>
-          </p>
-          {isLoginMode && (
-            <p className="forgot-password">
-              <button
-                type="button"
-                className="link-btn forgot-link"
-                onClick={() => setShowPasswordReset(true)}
-              >
-                Forgot Password?
+          <div className="login-footer-group">
+            <div className="login-footer-text">
+              {isLoginMode ? "Don't have an account? " : "Already have an account? "}
+              <button type="button" className="login-footer-link" onClick={toggleMode}>
+                {isLoginMode ? 'Sign Up' : 'Sign In'}
               </button>
-              <span className="recovery-link">
-                <button
-                  type="button"
-                  className="link-btn recovery-link-btn"
-                  onClick={() => setShowRecoveryModal(true)}
-                >
+            </div>
+            
+            {isLoginMode && (
+              <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+                <button type="button" className="login-footer-link" onClick={() => setShowPasswordReset(true)}>
+                  Forgot Password?
+                </button>
+                <button type="button" className="login-footer-link danger" onClick={() => setShowRecoveryModal(true)}>
                   Recover Data
                 </button>
-              </span>
-            </p>
-          )}
-        </div>
+              </div>
+            )}
+          </div>
+        </form>
       </div>
 
       {/* Recovery Modal */}
@@ -464,42 +457,37 @@ const LoginScreen = () => {
 
       {/* Password Reset Modal */}
       {showPasswordReset && (
-        <div className="modal-overlay">
-          <div className="modal password-reset-modal">
-            <div className="modal-header">
-              <h3>🔒 Reset Password</h3>
-              <button
-                className="modal-close-btn"
-                onClick={() => {
-                  setShowPasswordReset(false);
-                  setResetEmail('');
-                  setErrors({});
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="modal-body">
-              <p className="reset-instructions">
+        <ModalShell 
+          isOpen={showPasswordReset} 
+          onClose={() => {
+            setShowPasswordReset(false);
+            setResetEmail('');
+            setErrors({});
+          }}
+          title="Reset Password"
+          icon="🔒"
+        >
+          <div className="bento-modal-grid" style={{ padding: '24px' }}>
+            <div className="bento-modal-card full-width">
+              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '16px' }}>
                 Enter your username or email address and we'll send you a link to reset your password.
               </p>
 
               {errors.reset && (
-                <div className="error-message">
-                  <span className="error-icon">⚠️</span>
+                <div className="error-message" style={{ marginBottom: '16px' }}>
+                  <span style={{ fontSize: '18px' }}>⚠️</span>
                   {errors.reset}
                 </div>
               )}
 
-              <div className="form-group">
+              <div className="login-form-group">
                 <label htmlFor="reset-email">Username or Email Address</label>
                 <input
                   type="text"
                   id="reset-email"
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
-                  className={`form-input ${errors.reset ? 'error' : ''}`}
+                  className={`login-input ${errors.reset ? 'error' : ''}`}
                   placeholder="Enter your username or email"
                   autoComplete="username"
                   disabled={isResetting}
@@ -507,10 +495,11 @@ const LoginScreen = () => {
               </div>
             </div>
 
-            <div className="modal-footer">
+            <div className="bento-modal-card full-width" style={{ background: 'transparent', padding: '0', boxShadow: 'none', border: 'none', display: 'flex', gap: '16px', marginTop: '8px' }}>
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="bento-tile tile-action login-secondary-btn"
+                style={{ flex: 1, padding: '16px', border: 'none' }}
                 onClick={() => {
                   setShowPasswordReset(false);
                   setResetEmail('');
@@ -522,7 +511,8 @@ const LoginScreen = () => {
               </button>
               <button
                 type="button"
-                className="btn btn-primary"
+                className="bento-tile tile-action login-primary-btn"
+                style={{ flex: 1, padding: '16px', border: 'none' }}
                 onClick={handleResetPassword}
                 disabled={isResetting}
               >
@@ -533,14 +523,14 @@ const LoginScreen = () => {
                   </>
                 ) : (
                   <>
-                    <span className="btn-icon">📧</span>
+                    <span>📧</span>
                     Send Reset Email
                   </>
                 )}
               </button>
             </div>
           </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   );

@@ -9,14 +9,50 @@ function BackupReminderModal({ isOpen, onExport, onRemindLater, onDismiss, onClo
 
   if (!isOpen) return null;
 
-  const handleRemindLater = () => {
+  const handleRemindLater = (e) => {
     const days = reminderInterval === 'custom' ? customDays : parseInt(reminderInterval);
-    onRemindLater(days);
+    const modal = e.target.closest('.bento-modal-overlay');
+    if (modal) {
+      modal.classList.add('closing');
+      const content = modal.querySelector('.modal-content');
+      if (content) content.classList.add('closing');
+    }
+    setTimeout(() => onRemindLater(days), 350);
+  };
+
+  const handleCancel = (e) => {
+    const modal = e.target.closest('.bento-modal-overlay');
+    if (modal) {
+      modal.classList.add('closing');
+      const content = modal.querySelector('.modal-content');
+      if (content) content.classList.add('closing');
+    }
+    setTimeout(onClose, 350);
+  };
+
+  const handleDismiss = (e) => {
+    const modal = e.target.closest('.bento-modal-overlay');
+    if (modal) {
+      modal.classList.add('closing');
+      const content = modal.querySelector('.modal-content');
+      if (content) content.classList.add('closing');
+    }
+    setTimeout(onDismiss, 350);
+  };
+
+  const handleExport = (e) => {
+    const modal = e.target.closest('.bento-modal-overlay');
+    if (modal) {
+      modal.classList.add('closing');
+      const content = modal.querySelector('.modal-content');
+      if (content) content.classList.add('closing');
+    }
+    setTimeout(onExport, 350);
   };
 
   return (
     <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="backup-reminder-modal" overlayClassName="backup-reminder-overlay">
-      <div className="backup-reminder-modal-content">
+      <div className="backup-reminder-modal-content modal-body" style={{ overflowY: 'auto', padding: '24px' }}>
         <div className="backup-icon">💾</div>
         <h3>Time to Back Up Your Data!</h3>
         <p className="backup-message">
@@ -62,16 +98,16 @@ function BackupReminderModal({ isOpen, onExport, onRemindLater, onDismiss, onClo
         </div>
 
         <div className="modal-actions backup-actions">
-          <button className="btn btn-secondary btn-sm" onClick={onClose}>
+          <button className="btn btn-secondary btn-sm" onClick={handleCancel}>
             Close
           </button>
-          <button className="btn btn-secondary btn-sm btn-dismiss" onClick={onDismiss}>
+          <button className="btn btn-secondary btn-sm btn-dismiss" onClick={handleDismiss}>
             Don't remind me
           </button>
           <button className="btn btn-secondary" onClick={handleRemindLater}>
             Remind Later
           </button>
-          <button className="btn btn-primary" onClick={onExport}>
+          <button className="btn btn-primary" onClick={handleExport}>
             <span>📤</span> Export Now
           </button>
         </div>

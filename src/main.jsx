@@ -11,6 +11,7 @@ import { SupabaseAuthProvider } from './context/SupabaseAuthContext';
 import LoadingScreen from './components/LoadingScreen.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import './styles/loading-screen.css';
+import './styles/design-system.css';
 
 const notifyAppUpdateAvailable = (registration) => {
   window.dispatchEvent(

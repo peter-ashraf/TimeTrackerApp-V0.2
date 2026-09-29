@@ -68,49 +68,56 @@ function VacationDetailsModal({ type, onClose }) {
       <div className="modal-description">
         <p>{getDescription()}</p>
       </div>
-      <div className="modal-body">
+      <div className="modal-body" style={{ padding: '0', background: 'transparent' }}>
         {filteredEntries.length === 0 ? (
-          <p>No entries found for this period.</p>
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-secondary)' }}>
+            <i className="fa-regular fa-folder-open" style={{ fontSize: '32px', opacity: 0.5, marginBottom: '16px', display: 'block' }}></i>
+            <p>No entries found for this period.</p>
+          </div>
         ) : (
-          <div className="table-wrapper">
-            <div className="table-header">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Duration</th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-              </table>
-            </div>
-            <div className="table-container">
-              <table className="data-table">
-                <tbody>
-                  {filteredEntries.map(entry => (
-                    <tr key={entry.date}>
-                      <td>{entry.date}</td>
-                      <td>{entry.type}</td>
-                      <td>{entry.duration === 0.5 ? 'Half Day' : 'Full Day'}</td>
-                      <td>{entry.notes || '-'}</td>
-                    </tr>
-                  ))}
-                  <tr className="totals-row">
-                    <td colSpan="2"><strong>Total</strong></td>
-                    <td><strong>{totalDays} day(s)</strong></td>
-                    <td></td>
-                  </tr>
-                </tbody>
-              </table>
+          <div className="stacked-list-container" style={{ padding: 0 }}>
+            <div className="stacked-list">
+              {filteredEntries.map(entry => (
+                <div className="stacked-row" key={entry.date}>
+                  <div className="stacked-top">
+                    <div className="stacked-date">
+                      <i className="fa-regular fa-calendar"></i>
+                      <strong>{entry.date}</strong>
+                    </div>
+                    <div className="status-badge status-other">
+                      {entry.type}
+                    </div>
+                    <div className="stacked-actions">
+                      <span className="stacked-total">{entry.duration === 0.5 ? 'Half Day' : 'Full Day'}</span>
+                    </div>
+                  </div>
+                  {entry.notes && (
+                    <div className="stacked-bottom">
+                      <div className="stacked-detail">
+                        <span className="detail-label">Notes:</span>
+                        <span className="detail-value">{entry.notes}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
       </div>
 
-      <div className="modal-footer">
-        <div className="modal-actions">
-          <button className="btn btn-primary" onClick={onClose}>Close</button>
+      <div className="modal-footer" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="glass-table-footer" style={{ minHeight: '76px', padding: '16px 24px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+            <i className="fa-solid fa-chart-pie" style={{ color: 'var(--accent-cyan)', fontSize: '20px' }}></i>
+            <span style={{ fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '14px' }}>Total</span>
+          </div>
+          <div style={{ fontSize: '1.25rem', fontWeight: '800', whiteSpace: 'nowrap' }}>
+            {totalDays} <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: '400' }}>days</span>
+          </div>
+        </div>
+        <div className="modal-actions" style={{ width: '100%' }}>
+          <button className="btn-primary bento-modal-btn-glow" style={{ width: '100%' }} onClick={(e) => { const modal = e.target.closest('.bento-modal-overlay'); if (modal) { modal.classList.add('closing'); const content = modal.querySelector('.modal-content'); if (content) content.classList.add('closing'); } setTimeout(onClose, 350); }}>Close</button>
         </div>
       </div>
     </ModalShell>

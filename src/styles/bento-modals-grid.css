@@ -1,0 +1,132 @@
+/* =========================================================================
+   BOTTOM SHEET GRID (ASYMMETRIC BENTO RE-DESIGN)
+   ========================================================================= */
+
+.bento-modal-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 12px !important;
+  padding-bottom: 24px !important;
+  align-items: stretch !important;
+}
+
+/* Re-style cards to look like iOS list items or clean panels */
+.bento-modal-card {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-radius: 20px !important;
+  padding: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  border: none !important;
+  min-width: 0 !important; /* prevent overflow in grid */
+}
+
+/* Provide a specific class to span across both columns for large content (e.g. Calendar) */
+.bento-modal-card.full-width {
+  grid-column: 1 / -1 !important;
+}
+
+/* Span vertically for emphasis */
+.bento-modal-card.tall {
+  grid-row: span 2 !important;
+}
+
+.bento-modal-card-label {
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  color: #94a3b8 !important;
+  margin-bottom: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+}
+
+/* Big Glowing Numbers */
+.bento-modal-huge-value {
+  font-size: 2.5rem;
+  font-weight: 800 !important;
+  color: #00f0ff !important;
+  line-height: 1 !important;
+  margin: auto 0;
+  text-align: center;
+  letter-spacing: -0.02em !important;
+}
+
+.bento-modal-huge-value.warning {
+  color: #ff0080 !important;
+}
+
+.bento-modal-huge-value small {
+  font-size: 0.9rem !important;
+  font-weight: 500 !important;
+  opacity: 0.7 !important;
+  display: block !important;
+  margin-top: 4px !important;
+  color: white !important;
+  text-transform: uppercase !important;
+}
+
+/* Clean Inputs for Grid */
+.bento-modal-card-input {
+  background: rgba(0, 0, 0, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px !important;
+  padding: 12px !important;
+  color: white !important;
+  font-size: 1rem !important;
+  width: 100% !important;
+  transition: all 0.2s ease !important;
+  font-weight: 500 !important;
+  box-sizing: border-box !important;
+  margin-top: auto !important; /* Push to bottom if needed */
+}
+
+.bento-modal-card-input:focus {
+  outline: none !important;
+  border-color: #00f0ff !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Buttons */
+body .bento-modal-overlay .btn-primary.glow,
+.bento-modal-btn-glow {
+  background: #00f0ff !important;
+  color: black !important;
+  border-radius: 16px !important;
+  font-weight: 800 !important;
+  font-size: 1.1rem !important;
+  padding: 18px !important;
+  flex: 1 !important;
+  border: none !important;
+}
+
+body .bento-modal-overlay .btn-primary.glow:active,
+.bento-modal-btn-glow:active {
+  transform: scale(0.96) !important;
+}
+
+body .bento-modal-overlay .btn-secondary.bento-modal-btn-outline,
+.bento-modal-btn-outline {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 16px !important;
+  font-weight: 700 !important;
+  font-size: 1.1rem !important;
+  padding: 18px !important;
+  flex: 1 !important;
+  transition: all 0.2s ease !important;
+}
+
+body .bento-modal-overlay .btn-secondary.bento-modal-btn-outline:hover,
+.bento-modal-btn-outline:hover {
+  background: var(--bg-tertiary) !important;
+}
+
+body .bento-modal-overlay .btn-secondary.bento-modal-btn-outline:active,
+.bento-modal-btn-outline:active {
+  transform: scale(0.96) !important;
+}
+

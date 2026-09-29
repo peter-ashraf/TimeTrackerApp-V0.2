@@ -141,11 +141,13 @@ function AddDayModal({ onClose }) {
     <>
       <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="add-day-modal">
         <div className="modal-header">
-          <h2>Add Special Day</h2>
+          <h2>Request Time Off / Add Day</h2>
         </div>
-        <div className="modal-body">
-          <div className="form-group">
-            <label className="form-label">Day Type</label>
+        <div className="modal-body bento-modal-grid" style={{ display: 'grid' }}>
+          
+          {/* Day Type Selection */}
+          <div className="bento-modal-card" style={{ gridColumn: 'span 2' }}>
+            <div className="bento-modal-card-label">🏖️ Day Type</div>
             <CustomSelect
               id="add-day-type-select"
               name="dayType"
@@ -160,18 +162,24 @@ function AddDayModal({ onClose }) {
                 { label: 'Leave Full Day', value: 'Leave Full Day' },
                 { label: 'To Be Added Full Day', value: 'To Be Added Full Day' }
               ]}
+              className="bento-modal-card-input"
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Dates</label>
-            <Calendar
-              className="add-day-calendar"
-              onClickDay={handleDateToggle}
-              tileClassName={tileClassName}
-              tileDisabled={tileDisabled}
-            />
-            <div className="selected-dates-summary">
+          {/* Calendar Selection (Full width for legibility) */}
+          <div className="bento-modal-card full-width">
+            <div className="bento-modal-card-label">📅 Select Dates</div>
+            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '16px', marginBottom: '16px' }}>
+              <Calendar
+                className="add-day-calendar bento-calendar"
+                onClickDay={handleDateToggle}
+                tileClassName={tileClassName}
+                tileDisabled={tileDisabled}
+              />
+            </div>
+            
+            <div className="bento-modal-card-label">🎯 Selected Dates ({selectedDates.length})</div>
+            <div className="selected-dates-summary" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
               {selectedDates.length > 0 ? (
                 selectedDates.map((date) => (
                   <button
@@ -180,35 +188,37 @@ function AddDayModal({ onClose }) {
                     className="selected-date-chip"
                     onClick={() => setSelectedDates((currentDates) => currentDates.filter((selectedDate) => selectedDate !== date))}
                     title={`Remove ${date}`}
+                    style={{ background: 'rgba(16, 185, 129, 0.2)', color: 'var(--color-success)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '16px', padding: '6px 12px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
                   >
-                    {date}
+                    {date} ✕
                   </button>
                 ))
               ) : (
-                <span className="selected-dates-empty">No dates selected</span>
+                <span className="selected-dates-empty" style={{ fontSize: '0.9rem', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>No dates selected</span>
               )}
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Notes (optional)</label>
+          {/* Notes (Moved to the bottom) */}
+          <div className="bento-modal-card" style={{ gridColumn: 'span 2' }}>
+            <div className="bento-modal-card-label">📝 Notes (optional)</div>
             <textarea
-              className="form-control"
-              placeholder="Add notes (optional)"
-              rows="3"
+              className="bento-modal-card-input"
+              placeholder="Add notes..."
+              rows="2"
               value={dayNotes}
               onChange={(e) => setDayNotes(e.target.value)}
+              style={{ resize: 'none' }}
             />
           </div>
+
         </div>
 
         <div className="modal-footer">
-          <div className="modal-actions">
-            <button className="btn btn-secondary" onClick={onClose} disabled={isSaving}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? 'Adding...' : `Add ${selectedDates.length === 1 ? 'Day' : 'Days'}`}
-            </button>
-          </div>
+          <button className="btn btn-secondary" onClick={(e) => { const modal = e.target.closest('.bento-modal-overlay'); if (modal) { modal.classList.add('closing'); const content = modal.querySelector('.modal-content'); if (content) content.classList.add('closing'); } setTimeout(onClose, 350); }} disabled={isSaving}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? 'Adding...' : `Add ${selectedDates.length === 1 ? 'Day' : 'Days'}`}
+          </button>
         </div>
       </ModalShell>
 

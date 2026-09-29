@@ -160,9 +160,10 @@ function ManualTimeModal({ mode, onClose }) {
         <div className="modal-header">
           <h2>{mode === 'checkIn' ? 'Manual Check In' : 'Manual Check Out'}</h2>
         </div>
-        <div className="modal-body">
-          <div className="form-group">
-            <label className="form-label">Apply for</label>
+        <div className="modal-body bento-modal-grid">
+          
+          <div className="bento-modal-card full-width">
+            <div className="bento-modal-card-label">📅 Apply For</div>
             <CustomSelect
               id="apply-mode-select"
               name="applyMode"
@@ -172,38 +173,39 @@ function ManualTimeModal({ mode, onClose }) {
                 { label: `Today (${formatDate(new Date())})`, value: 'today' },
                 { label: 'Specific date', value: 'date' }
               ]}
+              className="bento-modal-card-input"
             />
           </div>
 
           {applyMode === 'date' && (
-            <div className="form-group">
-              <label className="form-label">Select date</label>
+            <div className="bento-modal-card full-width">
+              <div className="bento-modal-card-label">🗓️ Select Date</div>
               <input
                 type="date"
-                className="form-control"
+                className="bento-modal-card-input"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
               />
             </div>
           )}
 
-          <div className="form-group">
-            <label className="form-label">Time (HH:MM:SS)</label>
+          <div className="bento-modal-card full-width">
+            <div className="bento-modal-card-label">⏱️ Time (HH:MM:SS)</div>
             <input
               type="time"
               step="1"
-              className="form-control"
+              className="bento-modal-card-input"
               value={timeValue}
               onChange={(e) => setTimeValue(e.target.value)}
+              style={{ fontSize: '1.25rem', padding: '20px' }}
             />
           </div>
+
         </div>
 
         <div className="modal-footer">
-          <div className="modal-actions">
-            <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleSave}>Save</button>
-          </div>
+          <button className="btn-secondary bento-modal-btn-outline" onClick={(e) => { const modal = e.target.closest('.bento-modal-overlay'); if (modal) { modal.classList.add('closing'); const content = modal.querySelector('.modal-content'); if (content) content.classList.add('closing'); } setTimeout(onClose, 350); }}>Cancel</button>
+          <button className="btn-primary bento-modal-btn-glow" onClick={handleSave}>Save Time</button>
         </div>
       </ModalShell>
     </>

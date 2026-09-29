@@ -10,6 +10,7 @@ import VirtualizedTimesheetTable from './VirtualizedTimesheetTable';
 import CustomSelect from './CustomSelect';
 import CalendarView from './CalendarView';
 import '../styles/performance-optimizations.css';
+import './bento-timesheet.css';
 
 // Memoized individual row component to prevent unnecessary re-renders
 const TimesheetRow = React.memo(({
@@ -50,69 +51,52 @@ const TimesheetRow = React.memo(({
   const dayOfWeekDisplay = new Date(entry.date).toLocaleDateString('en-US', { weekday: 'short' });
 
   return (
-    <tr key={entry.date}>
-      <td>{entry.date}</td>
-      <td>{dayOfWeekDisplay}</td>
-      <td>{formatTime(firstIn)}</td>
-      <td>{formatTime(lastOut)}</td>
-      <td>
-        {entry.type === 'Regular'
-          ? `${hoursWorked.toFixed(2)}h`
-          : entry.type
-        }
-      </td>
-      {detailedView && (
-        <>
-          <td className="hide-mobile">
-            {entry.type === 'Regular' ? `${extraHours.toFixed(2)}h` : '-'}
-          </td>
-          <td className="hide-mobile">
-            {entry.type === 'Regular' ? `${extraHoursWithFactor.toFixed(2)}h` : '-'}
-          </td>
-          <td className="hide-mobile">{entry.type}</td>
-          <td className="hide-mobile">
-            {breakIntervals.length > 0
-              ? breakIntervals.map(b => formatTime(b.in)).join(', ')
-              : '-'
-            }
-          </td>
-          <td className="hide-mobile">
-            {breakIntervals.length > 0
-              ? breakIntervals.map(b => formatTime(b.out)).join(', ')
-              : '-'
-            }
-          </td>
-          <td className="hide-mobile">
-            {entry.type === 'Regular' && hoursSpentOutside !== undefined && hoursSpentOutside !== null && hoursSpentOutside > 0
-              ? `${hoursSpentOutside.toFixed(2)}h`
-              : '-'
-            }
-          </td>
-        </>
-      )}
-      <td className="actions-cell">
-        <button
-          className="btn btn-sm btn-outline action-btn"
-          title="Edit"
-          onClick={() => {
-            hapticFeedback.buttonClick();
-            onEdit(entry);
-          }}
-        >✏️
-          <span className="btn-text"> Edit</span>
-        </button>
-        <button
-          className="btn btn-sm btn-danger action-btn"
-          title="Delete"
-          onClick={() => {
-            hapticFeedback.error();
-            onDelete(entry.date);
-          }}
-        >🗑️
-          <span className="btn-text"> Delete</span>
-        </button>
-      </td>
-    </tr>
+    <div className="stacked-row" key={entry.date}>
+      <div className="stacked-top">
+        <div className="stacked-date">
+          <i className="fa-regular fa-calendar"></i>
+          <strong>{dayOfWeekDisplay}, {entry.date}</strong>
+        </div>
+        <div className={`status-badge ${entry.type === 'Regular' ? 'status-normal' : entry.type === 'Vacation' ? 'status-vacation' : 'status-other'}`}>
+          {entry.type}
+        </div>
+        <div className="stacked-actions">
+          <button className="icon-btn" onClick={() => { hapticFeedback.buttonClick(); onEdit(entry); }}>
+            <i className="fa-solid fa-pen"></i>
+          </button>
+          <button className="icon-btn delete-btn" onClick={() => { hapticFeedback.error(); onDelete(entry.date); }}>
+            <i className="fa-regular fa-trash-can"></i>
+          </button>
+        </div>
+      </div>
+      
+      <div className="stacked-bottom">
+        <div className="stacked-timeline" style={{width: '100%', display: 'flex', flexDirection: 'row', justifyContent: 'space-between'}}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {formatTime(firstIn)} &rarr; {formatTime(lastOut)}
+          </div>
+          <div style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-primary)', alignSelf: 'flex-end'}}>
+              {entry.type === 'Regular' ? `${hoursWorked.toFixed(2)}h` : '-'}
+          </div>
+        </div>
+        <div className="stacked-metrics">
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+            
+            <div style={{ visibility: detailedView ? 'visible' : 'hidden', display: detailedView ? 'block' : 'none' }}>
+              <span>
+                Extra: {extraHours > 0 ? '+' : ''}{extraHours.toFixed(2)}h | Factor: {extraHoursWithFactor > 0 ? '+' : ''}{extraHoursWithFactor.toFixed(2)}h
+              </span>
+            </div>
+            {breakIntervals.length > 0 && (
+              <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>
+                Breaks: {breakIntervals.map(b => `${formatTime(b.in)} \u2192 ${formatTime(b.out)}`).join(', ')} 
+                {hoursSpentOutside > 0 ? ` (${hoursSpentOutside.toFixed(2)}h outside)` : ''}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 });
 
@@ -278,7 +262,7 @@ function Timesheet({ setCurrentView }) {
   };
 
   return (
-    <main className="main-content">
+    <main className="main-content" style={{ minWidth: 0, maxWidth: '100%', padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '20px', boxSizing: 'border-box' }}>
       {hasNoPeriods ? (
         <div style={{ textAlign: 'center', padding: '40px' }}>
           <h2>⚠️ No Periods Found</h2>
@@ -307,25 +291,17 @@ function Timesheet({ setCurrentView }) {
         </div>
       ) : (
         <>
-          <div className="timesheet-page-header">
-            <h1>Timesheet</h1>
-            <button
-              type="button"
-              className="btn btn-secondary timesheet-compare-button"
-              onClick={() => {
-                hapticFeedback.buttonClick();
-                setShowCompareModal(true);
-              }}
-            >
-              Compare HR Timesheet
-            </button>
+          <div className="bento-timesheet-header">
+            <div className="bento-title-row">
+              <h1>Timesheet</h1>
+            </div>
           </div>
 
-          {/* Timesheet Controls */}
-          <div className="timesheet-controls">
-            {/* ✅ UPDATED: Period Selector grouped by year */}
-            <div className="month-selector" style={{ minWidth: '200px' }}>
-              <label>Select Period:</label>
+          {/* Period and Hero Action */}
+          <div className="bento-grid" style={{ marginBottom: '24px' }}>
+            {/* Period Selector (Hero Tile) */}
+            <div className="bento-tile no-hover col-span-6" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'visible', zIndex: 10 }}>
+              <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' }}>Period</label>
               <CustomSelect
                 id="period-select"
                 name="period"
@@ -347,200 +323,140 @@ function Timesheet({ setCurrentView }) {
               />
             </div>
 
-            {/* Toggle Group */}
-            <div className="toggle-group">
-              {/* View Mode Toggle */}
-              <div className="time-format-toggle">
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={viewMode === 'calendar'}
-                    onChange={(e) => setViewMode(e.target.checked ? 'calendar' : 'table')}
-                  />
-                  <span className="toggle-slider"></span>
-                  <span className="toggle-label">{viewMode === 'calendar' ? '📅 Calendar' : '📋 Table'}</span>
-                </label>
-              </div>
+            {/* Compare HR Data (Full width Hero Action) */}
+            <div className="bento-tile tile-action col-span-6" onClick={() => { hapticFeedback.buttonClick(); setShowCompareModal(true); }}>
+              <i className="fa-solid fa-code-compare" style={{ color: 'var(--accent-cyan)' }}></i>
+              <span style={{ color: 'var(--text-primary)' }}>Compare HR Data</span>
+            </div>
+          </div>
 
-              {/* Detailed View Toggle */}
-              <div className="time-format-toggle">
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={detailedView}
-                    onChange={(e) => setDetailedView(e.target.checked)}
-                  />
-                  <span className="toggle-slider"></span>
-                  <span className="toggle-label">{detailedView ? 'Detailed' : 'Simple'}</span>
-                </label>
+          {/* Controls above the Table */}
+          <div className="bento-grid" style={{ marginBottom: '24px' }}>
+            
+            {/* Top 3 Action Tiles */}
+            <div className="bento-action-grid">
+              <div className="bento-tile tile-action bento-action-btn" onClick={() => { hapticFeedback.buttonClick(); setShowManualIn(true); }}>
+                <i className="fa-solid fa-clock" style={{ fontSize: '24px' }}></i>
+                <span style={{ fontSize: '13px', textAlign: 'center' }}>Manual In</span>
               </div>
+              
+              <div className="bento-tile tile-action bento-action-btn" onClick={() => { hapticFeedback.buttonClick(); setShowManualOut(true); }}>
+                <i className="fa-regular fa-clock" style={{ fontSize: '24px' }}></i>
+                <span style={{ fontSize: '13px', textAlign: 'center' }}>Manual Out</span>
+              </div>
+              
+              <div className="bento-tile tile-action bento-action-btn" onClick={() => { hapticFeedback.buttonClick(); setShowAddBreak(true); }}>
+                <i className="fa-solid fa-mug-hot" style={{ fontSize: '24px' }}></i>
+                <span style={{ fontSize: '13px', textAlign: 'center' }}>Add Break</span>
+              </div>
+            </div>
 
+            {/* Search Input (Full Width) */}
+            <div className="bento-tile no-hover col-span-6" style={{ padding: '0', overflow: 'hidden' }}>
+              <div className="bento-search" style={{ margin: 0, height: '100%', border: 'none', background: 'transparent', boxShadow: 'none' }}>
+                <i className="fa-solid fa-magnifying-glass search-icon"></i>
+                <input
+                  type="text"
+                  placeholder="Search by date, type, or notes..."
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  className="bento-search-input"
+                  style={{ background: 'transparent' }}
+                />
+                {searchTerm && (
+                  <button
+                    className="bento-clear-btn"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setFilteredEntries([]);
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Bottom 3 Action Tiles */}
+            <div className="bento-action-grid">
               {/* Time Format Toggle */}
-              <div className="time-format-toggle">
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={use12Hour}
-                    onChange={(e) => setUse12Hour(e.target.checked)}
-                  />
-                  <span className="toggle-slider"></span>
-                  <span className="toggle-label">{use12Hour ? '12h' : '24h'}</span>
-                </label>
+              <div className="bento-tile tile-action bento-action-btn" onClick={() => { hapticFeedback.buttonClick(); setUse12Hour(!use12Hour); }}>
+                <i className="fa-regular fa-clock" style={{ fontSize: '24px' }}></i>
+                <span style={{ fontSize: '13px', textAlign: 'center' }}>{use12Hour ? '12h Clock' : '24h Clock'}</span>
+              </div>
+
+              {/* Detail Mode Toggle */}
+              <div className="bento-tile tile-action bento-action-btn" onClick={() => { hapticFeedback.buttonClick(); setDetailedView(!detailedView); }}>
+                <i className={`fa-solid ${detailedView ? 'fa-list-check' : 'fa-list'}`} style={{ fontSize: '24px' }}></i>
+                <span style={{ fontSize: '13px', textAlign: 'center' }}>{detailedView ? 'Detailed' : 'Simple'}</span>
+              </div>
+
+              {/* View Mode Toggle */}
+              <div className="bento-tile tile-action bento-action-btn" onClick={() => { hapticFeedback.buttonClick(); setViewMode(viewMode === 'calendar' ? 'table' : 'calendar'); }}>
+                <i className={`fa-solid ${viewMode === 'calendar' ? 'fa-calendar' : 'fa-table'}`} style={{ fontSize: '24px' }}></i>
+                <span style={{ fontSize: '13px', textAlign: 'center' }}>{viewMode === 'calendar' ? 'Calendar' : 'Table'}</span>
               </div>
             </div>
           </div>
 
-          {/* Search Input */}
-          <div className="search-container"
-            style={{ display: "flex", gap: "10px", width: '100%' }}>
-            <input
-              type="text"
-              placeholder="Search by date, type, or notes..."
-              value={searchTerm}
-              onChange={handleSearchChange}
-              className="form-control search-input"
-            />
-            {searchTerm && (
-              <button
-                className="btn btn-sm btn-outline"
-                onClick={() => {
-                  setSearchTerm('');
-                  setFilteredEntries([]);
-                }}
-                style={{ minWidth: '40px' }}
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-
-
-          {/* Manual Time Actions */}
-          <div className="manual-time-actions">
-            <button
-              className="btn btn-secondary manual-check-in-btn"
-              onClick={() => {
-                hapticFeedback.buttonClick();
-                setShowManualIn(true);
-              }}
-            >
-              👈 Manual In
-            </button>
-            <button
-              className="btn btn-secondary manual-check-out-btn"
-              onClick={() => {
-                hapticFeedback.buttonClick();
-                setShowManualOut(true);
-              }}
-            >
-              👉 Manual Out
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary add-break-btn"
-              onClick={() => {
-                hapticFeedback.buttonClick();
-                setShowAddBreak(true);
-              }}
-            >
-              + Add Break
-            </button>
-          </div>
+          {/* Table Container */}
 
           {/* Table Container */}
-          <div id="tableContainer">
+          <div className="bento-table-container" style={{ overflow: 'visible', display: 'block', boxSizing: 'border-box' }}>
             {viewMode === 'calendar' ? (
               <CalendarView
                 entries={displayEntries}
                 onDateClick={(dateStr) => {
-                  // Handle date click - could open modal to add entry
                   console.log('Date clicked:', dateStr);
                 }}
                 onEntryClick={(entry) => {
-                  // Handle entry click - open edit modal
                   setEditingEntry(entry);
                 }}
               />
-            ) : shouldUseVirtualization ? (
-              <VirtualizedTimesheetTable
-                periodEntries={displayEntries.filter(entry => {
-                  if (!viewingPeriod) return true;
-                  const periodStart = viewingPeriod.start_date || viewingPeriod.start;
-                  const periodEnd = viewingPeriod.end_date || viewingPeriod.end;
-                  return entry.date >= periodStart && entry.date <= periodEnd;
-                })}
-                detailedView={detailedView}
-                formatTime={formatTime}
-                calculateHoursWorked={calculateHoursWorked}
-                calculateHoursSpentOutside={calculateHoursSpentOutside}
-                onEdit={setEditingEntry}
-                onDelete={deleteEntry}
-                overtimeDetails={overtimeDetails}
-              />
             ) : (
-              <table className={`data-table ${detailedView ? 'detailed-view' : ''}`}>
-                <thead>
-                  <tr>
-                    <th>DATE</th>
-                    <th>DAY</th>
-                    <th>CHECK IN</th>
-                    <th>CHECK OUT</th>
-                    <th>HOURS SPENT</th>
-                    {detailedView && (
-                      <>
-                        <th className="hide-mobile">EXTRA HOURS</th>
-                        <th className="hide-mobile">EXTRA HOURS xFACTOR</th>
-                        <th className="hide-mobile">TYPE</th>
-                        <th className="hide-mobile">CHECK OUT WITHIN DAY</th>
-                        <th className="hide-mobile">CHECK IN WITHIN DAY</th>
-                        <th className="hide-mobile">HOURS SPENT OUTSIDE</th>
-                      </>
-                    )}
-                    <th>ACTIONS</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <div className="stacked-list-container bento-tile" style={{ padding: 0, overflow: 'hidden' }}>
+                <div className="stacked-list stacked-list-scrollable">
                   {periodEntries.length === 0 ? (
-                    <tr>
-                      <td colSpan={detailedView ? "12" : "6"} style={{ textAlign: 'center', padding: '20px' }}>
-                        No entries found for this period.
-                      </td>
-                    </tr>
+                    <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-secondary)' }}>
+                      <i className="fa-regular fa-folder-open" style={{ fontSize: '32px', opacity: 0.5, marginBottom: '16px', display: 'block' }}></i>
+                      <p>No entries found for this period.</p>
+                    </div>
                   ) : (
-                    <>
-                      {periodEntries.map((entry) => (
-                        <TimesheetRow
-                          key={entry.date}
-                          entry={entry}
-                          detailedView={detailedView}
-                          formatTime={formatTime}
-                          calculateHoursWorked={calculateHoursWorked}
-                          calculateHoursSpentOutside={calculateHoursSpentOutside}
-                          onEdit={setEditingEntry}
-                          onDelete={deleteEntry}
-                        />
-                      ))}
-
-                      {/* Totals Row */}
-                      <tr className="totals-row">
-                        <td><strong>Total</strong></td>
-                        <td></td>
-                        <td colSpan="2"></td>
-                        <td><strong>{overtimeDetails.totalHoursWorked.toFixed(2)}h</strong></td>
-                        {detailedView && (
-                          <>
-                            <td className="hide-mobile"><strong>{overtimeDetails.totalExtraHours.toFixed(2)}h</strong></td>
-                            <td className="hide-mobile"><strong>{overtimeDetails.totalExtraHoursWithFactor.toFixed(2)}h</strong></td>
-                            <td className="hide-mobile" colSpan="4"></td>
-                          </>
-                        )}
-                        <td></td>
-                      </tr>
-                    </>
+                    periodEntries.map((entry) => (
+                      <TimesheetRow
+                        key={entry.date}
+                        entry={entry}
+                        detailedView={detailedView}
+                        formatTime={formatTime}
+                        calculateHoursWorked={calculateHoursWorked}
+                        calculateHoursSpentOutside={calculateHoursSpentOutside}
+                        onEdit={setEditingEntry}
+                        onDelete={deleteEntry}
+                      />
+                    ))
                   )}
-                </tbody>
-              </table>
+                </div>
+                
+                {periodEntries.length > 0 && (
+                  <div className="glass-table-footer" style={{ minHeight: '76px', padding: '2px 2px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                      <i className="fa-solid fa-chart-pie" style={{ color: 'var(--accent-cyan)', fontSize: '20px' }}></i>
+                      <span style={{ fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '14px' }}>Total</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                      {detailedView && (
+                        <div style={{ display: 'flex', gap: '12px', color: 'var(--text-secondary)', fontSize: '0.85rem', borderRight: '1px solid var(--border-light)', paddingRight: '12px', whiteSpace: 'nowrap' }}>
+                          <span>Extra: {(overtimeDetails.totalExtraHours > 0 ? '+' : '')}{overtimeDetails.totalExtraHours.toFixed(2)}h</span>
+                          <span>Factor: {(overtimeDetails.totalExtraHoursWithFactor > 0 ? '+' : '')}{overtimeDetails.totalExtraHoursWithFactor.toFixed(2)}h</span>
+                        </div>
+                      )}
+                      <div style={{ fontSize: '1.25rem', fontWeight: '800', whiteSpace: 'nowrap' }}>
+                        {overtimeDetails.totalHoursWorked.toFixed(2)} <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: '400' }}>hrs</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 

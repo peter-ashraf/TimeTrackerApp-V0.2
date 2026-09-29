@@ -98,7 +98,7 @@
 }
 
 .recovery-btn-warning {
-  background: linear-gradient(135deg, var(--color-warning), #f59e0b);
+  background: linear-gradient(135deg, var(--color-warning), #00f0ff);
   color: white;
   border: 2px solid var(--color-warning);
 }
@@ -106,7 +106,7 @@
 .recovery-btn-warning:hover:not(:disabled) {
   background: linear-gradient(135deg, #d97706, var(--color-warning));
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 240, 255, 0.3);
 }
 
 .recovery-btn-warning:disabled {

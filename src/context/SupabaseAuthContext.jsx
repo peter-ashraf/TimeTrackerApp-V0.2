@@ -285,7 +285,7 @@ export const SupabaseAuthProvider = ({ children }) => {
           }
           return prev;
         });
-      }, 10000); // Increased to 10 seconds for instant loading
+      }, 3000); // Decreased to 3 seconds for snappy loading
 
       try {
         // Check for remember me state first
@@ -313,7 +313,7 @@ export const SupabaseAuthProvider = ({ children }) => {
         // Try Supabase with timeout
         try {
           const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Supabase timeout')), 8000); // Increased to 8 seconds
+            setTimeout(() => reject(new Error('Supabase timeout')), 2000); // Decreased to 2 seconds to prevent hanging
           });
 
           const sessionPromise = supabase.auth.getSession();
@@ -1203,6 +1203,49 @@ export const SupabaseAuthProvider = ({ children }) => {
     }
   };
 
+  // Guest/Test Mode Login
+  const loginAsGuest = useCallback(() => {
+    try {
+      const guestInfo = {
+        id: 'guest-12345',
+        username: 'test_user',
+        email: 'guest@local.test',
+        fullName: 'Test User',
+        displayName: 'Test User',
+        isLocalOnly: true,
+        isGuestMode: true
+      };
+
+      setCurrentUser(guestInfo);
+      setIsAuthenticated(true);
+      updateLastActivity();
+
+      // Seed local storage with guest data so app works flawlessly offline
+      localStorage.setItem("userProfile", JSON.stringify(guestInfo));
+      localStorage.setItem(`user_settings_guest-12345`, JSON.stringify({
+        displayName: "Test User",
+        monthlySalary: 0,
+        employeeType: "Full-Time",
+        monthlyHours: 187,
+        dailyBreakStart: "13:00",
+        vacationDays: 20,
+        sickDays: 10,
+        hapticFeedback: true
+      }));
+
+      // Trigger app loading animation
+      setIsAppLoading(true);
+      setTimeout(() => {
+        setIsAppLoading(false);
+      }, 1000);
+
+      return { success: true, user: guestInfo, isGuestMode: true };
+    } catch (error) {
+      console.error("Guest login failed:", error);
+      throw error;
+    }
+  }, [setCurrentUser, setIsAuthenticated, updateLastActivity]);
+
   // User logout
   const logout = useCallback(async () => {
     const userId = currentUser?.id;
@@ -1598,6 +1641,7 @@ export const SupabaseAuthProvider = ({ children }) => {
     networkStatus,
     register,
     login,
+    loginAsGuest,
     logout,
     getUserData,
     saveUserData,

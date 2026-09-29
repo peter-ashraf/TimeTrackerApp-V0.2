@@ -1,0 +1,108 @@
+.bento-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 var(--screen-padding);
+  background-color: var(--bg-primary);
+  z-index: var(--z-nav);
+  transition: transform 0.3s ease;
+}
+
+.bento-header.collapsed {
+  transform: translateY(-100%);
+}
+
+.bento-header-left, .bento-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bento-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.bento-logo i {
+  color: var(--accent-cyan);
+  font-size: 18px;
+}
+
+.bento-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--text-tertiary);
+}
+
+.status-dot.online {
+  background-color: var(--accent-green);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+.bento-avatar-btn, .bento-theme-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bento-theme-btn {
+  color: var(--text-secondary);
+  font-size: 18px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+}
+
+.avatar-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.status-queued { background: var(--accent-rose); color: white; border-radius: var(--radius-pill); padding: 2px 6px; font-size: 10px; font-weight: 700; margin-left: 4px; }
+.status-dot.slow { background-color: #F59E0B; box-shadow: 0 0 8px rgba(245, 158, 11, 0.5); }
+
+@media (max-width: 600px) {
+  .bento-header-left, .bento-header-right {
+    gap: 8px;
+  }
+  .bento-logo span,
+  .bento-status span {
+    display: none; /* Hide text on small screens to save space */
+  }
+  .bento-logo i {
+    font-size: 20px;
+  }
+}

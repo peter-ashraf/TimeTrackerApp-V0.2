@@ -249,7 +249,12 @@ function TimesheetCompareModal({ onClose, onEditEntry }) {
         showAlert(`${rowsToApply.length} HR timesheet change${rowsToApply.length === 1 ? '' : 's'} applied.`, 'success');
       }
 
-      onClose();
+      const modal = document.querySelector('.timesheet-compare-modal')?.closest('.bento-modal-overlay');
+      if (modal) {
+        modal.classList.add('closing');
+        modal.querySelector('.modal-content')?.classList.add('closing');
+      }
+      setTimeout(onClose, 350);
     } catch (error) {
       console.error('Failed to apply HR comparison changes:', error);
       showAlert('Failed to apply selected HR changes.', 'error');
@@ -260,8 +265,15 @@ function TimesheetCompareModal({ onClose, onEditEntry }) {
 
   const handleManualEdit = (entry) => {
     if (!entry || !onEditEntry) return;
-    onClose();
-    onEditEntry(entry);
+    const modal = document.querySelector('.timesheet-compare-modal')?.closest('.bento-modal-overlay');
+    if (modal) {
+      modal.classList.add('closing');
+      modal.querySelector('.modal-content')?.classList.add('closing');
+    }
+    setTimeout(() => {
+      onClose();
+      onEditEntry(entry);
+    }, 350);
   };
 
   return (
@@ -571,7 +583,7 @@ function TimesheetCompareModal({ onClose, onEditEntry }) {
               </button>
             </>
           )}
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
+          <button type="button" className="btn btn-secondary bento-modal-btn-outline" onClick={(e) => { const modal = e.target.closest('.bento-modal-overlay'); if (modal) { modal.classList.add('closing'); const content = modal.querySelector('.modal-content'); if (content) content.classList.add('closing'); } setTimeout(onClose, 350); }}>
             Close
           </button>
         </div>

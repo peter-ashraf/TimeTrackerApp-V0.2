@@ -1,62 +1,82 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import '../styles/bento-modals.css'; // Injecting Bento modal overrides globally
+import '../styles/bento-modals-grid.css'; // Grid architecture
 
 function ModalShell({ onClose, children, contentClassName = '', closeOnOverlay = true, overlayClassName = '', showCloseButton = true }) {
-  const handleOverlayClick = closeOnOverlay && onClose ? onClose : undefined;
-  const contentClass = ['modal-content', contentClassName].filter(Boolean).join(' ');
-  const overlayClass = ['modal-overlay', overlayClassName].filter(Boolean).join(' ');
+  const [isClosing, setIsClosing] = useState(false);
+  const [startY, setStartY] = useState(null);
+
+  useEffect(() => {
+    // Lock body scroll
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
+  const handleClose = () => {
+    if (isClosing) return;
+    setIsClosing(true);
+    setTimeout(() => {
+      if (onClose) onClose();
+    }, 350); // Wait for animation to finish
+  };
+
+  const handleOverlayClick = closeOnOverlay ? handleClose : undefined;
+  
+  const handleTouchStart = (e) => {
+    setStartY(e.touches[0].clientY);
+  };
+  
+  const handleTouchMove = (e) => {
+    if (!startY) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - startY;
+    
+    // Swipe down threshold
+    if (diff > 40) {
+      setStartY(null);
+      handleClose();
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setStartY(null);
+  };
+  
+  const contentClass = ['modal-content', contentClassName, isClosing ? 'closing' : ''].filter(Boolean).join(' ');
+  const overlayClass = ['modal-overlay', 'bento-modal-overlay', overlayClassName, isClosing ? 'closing' : ''].filter(Boolean).join(' ');
 
   const modalContent = (
     <div
+      id="bento-modal-overlay-id"
       className={overlayClass}
+      style={{ zIndex: 9999999, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
       onClick={handleOverlayClick}
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 999999,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        backdropFilter: 'blur(4px)',
-        WebkitBackdropFilter: 'blur(4px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        animation: 'fadeIn 0.2s ease-out'
-      }}
     >
       <div
         className={contentClass}
+        style={{ backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '700px', maxHeight: '90vh', overflow: 'hidden', overscrollBehavior: 'contain', borderTopLeftRadius: '32px', borderTopRightRadius: '32px' }}
         onClick={(e) => e.stopPropagation()}
-        style={{
-          animation: 'scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
-        }}
       >
+        <div 
+          className="sheet-handle-container" 
+          onClick={handleClose}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <div className="sheet-handle"></div>
+        </div>
         {showCloseButton && onClose && (
           <button
-            className="modal-close-button"
-            onClick={onClose}
+            className="sheet-close-btn"
+            onClick={handleClose}
             aria-label="Close modal"
-            style={{
-              position: 'absolute',
-              top: '16px',
-              right: '16px',
-              background: 'transparent',
-              border: 'none',
-              color: 'inherit',
-              fontSize: '24px',
-              cursor: 'pointer',
-              padding: '4px',
-              lineHeight: '1',
-              opacity: '0.6',
-              transition: 'opacity 0.2s',
-              zIndex: '10'
-            }}
-            onMouseEnter={(e) => e.target.style.opacity = '1'}
-            onMouseLeave={(e) => e.target.style.opacity = '0.6'}
           >
-            ×
+            Done
           </button>
         )}
         {children}

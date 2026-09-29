@@ -1,0 +1,263 @@
+/* =========================================================================
+   BOTTOM SHEET MODALS (IOS STYLE RE-DESIGN)
+   ========================================================================= */
+
+/* The Overlay */
+body .bento-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 999999 !important;
+  background-color: rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: flex-end !important; /* Dock to bottom securely */
+  justify-content: center !important;
+  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  padding: 0 !important;
+  overflow: hidden !important; /* No scrolling on the overlay itself */
+}
+
+body .bento-modal-overlay.closing {
+  animation: fadeOutOverlay 0.35s linear forwards !important;
+}
+
+@keyframes fadeOutOverlay {
+  0% { background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); }
+  100% { background-color: rgba(0, 0, 0, 0); backdrop-filter: blur(0px); }
+}
+
+/* The Base Bottom Sheet */
+#bento-modal-overlay-id .modal-content,
+#bento-modal-overlay-id .bento-sheet-content,
+body .bento-modal-overlay .modal-content,
+body .bento-modal-overlay .bento-sheet-content {
+  background-color: var(--bg-primary) !important; /* Deep solid slate */
+  background-image: none !important;
+  opacity: 1 !important; /* Force fully opaque */
+  mix-blend-mode: normal !important;
+  width: 100% !important;
+  max-width: 700px !important;
+  max-height: 90vh !important; /* Cap height to 90% of screen */
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important; /* TRAP content inside so background ALWAYS covers it */
+}
+
+/* Isolate decorative and layout properties so they don't break the background if the browser drops them */
+#bento-modal-overlay-id .modal-content,
+#bento-modal-overlay-id .bento-sheet-content,
+html body .bento-modal-overlay .modal-content,
+html body .bento-modal-overlay .bento-sheet-content {
+  border-radius: 32px 32px 0 0 !important;
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--border-light) !important;
+  animation: slideUpSheet 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  position: relative !important;
+  margin: 0 auto !important; /* Normal horizontal centering */
+  padding-bottom: env(safe-area-inset-bottom, 0) !important;
+}
+
+#bento-modal-overlay-id .modal-content.closing,
+#bento-modal-overlay-id .bento-sheet-content.closing,
+html body .bento-modal-overlay .modal-content.closing,
+html body .bento-modal-overlay .bento-sheet-content.closing {
+  animation: slideDownSheet 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+@keyframes slideUpSheet {
+  0% { transform: translateY(100%); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes slideDownSheet {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Sheet Handle */
+.sheet-handle-container {
+  width: 100%;
+  padding: 16px 0 8px 0;
+  display: flex;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sheet-handle {
+  width: 48px;
+  height: 5px;
+  background: var(--text-tertiary, rgba(148, 163, 184, 0.4));
+  border-radius: 4px;
+}
+
+/* Sheet Close Button (Done) */
+body .bento-modal-overlay .sheet-close-btn {
+  position: absolute !important;
+  top: 16px !important;
+  right: 20px !important;
+  background: transparent !important;
+  border: none !important;
+  color: var(--color-primary) !important;
+  font-size: 1.1rem !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  z-index: 10 !important;
+  padding: 8px 12px !important;
+  border-radius: 12px !important;
+}
+body .bento-modal-overlay .sheet-close-btn:active {
+  background: var(--border-light) !important;
+}
+
+/* Sheet Header */
+#bento-modal-overlay-id .modal-header,
+body .bento-modal-overlay .modal-header {
+  padding: 12px 24px 24px !important;
+  text-align: left !important;
+  background-color: var(--bg-primary) !important;
+}
+
+body .bento-modal-overlay .modal-header h2,
+body .bento-modal-overlay .modal-header h3 {
+  margin: 0 !important;
+  font-size: 1.8rem !important;
+  font-weight: 800 !important;
+  color: var(--text-primary) !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* Sheet Body */
+#bento-modal-overlay-id .modal-body,
+body .bento-modal-overlay .modal-body {
+  padding: 0 24px 24px !important;
+  overflow-y: auto !important; /* SCROLL INSIDE THIS BOX */
+  flex: 1 1 auto !important; /* Allow growing and shrinking */
+  height: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background-color: var(--bg-primary) !important; /* Absolute guarantee */
+}
+
+/* Modal Footer & Actions */
+#bento-modal-overlay-id .modal-footer,
+#bento-modal-overlay-id .modal-actions,
+body .bento-modal-overlay .modal-footer,
+body .bento-modal-overlay .modal-actions {
+  padding: 20px 24px 32px !important;
+  background-color: var(--bg-primary) !important;
+  border-top: 1px solid var(--border-light) !important;
+  display: flex !important;
+  gap: 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+}
+
+@media (max-width: 768px) {
+  #bento-modal-overlay-id .modal-footer,
+  #bento-modal-overlay-id .modal-actions,
+  body .bento-modal-overlay .modal-footer,
+  body .bento-modal-overlay .modal-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+  }
+  
+  /* If a footer only has one button (like just a Cancel button), make it span the full width */
+  #bento-modal-overlay-id .modal-footer > *:only-child,
+  #bento-modal-overlay-id .modal-actions > *:only-child {
+    grid-column: span 2 !important;
+  }
+}
+
+body .bento-modal-overlay .btn {
+  flex: 1 !important;
+  padding: 18px 20px !important;
+  border-radius: 16px !important;
+  font-weight: 800 !important;
+  font-size: 1.1rem !important;
+  transition: all 0.2s ease !important;
+  border: none !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+}
+
+/* Fix for cancel buttons */
+body .bento-modal-overlay .btn.btn-secondary,
+body .bento-modal-overlay .btn-secondary {
+  flex: 0 0 auto !important; /* Don't force equal width */
+  min-width: 100px !important; /* ensure it's not tiny */
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+}
+
+body .bento-modal-overlay .btn-primary {
+  flex: 1 1 auto !important; /* Take remaining space */
+  background: var(--color-primary) !important;
+  color: var(--bg-primary) !important;
+}
+
+body .bento-modal-overlay .btn-secondary:active {
+  background: var(--border-light) !important;
+}
+
+body .bento-modal-overlay .btn-primary:active {
+  transform: scale(0.96) !important;
+}
+
+/* Beautiful Big Inputs */
+body .bento-modal-overlay .form-group {
+  margin-bottom: 24px !important;
+}
+
+body .bento-modal-overlay .form-group label,
+body .bento-modal-overlay .form-label {
+  color: var(--text-secondary) !important;
+  font-weight: 600 !important;
+  font-size: 0.9rem !important;
+  margin-bottom: 10px !important;
+  display: block !important;
+}
+
+body .bento-modal-overlay input[type="text"],
+body .bento-modal-overlay input[type="time"],
+body .bento-modal-overlay input[type="date"],
+body .bento-modal-overlay input[type="number"],
+body .bento-modal-overlay select,
+body .bento-modal-overlay textarea,
+body .bento-modal-overlay .custom-select-container {
+  width: 100% !important;
+  padding: 18px 20px !important;
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 16px !important;
+  color: var(--text-primary) !important;
+  font-family: inherit !important;
+  font-size: 1.1rem !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+}
+
+body .bento-modal-overlay input:focus,
+body .bento-modal-overlay select:focus,
+body .bento-modal-overlay textarea:focus {
+  background: var(--bg-tertiary) !important;
+  border-color: var(--color-primary) !important;
+  outline: none !important;
+}

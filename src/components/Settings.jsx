@@ -1904,274 +1904,226 @@ function Settings() {
   };
 
   return (
-    <main className={`main-content settings-page settings-tab-${activeSettingsTab}`}>
-      <h1>⚙️ Settings</h1>
-
-      <nav className="settings-tabs" aria-label="Settings sections">
-        {SETTINGS_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            className={`settings-tab-button ${
-              activeSettingsTab === tab.id ? "active" : ""
-            }`}
-            aria-label={tab.label}
-            aria-pressed={activeSettingsTab === tab.id}
-            onClick={() => setActiveSettingsTab(tab.id)}
-          >
-            <i className={`fa-solid ${tab.icon}`} aria-hidden="true"></i>
-            <span className="settings-tab-label">{tab.label}</span>
-          </button>
-        ))}
-      </nav>
+    <main className="settings-page">
+      <div className="settings-header">
+        <div>
+          <h1>⚙️ Settings</h1>
+          <p style={{ margin: "4px 0 0 0", color: "var(--text-secondary)" }}>Manage your preferences, data, and account</p>
+        </div>
+      </div>
 
       <div className="settings-panels-scroll">
-      {/* ✅ UNIFIED EMPLOYEE INFORMATION & LEAVE SETTINGS */}
-      <div className="settings-section settings-panel settings-panel-profile">
+        <div className="settings-bento-grid-layout">
+        {/* ✅ UNIFIED EMPLOYEE INFORMATION & LEAVE SETTINGS */}
+      <div className="settings-bento-card col-span-3">
         <h2>👤 Employee Information</h2>
 
-        <form onSubmit={handleSaveAll}>
-          {/* Full Name (Display Name) */}
-          <div className="form-group">
-            <label className="form-label">Display Name</label>
-            <input
-              type="text"
-              className="form-control"
-              value={name ?? ""}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter your display name"
-            />
-            <small className="form-help">
-              This is how your name appears throughout the app. Your login
-              username (<strong>{currentUser?.username}</strong>) remains
-              unchanged.
-            </small>
-          </div>
-
-          {/* Monthly Salary */}
-          {!hideSalary && (
+        <form onSubmit={handleSaveAll} className="settings-nested-grid">
+          
+          <div className="settings-subsection">
+            <h3 className="bento-card-title">Personal Details</h3>
             <div className="form-group">
-              <label className="form-label">Monthly Salary (L.E.)</label>
-              <input
-                type="number"
-                inputMode="decimal"
-                className="form-control"
-                value={salary ?? 0}
-                onChange={(e) => setSalary(e.target.value)}
-                placeholder="Enter monthly salary"
-                min="0"
-                step="0.01"
-              />
-            </div>
-          )}
-
-          {hideSalary && (
-            <div className="form-group">
-              <label className="form-label">Monthly Salary (L.E.)</label>
+              <label className="form-label">Display Name</label>
               <input
                 type="text"
                 className="form-control"
-                value="******"
+                value={name ?? ""}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter your display name"
+              />
+              <small className="form-help">
+                This is how your name appears throughout the app. Your login
+                username (<strong>{currentUser?.username}</strong>) remains
+                unchanged.
+              </small>
+            </div>
+
+            {!hideSalary && (
+              <div className="form-group">
+                <label className="form-label">Monthly Salary (L.E.)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  className="form-control"
+                  value={salary ?? 0}
+                  onChange={(e) => setSalary(e.target.value)}
+                  placeholder="Enter monthly salary"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+            )}
+
+            {hideSalary && (
+              <div className="form-group">
+                <label className="form-label">Monthly Salary (L.E.)</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value="******"
+                  disabled
+                  style={{
+                    backgroundColor: "transparent",
+                    color: "#6c757d",
+                    cursor: "not-allowed",
+                    filter: "blur(4px)",
+                    userSelect: "none",
+                  }}
+                  readOnly
+                />
+                <p className="help-text">
+                  💡 Salary is hidden for privacy. Toggle visibility in Dashboard to edit.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="settings-subsection">
+            <h3 className="bento-card-title">Work Schedule</h3>
+            <div className="form-group">
+              <label className="form-label">Employee Type</label>
+              <CustomSelect
+                id="employee-type-select"
+                name="employeeType"
+                value={employeeType ?? "full-time"}
+                onChange={(e) => setEmployeeType(e.target.value)}
+                options={[
+                  { label: "Full-Time", value: "full-time" },
+                  { label: "Part-Time", value: "part-time" },
+                ]}
+              />
+            </div>
+
+            {employeeType === "part-time" && (
+              <>
+                <div className="form-group">
+                  <label className="form-label">Daily Hours</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    className="form-control"
+                    value={dailyHours ?? 9}
+                    onChange={(e) => setDailyHours(e.target.value)}
+                    placeholder="Enter daily work hours"
+                    min="6"
+                    max="9"
+                    step="0.5"
+                  />
+                  <p className="help-text">
+                    💡 Part-time employees work between 6-9 hours per day
+                  </p>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Work Days per Week</label>
+                  <CustomSelect
+                    id="work-days-per-week-select"
+                    name="workDaysPerWeek"
+                    value={workDaysPerWeek ?? 5}
+                    onChange={(e) => setWorkDaysPerWeek(e.target.value)}
+                    options={[
+                      { label: "3 days", value: "3" },
+                      { label: "4 days", value: "4" },
+                      { label: "5 days", value: "5" },
+                    ]}
+                  />
+                  <p className="help-text">
+                    💡 Part-time employees work between 3-5 days per week
+                  </p>
+                </div>
+              </>
+            )}
+
+            <div className="form-group">
+              <label className="form-label">Monthly Hours</label>
+              <input
+                type="text"
+                className="form-control"
+                value={
+                  employeeType === "part-time"
+                    ? "Calculated based on actual hours worked"
+                    : (monthlyHours ?? 187)
+                }
                 disabled
                 style={{
                   backgroundColor: "transparent",
                   color: "#6c757d",
                   cursor: "not-allowed",
-                  filter: "blur(4px)",
                   userSelect: "none",
                 }}
                 readOnly
               />
-              <p
-                className="help-text"
-                style={{
-                  color: "#6c757d",
-                  marginTop: "8px",
-                  fontSize: "0.875rem",
-                }}
-              >
-                💡 Salary is hidden for privacy. Toggle visibility in Dashboard
-                to edit.
+              <p className="help-text">
+                💡 {employeeType === "part-time" ? `Monthly hours will be calculated based on actual hours worked.` : "Fixed at 187 hours for full-time employees"}
               </p>
             </div>
-          )}
-
-          {/* Employee Type */}
-          <div className="form-group">
-            <label className="form-label">Employee Type</label>
-            <CustomSelect
-              id="employee-type-select"
-              name="employeeType"
-              value={employeeType ?? "full-time"}
-              onChange={(e) => setEmployeeType(e.target.value)}
-              options={[
-                { label: "Full-Time", value: "full-time" },
-                { label: "Part-Time", value: "part-time" },
-              ]}
-            />
           </div>
 
-          {/* Conditional fields for part-time employees */}
-          {employeeType === "part-time" && (
-            <>
-              <div className="form-group">
-                <label className="form-label">Daily Hours</label>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  className="form-control"
-                  value={dailyHours ?? 9}
-                  onChange={(e) => setDailyHours(e.target.value)}
-                  placeholder="Enter daily work hours"
-                  min="6"
-                  max="9"
-                  step="0.5"
-                />
-                <p
-                  className="help-text"
-                  style={{
-                    color: "#6c757d",
-                    marginTop: "8px",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  💡 Part-time employees work between 6-9 hours per day
-                </p>
-              </div>
+          <div className="settings-subsection">
+            <h3 className="bento-card-title">Leave Policy & Breaks</h3>
+            <div className="form-group">
+              <label className="form-label">Daily Break Start Time</label>
+              <input
+                type="time"
+                className="form-control"
+                value={breakStartTime}
+                onChange={(e) => setBreakStartTime(e.target.value)}
+                required
+              />
+              <p className="help-text">
+                💡 A 30-minute unpaid break starts at this time every workday.
+              </p>
+            </div>
 
-              <div className="form-group">
-                <label className="form-label">Work Days per Week</label>
-                <CustomSelect
-                  id="work-days-per-week-select"
-                  name="workDaysPerWeek"
-                  value={workDaysPerWeek ?? 5}
-                  onChange={(e) => setWorkDaysPerWeek(e.target.value)}
-                  options={[
-                    { label: "3 days", value: "3" },
-                    { label: "4 days", value: "4" },
-                    { label: "5 days", value: "5" },
-                  ]}
-                />
-                <p
-                  className="help-text"
-                  style={{
-                    color: "#6c757d",
-                    marginTop: "8px",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  💡 Part-time employees work between 3-5 days per week
-                </p>
-              </div>
-            </>
-          )}
+            <div className="form-group">
+              <label className="form-label">Annual Vacation Days</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                className="form-control"
+                value={annualVacation ?? 10}
+                onChange={(e) => {
+                  setLeaveInputsDirty(true);
+                  setAnnualVacation(e.target.value);
+                }}
+                placeholder="Enter annual vacation days"
+                min="0"
+                max="365"
+              />
+            </div>
 
-          {/* Monthly Hours (display only - calculated differently per employee type) */}
-          <div className="form-group">
-            <label className="form-label">Monthly Hours</label>
-            <input
-              type="text"
-              className="form-control"
-              value={
-                employeeType === "part-time"
-                  ? "Calculated based on actual hours worked"
-                  : (monthlyHours ?? 187)
-              }
-              disabled
-              style={{
-                backgroundColor: "transparent",
-                color: "#6c757d",
-                cursor: "not-allowed",
-                userSelect: "none",
-              }}
-              readOnly
-            />
-            <p
-              className="help-text"
-              style={{
-                color: "#6c757d",
-                marginTop: "8px",
-                fontSize: "0.875rem",
-              }}
+            <div className="form-group">
+              <label className="form-label">Sick Days</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                className="form-control"
+                value={sickDays ?? 7}
+                onChange={(e) => {
+                  setLeaveInputsDirty(true);
+                  setSickDays(e.target.value);
+                }}
+                placeholder="Enter sick days"
+                min="0"
+                max="365"
+              />
+            </div>
+          </div>
+
+          <div className="settings-subsection" style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none" }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={(e) => { hapticFeedback.buttonClick(); handleSaveAll(e); }}
             >
-              💡{" "}
-              {employeeType === "part-time"
-                ? `Monthly hours will be calculated based on actual hours worked during each pay period. This ensures accurate hourly rates for overtime calculations.`
-                : "Fixed at 187 hours for full-time employees"}
-            </p>
+              💾 Save All Settings
+            </button>
           </div>
-
-          {/* Daily Break Start Time */}
-          <div className="form-group">
-            <label className="form-label">Daily Break Start Time</label>
-            <input
-              type="time"
-              className="form-control"
-              value={breakStartTime}
-              onChange={(e) => setBreakStartTime(e.target.value)}
-              required
-            />
-            <p
-              className="help-text"
-              style={{
-                color: "#6c757d",
-                marginTop: "8px",
-                fontSize: "0.875rem",
-              }}
-            >
-              💡 A 30-minute unpaid break starts at this time every workday.
-            </p>
-          </div>
-
-          {/* Annual Vacation Days */}
-          <div className="form-group">
-            <label className="form-label">Annual Vacation Days</label>
-            <input
-              type="number"
-              inputMode="numeric"
-              className="form-control"
-              value={annualVacation ?? 10}
-              onChange={(e) => {
-                setLeaveInputsDirty(true);
-                setAnnualVacation(e.target.value);
-              }}
-              placeholder="Enter annual vacation days"
-              min="0"
-              max="365"
-            />
-          </div>
-
-          {/* Sick Days */}
-          <div className="form-group">
-            <label className="form-label">Sick Days</label>
-            <input
-              type="number"
-              inputMode="numeric"
-              className="form-control"
-              value={sickDays ?? 7}
-              onChange={(e) => {
-                setLeaveInputsDirty(true);
-                setSickDays(e.target.value);
-              }}
-              placeholder="Enter sick days"
-              min="0"
-              max="365"
-            />
-          </div>
-
-          {/* Single Save Button */}
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={(e) => { hapticFeedback.buttonClick(); handleSaveAll(e); }}
-          >
-            💾 Save All Settings
-          </button>
         </form>
       </div>
 
       {/* Check-in Reminders Settings */}
-      <section className="settings-section settings-panel settings-panel-reminders">
+      <div className="settings-bento-card col-span-3">
         <h2>⏰ Check-in Reminders</h2>
         <p className="settings-description">
           Configure daily check-in reminders so you never forget to log your
@@ -2369,10 +2321,10 @@ function Settings() {
             </>
           )}
         </form>
-      </section>
+      </div>
 
       {/* Haptic Feedback Settings */}
-      <section className="settings-section settings-panel settings-panel-profile">
+      <div className="settings-bento-card col-span-3">
         <h2>📳 Haptic Feedback</h2>
         <p className="settings-description">
           Control vibration feedback for button interactions and other UI
@@ -2440,10 +2392,9 @@ function Settings() {
             </p>
           </div>
         )}
-      </section>
+      </div>
 
-      {/* Pay Periods Management */}
-      <section className="settings-section settings-panel settings-panel-periods pay-period-settings-section">
+      <div className="settings-bento-card col-span-3 pay-period-settings-section">
         <h3>📅 Pay Period Management</h3>
         <p className="settings-description">
           Define custom pay periods for your timesheet. Periods must be
@@ -2703,9 +2654,9 @@ function Settings() {
             </form>
           </ModalShell>
         )}
-      </section>
+      </div>
 
-      <section className="settings-section settings-panel settings-panel-data">
+      <div className="settings-bento-card col-span-3">
         <div className="settings-section-header">
           <h2>Sync Status</h2>
           <div className="sync-status-actions">
@@ -2837,9 +2788,9 @@ function Settings() {
               : "-"}
           </span>
         </div>
-      </section>
+      </div>
 
-      <section className="settings-section settings-panel settings-panel-data">
+      <div className="settings-bento-card col-span-3">
         <div className="settings-section-header app-version-header">
           <div>
             <h2>App Version</h2>
@@ -2882,10 +2833,10 @@ function Settings() {
         {versionCheckStatus && (
           <p className="version-check-status">{versionCheckStatus}</p>
         )}
-      </section>
+      </div>
 
       {/* NEW: Export/Import Data Section */}
-      <section className="settings-section settings-panel settings-panel-data">
+      <div className="settings-bento-card col-span-3">
         <h2>📊 Data Management</h2>
         <p className="settings-description">
           Export your timesheet data to Excel or import data from a previous
@@ -2914,11 +2865,11 @@ function Settings() {
             📤 Import Data
           </button>
         </div>
-      </section>
+      </div>
 
       {/* Danger Zone */}
-      <section
-        className={`settings-section danger-zone settings-panel settings-panel-advanced ${
+      <div
+        className={`settings-bento-card col-span-6 danger-zone ${
           isDangerUnlocked ? "is-unlocked" : "is-locked"
         }`}
       >
@@ -3038,11 +2989,9 @@ function Settings() {
             associated data. This cannot be undone!
           </p>
         </fieldset>
-      </section>
+      </div>
 
-      {/* Diagnostics Section */}
-      {IS_DEV_MODE && (
-      <section className="settings-section settings-panel settings-panel-advanced">
+      <div className="settings-bento-card col-span-6">
         <h2>🔧 Diagnostics</h2>
         <p className="settings-description">
           Developer tools for troubleshooting and deployment verification.
@@ -3208,8 +3157,8 @@ function Settings() {
             </tbody>
           </table>
         </div>
-      </section>
-      )}
+      </div>
+      </div>
       </div>
 
       {/* Export Modal */}

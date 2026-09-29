@@ -67,11 +67,11 @@
 
 /* Type-specific styles */
 .validation-modal-warning .validation-modal-icon {
-  color: #f59e0b;
+  color: #00f0ff;
 }
 
 .validation-modal-error .validation-modal-icon {
-  color: #ef4444;
+  color: #ff0080;
 }
 
 .validation-modal-success .validation-modal-icon {

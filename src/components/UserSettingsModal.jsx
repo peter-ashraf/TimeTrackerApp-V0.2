@@ -236,7 +236,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
   return (
     <ModalShell onClose={onClose} contentClassName="user-settings-modal" closeOnOverlay={false}>
       <div className="user-settings-header">
-        <div className="user-settings-icon">⚙️ User Settings</div>
+        <div className="user-settings-icon"><i className="fa-solid fa-gear"></i> User Settings</div>
         <p className="user-settings-subtitle">Manage your account credentials and session</p>
       </div>
 
@@ -245,35 +245,35 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
           className={`tab-btn ${activeTab === 'username' ? 'active' : ''}`}
           onClick={() => handleTabSwitch('username')}
         >
-          <span className="tab-icon">👤</span>
+          <span className="tab-icon"><i className="fa-solid fa-user"></i></span>
           <span className="tab-label">Username</span>
         </button>
         <button
           className={`tab-btn ${activeTab === 'password' ? 'active' : ''}`}
           onClick={() => handleTabSwitch('password')}
         >
-          <span className="tab-icon">🔒</span>
+          <span className="tab-icon"><i className="fa-solid fa-lock"></i></span>
           <span className="tab-label">Password</span>
         </button>
         <button
           className={`tab-btn ${activeTab === 'session' ? 'active' : ''}`}
           onClick={() => handleTabSwitch('session')}
         >
-          <span className="tab-icon">⏱️</span>
+          <span className="tab-icon"><i className="fa-solid fa-clock"></i></span>
           <span className="tab-label">Session</span>
         </button>
         <button
           className={`tab-btn ${activeTab === 'appearance' ? 'active' : ''}`}
           onClick={() => handleTabSwitch('appearance')}
         >
-          <span className="tab-icon">✨</span>
+          <span className="tab-icon"><i className="fa-solid fa-palette"></i></span>
           <span className="tab-label">Appearance</span>
         </button>
       </div>
 
       {errors.submit && (
         <div className="error-message">
-          <span className="error-icon">⚠️</span>
+          <span className="error-icon"><i className="fa-solid fa-triangle-exclamation"></i></span>
           {errors.submit}
         </div>
       )}
@@ -288,7 +288,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
 
             <div className="form-group">
               <label className="form-label">
-                <span className="label-icon">👤</span>
+                <span className="label-icon"><i className="fa-solid fa-user"></i></span>
                 New Username
               </label>
               <input
@@ -303,7 +303,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
               />
               {errors.newUsername && (
                 <div className="error-feedback">
-                  <span className="error-icon">⚠️</span>
+                  <span className="error-icon"><i className="fa-solid fa-triangle-exclamation"></i></span>
                   {errors.newUsername}
                 </div>
               )}
@@ -311,7 +311,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
 
             <div className="form-group">
               <label className="form-label">
-                <span className="label-icon">🔐</span>
+                <span className="label-icon"><i className="fa-solid fa-lock"></i></span>
                 Current Password
               </label>
               <input
@@ -326,7 +326,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
               />
               {errors.currentPassword && (
                 <div className="error-feedback">
-                  <span className="error-icon">⚠️</span>
+                  <span className="error-icon"><i className="fa-solid fa-triangle-exclamation"></i></span>
                   {errors.currentPassword}
                 </div>
               )}
@@ -345,7 +345,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
 
             <div className="form-group">
               <label className="form-label">
-                <span className="label-icon">⏱️</span>
+                <span className="label-icon"><i className="fa-solid fa-clock"></i></span>
                 Session Timeout (minutes)
               </label>
               <CustomSelect
@@ -368,7 +368,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
               />
               {errors.sessionTimeout && (
                 <div className="error-feedback">
-                  <span className="error-icon">⚠️</span>
+                  <span className="error-icon"><i className="fa-solid fa-triangle-exclamation"></i></span>
                   {errors.sessionTimeout}
                 </div>
               )}
@@ -376,7 +376,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
 
             <div className="info-card">
               <div className="info-title">
-                <span className="info-icon">ℹ️</span>
+                <span className="info-icon"><i className="fa-solid fa-circle-info"></i></span>
                 About Session Management
               </div>
               <div className="info-content">
@@ -399,7 +399,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
           <form onSubmit={handlePasswordSubmit} className="user-settings-form">
             <div className="form-group">
               <label className="form-label">
-                <span className="label-icon">🔐</span>
+                <span className="label-icon"><i className="fa-solid fa-lock"></i></span>
                 Current Password
               </label>
               <input
@@ -414,7 +414,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
               />
               {errors.currentPassword && (
                 <div className="error-feedback">
-                  <span className="error-icon">⚠️</span>
+                  <span className="error-icon"><i className="fa-solid fa-triangle-exclamation"></i></span>
                   {errors.currentPassword}
                 </div>
               )}
@@ -422,7 +422,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
 
             <div className="form-group">
               <label className="form-label">
-                <span className="label-icon">🔑</span>
+                <span className="label-icon"><i className="fa-solid fa-key"></i></span>
                 New Password
               </label>
               <input
@@ -437,7 +437,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
               />
               {errors.newPassword && (
                 <div className="error-feedback">
-                  <span className="error-icon">⚠️</span>
+                  <span className="error-icon"><i className="fa-solid fa-triangle-exclamation"></i></span>
                   {errors.newPassword}
                 </div>
               )}
@@ -445,7 +445,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
 
             <div className="form-group">
               <label className="form-label">
-                <span className="label-icon">🔑</span>
+                <span className="label-icon"><i className="fa-solid fa-key"></i></span>
                 Confirm New Password
               </label>
               <input
@@ -460,7 +460,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
               />
               {errors.confirmPassword && (
                 <div className="error-feedback">
-                  <span className="error-icon">⚠️</span>
+                  <span className="error-icon"><i className="fa-solid fa-triangle-exclamation"></i></span>
                   {errors.confirmPassword}
                 </div>
               )}
@@ -478,7 +478,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
 
             <div className="form-group">
               <label className="form-label">
-                <span className="label-icon">🎨</span>
+                <span className="label-icon"><i className="fa-solid fa-palette"></i></span>
                 Application Theme
               </label>
               <div className="theme-options">
@@ -487,7 +487,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
                   className={`theme-option-btn ${theme === 'light' ? 'selected' : ''}`}
                   onClick={() => setTheme('light')}
                 >
-                  <span className="option-icon">☀️</span>
+                  <span className="option-icon"><i className="fa-solid fa-sun"></i></span>
                   <span className="option-label">Light</span>
                 </button>
                 <button
@@ -495,7 +495,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
                   className={`theme-option-btn ${theme === 'dark' ? 'selected' : ''}`}
                   onClick={() => setTheme('dark')}
                 >
-                  <span className="option-icon">🌙</span>
+                  <span className="option-icon"><i className="fa-solid fa-moon"></i></span>
                   <span className="option-label">Dark</span>
                 </button>
                 <button
@@ -503,7 +503,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
                   className={`theme-option-btn ${theme === 'system' ? 'selected' : ''}`}
                   onClick={() => setTheme('system')}
                 >
-                  <span className="option-icon">🖥️</span>
+                  <span className="option-icon"><i className="fa-solid fa-desktop"></i></span>
                   <span className="option-label">System</span>
                 </button>
               </div>
@@ -511,7 +511,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
 
             <div className="info-card">
               <div className="info-title">
-                <span className="info-icon">ℹ️</span>
+                <span className="info-icon"><i className="fa-solid fa-circle-info"></i></span>
                 Theme Selection
               </div>
               <div className="info-content">
@@ -552,7 +552,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
                 </>
               ) : (
                 <>
-                  <span className="btn-icon">🔄</span>
+                  <span className="btn-icon"><i className="fa-solid fa-rotate"></i></span>
                   Update Username
                 </>
               )}
@@ -582,7 +582,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
                 </>
               ) : (
                 <>
-                  <span className="btn-icon">⏱️</span>
+                  <span className="btn-icon"><i className="fa-solid fa-clock"></i></span>
                   Update Session
                 </>
               )}
@@ -612,7 +612,7 @@ function UserSettingsModal({ isOpen, onClose, defaultTab = 'username' }) {
                 </>
               ) : (
                 <>
-                  <span className="btn-icon">🔒</span>
+                  <span className="btn-icon"><i className="fa-solid fa-lock"></i></span>
                   Update Password
                 </>
               )}

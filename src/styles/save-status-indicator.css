@@ -108,13 +108,13 @@
 
 [data-theme="dark"] .save-status-indicator.warning {
   background: #713F12;
-  border-color: #F59E0B;
+  border-color: #00f0ff;
   color: #FCD34D;
 }
 
 [data-theme="dark"] .save-status-indicator.error {
   background: #7F1D1D;
-  border-color: #EF4444;
+  border-color: #ff0080;
   color: #FCA5A5;
 }
 

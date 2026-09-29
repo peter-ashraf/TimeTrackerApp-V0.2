@@ -85,15 +85,21 @@ const OfflineIndicator = ({ onRefresh, isRefreshing }) => {
     <>
       {/* Header indicator - Always clickable */}
       <div
-        className={`offline-indicator ${getConnectionClass()} ${isRefreshing ? 'refreshing' : ''}`}
+        className="bento-status"
         onClick={handleRefreshClick}
         title="Tap to refresh data"
         style={{ cursor: 'pointer' }}
       >
-        <span className={`connection-icon ${isRefreshing ? 'spinning' : ''}`}>{getConnectionIcon()}</span>
-        <span className="connection-text">{isRefreshing ? 'Refreshing...' : getConnectionText()}</span>
+        {isRefreshing ? (
+           <i className="fa-solid fa-spinner fa-spin" style={{ color: 'var(--text-secondary)' }}></i>
+        ) : (
+           <span className={`status-dot ${isOnline ? 'online' : 'offline'} ${isSlowConnection ? 'slow' : ''}`}></span>
+        )}
+        <span className="status-text">
+          {isRefreshing ? 'Syncing' : (isOnline ? 'Online' : 'Offline')}
+        </span>
         {queuedRequests > 0 && (
-          <span className="queued-count">{queuedRequests}</span>
+          <span className="status-queued">{queuedRequests}</span>
         )}
       </div>
 

@@ -1,0 +1,157 @@
+/* 
+  BENTO GRID DESIGN SYSTEM (V2: HYPER-MODERN DARK GLASS)
+  Core design tokens for a completely unrecognizable, premium redesign.
+*/
+
+:root {
+  /* DEEP DARK BACKGROUNDS */
+  --bg-primary: #050507; /* Extremely dark, almost OLED black */
+  --bg-secondary: rgba(20, 20, 28, 0.6); /* Translucent glass tile */
+  --bg-tertiary: rgba(30, 30, 45, 0.8); /* Highlighted glass tile */
+  --bg-nav: rgba(5, 5, 7, 0.7); /* Floating nav */
+  
+  /* GLASSMORPHISM */
+  --glass-backdrop-filter: blur(16px);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
+  /* NEON VIBRANT ACCENTS */
+  --accent-cyan: #00f0ff;
+  --accent-neon-green: #39FF14;
+  --accent-purple: #B026FF;
+  --accent-hot-pink: #FF007F;
+  
+  /* GLOWS */
+  --glow-cyan: 0 0 15px rgba(0, 240, 255, 0.4);
+  --glow-purple: 0 0 20px rgba(176, 38, 255, 0.4);
+  --glow-green: 0 0 15px rgba(57, 255, 20, 0.3);
+
+  /* TEXT COLORS */
+  --text-primary: #FFFFFF;
+  --text-secondary: #94A3B8; /* Muted grayish-blue */
+  --text-tertiary: #64748B;
+
+  /* STATUS COLORS */
+  --color-accent: var(--accent-cyan);
+  --color-danger: var(--accent-hot-pink);
+
+  /* LEGACY OVERRIDES - Mapping old styles to new Bento */
+  --color-primary: var(--accent-cyan) !important;
+  --color-primary-dark: #00B8D4 !important;
+  --color-bg: var(--bg-primary) !important;
+  --color-surface: var(--bg-secondary) !important;
+  --color-text: var(--text-primary) !important;
+  --color-text-secondary: var(--text-secondary) !important;
+  --color-border: rgba(255, 255, 255, 0.08) !important;
+  
+  /* BORDERS */
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-accent: rgba(0, 240, 255, 0.3);
+
+  /* BORDER RADIUS - Extra rounded for modern feel */
+  --radius-sm: 16px;
+  --radius-md: 24px;
+  --radius-lg: 32px;
+  --radius-pill: 9999px;
+
+  /* SPACING - Gaps for the Bento grid */
+  --grid-gap: 16px;
+  --screen-padding: 24px;
+  
+  /* TYPOGRAPHY */
+  --font-family-base: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  
+  /* Z-INDEX */
+  --z-nav: 1000;
+  --z-modal: 2000;
+}
+
+/* Global Mobile Responsiveness Adjustments */
+@media (max-width: 768px) {
+  :root {
+    --screen-padding: 12px;
+    --grid-gap: 12px;
+    --radius-md: 16px;
+    --radius-lg: 20px;
+  }
+  
+  h1 { font-size: 1.8rem !important; }
+  h2 { font-size: 1.4rem !important; }
+  
+  .bento-main {
+    padding: var(--screen-padding) !important;
+    gap: 16px !important;
+  }
+  
+  .bento-tile, .settings-bento-card, .bento-timesheet-card {
+    padding: 16px !important;
+  }
+  
+  .bento-value {
+    font-size: 24px !important;
+  }
+  
+  .bento-user-greeting h1 {
+    font-size: 32px !important;
+  }
+  
+  .bento-timesheet-totals {
+    padding: 20px !important;
+  }
+  
+  .bento-timesheet-totals .totals-value {
+    font-size: 2.5rem !important;
+  }
+}
+
+/* Premium Light Mode Overrides */
+:root[data-theme="light"],
+html[data-theme="light"],
+body[data-theme="light"],
+div[data-theme="light"],
+.bento-theme[data-theme="light"] {
+  --bg-primary: #F8FAFC !important; /* Off-white / light gray */
+  --bg-secondary: #FFFFFF !important; /* Solid white surfaces */
+  --bg-tertiary: #F1F5F9 !important;
+  --bg-nav: rgba(255, 255, 255, 0.9) !important;
+  --glass-border: 1px solid rgba(0, 0, 0, 0.05) !important;
+  --glass-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important; /* Subtle drop shadow */
+  --text-primary: #1E293B !important; /* Very dark gray */
+  --text-secondary: #64748B !important; /* Medium gray */
+  --text-tertiary: #94A3B8 !important;
+  --color-surface: rgba(255, 255, 255, 0.7) !important;
+  --color-bg: #F3F4F6 !important;
+  --border-light: rgba(0, 0, 0, 0.05) !important;
+  --border-accent: rgba(99, 102, 241, 0.2) !important;
+}
+
+/* Global Reset overrides for the new design */
+.bento-theme, body {
+  background-color: var(--bg-primary) !important;
+  background-image: radial-gradient(circle at 15% 50%, rgba(0, 240, 255, 0.05), transparent 25%),
+                    radial-gradient(circle at 85% 30%, rgba(0, 240, 255, 0.08), transparent 25%);
+  background-attachment: fixed;
+  color: var(--text-primary) !important;
+  font-family: var(--font-family-base) !important;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Light mode specific body background */
+body[data-theme="light"], 
+.bento-theme[data-theme="light"] {
+  background-image: radial-gradient(circle at 15% 50%, rgba(0, 240, 255, 0.03), transparent 25%),
+                    radial-gradient(circle at 85% 30%, rgba(0, 240, 255, 0.04), transparent 25%) !important;
+}
+
+/* Common Tile Styles for Glassmorphism */
+.glass-panel {
+  background: var(--bg-secondary);
+  backdrop-filter: var(--glass-backdrop-filter);
+  -webkit-backdrop-filter: var(--glass-backdrop-filter);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-md);
+}

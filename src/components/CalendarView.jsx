@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
-import '../styles/calendar-view.css';
+import './bento-calendar.css';
 
 function CalendarView({ entries, onDateClick, onEntryClick }) {
   const [value, onChange] = useState(new Date());
@@ -22,19 +22,19 @@ function CalendarView({ entries, onDateClick, onEntryClick }) {
     if (!entry) return null;
     switch (entry.type) {
       case 'Regular':
-        return 'var(--color-success)';
+        return 'var(--accent-green)';
       case 'Vacation':
-        return '#9b59b6'; // Purple
+        return 'var(--accent-violet)';
       case 'Sick Leave':
-        return 'var(--color-error)';
+        return 'var(--accent-rose)';
       case 'Holiday':
-        return 'var(--color-warning)';
+        return '#F59E0B'; // Amber
       case 'Leave':
-        return 'var(--color-info)';
+        return 'var(--text-tertiary)';
       case 'To Be Added':
-        return 'var(--color-text-secondary)';
+        return 'var(--text-secondary)';
       default:
-        return 'var(--color-text)';
+        return 'var(--text-primary)';
     }
   };
 
@@ -127,27 +127,26 @@ function CalendarView({ entries, onDateClick, onEntryClick }) {
 
   return (
     <div className="calendar-view-container">
-      <div className="calendar-header">
-        <h3>📅 Calendar View</h3>
+      <div className="bento-calendar-header">
         <div className="calendar-legend">
           <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: 'var(--color-success)' }}></span>
+            <span className="legend-color" style={{ backgroundColor: 'var(--accent-green)' }}></span>
             <span className="legend-label">Regular</span>
           </div>
           <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: '#9b59b6' }}></span>
+            <span className="legend-color" style={{ backgroundColor: 'var(--accent-violet)' }}></span>
             <span className="legend-label">Vacation</span>
           </div>
           <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: 'var(--color-error)' }}></span>
+            <span className="legend-color" style={{ backgroundColor: 'var(--accent-rose)' }}></span>
             <span className="legend-label">Sick Leave</span>
           </div>
           <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: 'var(--color-warning)' }}></span>
+            <span className="legend-color" style={{ backgroundColor: '#F59E0B' }}></span>
             <span className="legend-label">Holiday</span>
           </div>
           <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: 'var(--color-info)' }}></span>
+            <span className="legend-color" style={{ backgroundColor: 'var(--text-tertiary)' }}></span>
             <span className="legend-label">Leave</span>
           </div>
         </div>

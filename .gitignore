@@ -87,3 +87,6 @@ pids
 .vscode/settings.json
 .vscode/launch.json
 .vscode/extensions.json
+
+# Settings screen redesign mockups
+settings screen redesign/

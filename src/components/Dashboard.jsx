@@ -8,6 +8,7 @@ import ViewHoursModal from './ViewHoursModal';
 import VacationDetailsModal from './VacationDetailsModal';
 import LeaveCalculator from './LeaveCalculator';
 import DashboardSkeleton from './DashboardSkeleton';
+import './bento-dashboard.css';
 
 const toFiniteNumber = (value, fallback = 0) => {
   const parsed = Number(value);
@@ -37,14 +38,12 @@ function Dashboard() {
   const [vacationModalType, setVacationModalType] = useState(null);
   const [showOvertimeInHoursMinutes, setShowOvertimeInHoursMinutes] = useState(false);
 
-  // Temporary delay to test skeleton loading
-  const [isLoading, setIsLoading] = useState(true); // Set to true to show skeleton initially
+  const [isLoading, setIsLoading] = useState(true);
   
   React.useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 2000); // 2 seconds
-    
+    }, 1000); 
     return () => clearTimeout(timer);
   }, []);
 
@@ -52,36 +51,16 @@ function Dashboard() {
     return getCurrentPeriod();
   }, [getCurrentPeriod]);
 
-  // Calculate vacation stats
-  const periodEntries = useMemo(() => {
-    if (!currentPeriod) return [];
-    
-    const periodStart = currentPeriod.start_date || currentPeriod.start;
-    const periodEnd = currentPeriod.end_date || currentPeriod.end;
-    
-    return entries.filter(entry => {
-      const entryDate = new Date(entry.date);
-      return entryDate >= new Date(periodStart) && entryDate <= new Date(periodEnd);
-    });
-  }, [entries, currentPeriod]);
-
-  // Check if user is already checked in
   const isCheckedIn = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     const todayEntry = entries.find(e => e.date === today);
-    
     if (!todayEntry || !todayEntry.intervals) return false;
-    
     return todayEntry.intervals.some(interval => interval.in && !interval.out);
   }, [entries]);
 
-
-  // ✅ Memoize leave statistics (YEAR-BASED)
   const leaveStats = useMemo(() => {
     const annualVacation = toFiniteNumber(leaveSettings?.annualVacation, 10);
     const sickDaysLimit = toFiniteNumber(leaveSettings?.sickDays, 7);
-
-    // Filter all entries for the current year
     const currentYear = new Date().getFullYear();
     const yearlyEntries = entries.filter(e => {
       const entryDate = new Date(e.date);
@@ -91,11 +70,9 @@ function Dashboard() {
     const vacationTaken = yearlyEntries
       .filter(e => e.type === 'Vacation')
       .reduce((sum, e) => sum + (e.duration || 1), 0);
-
     const toBeAdded = yearlyEntries
       .filter(e => e.type === 'To Be Added')
       .reduce((sum, e) => sum + (e.duration || 1), 0);
-
     const sickUsed = yearlyEntries
       .filter(e => e.type === 'Sick Leave')
       .reduce((sum, e) => sum + (e.duration || 1), 0);
@@ -103,54 +80,32 @@ function Dashboard() {
     const vacationBalance = annualVacation - vacationTaken + toBeAdded;
     const sickBalance = sickDaysLimit - sickUsed;
 
-    return {
-      annualVacation,
-      sickDaysLimit,
-      vacationTaken,
-      toBeAdded,
-      sickUsed,
-      vacationBalance,
-      sickBalance
-    };
+    return { vacationBalance, sickBalance };
   }, [entries, leaveSettings]);
 
-  // Destructure for use in JSX
-  const {
-    annualVacation,
-    sickDaysLimit,
-    vacationTaken,
-    toBeAdded,
-    sickUsed,
-    vacationBalance,
-    sickBalance,
-  } = leaveStats;
+  const { vacationBalance, sickBalance } = leaveStats;
 
-  // Calculate overtime
   const overtimeDetails = useMemo(() => {
     if (!calculateOvertimeDetails || !currentPeriod) {
       return { totalHoursWorked: 0, totalExtraHours: 0, totalExtraHoursWithFactor: 0 };
     }
-    
     const periodStart = currentPeriod.start_date || currentPeriod.start;
     const periodEnd = currentPeriod.end_date || currentPeriod.end;
-    
     return calculateOvertimeDetails(entries, periodStart, periodEnd);
   }, [entries, currentPeriod, calculateOvertimeDetails]);
 
   const overtime = overtimeDetails.totalExtraHoursWithFactor;
   
-  // Salary calculation (2/3 of salary)
   const salaryData = useMemo(() => {
     const salaryDivided = employee.salary / 3;
     const salaryTwoThird = salaryDivided * 2;
     const employeeHourCost = salaryTwoThird / employee.monthlyHours;
     const overtimeMoney = overtime * employeeHourCost;
     const totalSalary = employee.salary + overtimeMoney;
-
     return { overtimeMoney, totalSalary };
   }, [employee.salary, overtime]);
 
-  const { overtimeMoney, totalSalary } = salaryData;
+  const { totalSalary } = salaryData;
   
   const formatOvertime = (hoursDecimal) => {
     if (!showOvertimeInHoursMinutes) {
@@ -170,215 +125,135 @@ function Dashboard() {
   }
 
   return (
-    <main className="main-content">
-      <h1>Dashboard</h1>
-
-      {/* Employee Info Card */}
-      <div className="employee-card">
-        <div className="employee-name-container">
-          <div className="hide-salary-section">
-            <button 
-              className="btn-icon" 
-              title="Toggle salary visibility"
-              onClick={() => {
-                hapticFeedback.toggleSwitch();
-                setHideSalary(!hideSalary);
-              }}
-            >
-              <i className={`fa-solid ${hideSalary ? 'fa-eye' : 'fa-eye-slash'}`}></i>
-            </button>
-            <h2>{employee.name || 'Enter Employee Name in Settings Tab...'}</h2>
-          </div>
-        </div>
-
-        <p>
-          Month: <span className="current-next-month"><strong>{currentPeriod?.label || 'No Period'}</strong></span>
-        </p>
-
-        <div className="overtime-section">
-          <p>
-            Overtime: <span 
-              className="overtime-hours-amount" 
-              style={{color: overtime >= 0 ? '#80FF00' : '#FF9696', cursor: 'pointer'}}
-              onClick={() => {
-                hapticFeedback.buttonClick();
-                setShowOvertimeInHoursMinutes(!showOvertimeInHoursMinutes);
-              }}
-              title="Click to toggle format"
-            >
-              <strong>{formatOvertime(overtime)}</strong>
-            </span>
-          </p>
-          <p>
-            Overtime into Money: 
-            <span 
-              className="overtime-money-amount" 
-              style={{
-                color: overtimeMoney >= 0 ? '#80FF00' : '#FF9696',
-                filter: hideSalary ? 'blur(8px)' : 'none',
-                transition: 'filter 0.3s ease'
-              }}
-            >
-              <strong>{hideSalary ? '******' : ` ${overtimeMoney.toFixed(2)} L.E.`}</strong>
-            </span>
-          </p>
-        </div>
-
-        <div className="salary-section">
-          <p>
-            Base Salary: 
-            <span 
-              className="salary-amount"
-              style={{
-                filter: hideSalary ? 'blur(8px)' : 'none',
-                transition: 'filter 0.3s ease'
-              }}
-            >
-              {hideSalary ? '******' : ` ${employee.salary.toLocaleString()} L.E.`}
-            </span>
-          </p>
-          <p>
-            Total Salary: 
-            <span 
-              className="salary-amount"
-              style={{
-                filter: hideSalary ? 'blur(8px)' : 'none',
-                transition: 'filter 0.3s ease'
-              }}
-            >
-              {hideSalary ? '******' : ` ${totalSalary.toLocaleString()} L.E.`}
-            </span>
-          </p>
-        </div>
+    <main className="bento-main">
+      <div className="bento-header-section">
+        <h1>{employee.name ? `Hi, ${employee.name.split(' ')[0]}` : 'Dashboard'}</h1>
+        <p>{currentPeriod?.label || 'No Period'}</p>
       </div>
 
-      {/* Manual Time Actions */}
-      <div className="manual-time-actions">
-        <button 
-          className="btn btn-secondary manual-check-in-btn"
-          onClick={() => {
-            hapticFeedback.buttonClick();
-            setShowManualIn(true);
-          }}
-        >
-          Manual In
-        </button>
-        <button 
-          className="btn btn-secondary manual-check-out-btn"
-          onClick={() => {
-            hapticFeedback.buttonClick();
-            setShowManualOut(true);
-          }}
-        >
-          Manual Out
-        </button>
-        <button 
-          className="btn btn-secondary add-break-btn"
-          onClick={() => {
-            hapticFeedback.buttonClick();
-            setShowAddBreak(true);
-          }}
-        >
-          Add Break
-        </button>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="quick-actions">
-        <button 
-          className={`btn btn-primary ${isCheckedIn ? 'disabled' : ''}`}
+      <div className="bento-grid">
+        {/* Massive Hero Check-In Tile */}
+        <div 
+          className={`bento-tile tile-hero col-span-4 row-span-2 ${isCheckedIn ? 'active' : ''}`} 
           onClick={() => {
             if (!isCheckedIn) {
               hapticFeedback.checkIn();
               checkIn();
             }
           }}
-          disabled={isCheckedIn}
-        >Check In</button>
-        <button 
-          className={`btn btn-primary ${!isCheckedIn ? 'btn-disabled' : ''}`}
-          onClick={() => {
-            hapticFeedback.checkOut();
-            checkOut();
-          }}
-          disabled={!isCheckedIn}
-          title={!isCheckedIn ? 'You must check in first' : 'Check out'}
-        >Check Out</button>
-        <button className="btn btn-secondary" onClick={() => {
-          hapticFeedback.buttonClick();
-          setShowAddDay(true);
-        }}>Add Day</button>
-        <button className="btn btn-outline" onClick={() => {
-          hapticFeedback.buttonClick();
-          setShowViewHours(true);
-        }}>View Hours</button>
-      </div>
-
-      {/* Leave Calculator Button */}
-      <div className="full-width-button-container" style={{ marginBottom: '1rem' }}>
-        <button className="btn btn-outline full-width" onClick={() => {
-          hapticFeedback.buttonClick();
-          const today = new Date().toISOString().split('T')[0];
-          setCalculatorDate(today);
-          setShowLeaveCalculator(true);
-        }}>🧮 Leave Calculator</button>
-      </div>
-
-      {/* Vacation Cards */}
-      <div className="vacation-cards">
-        {/* Vacation Card */}
-        <div className="vacation-card-redesigned">
-          <div className="vacation-top-section">
-            <div className="vacation-stat">
-              <span className="stat-label">Official Balance</span>
-              <span className="stat-value">{annualVacation}</span>
-            </div>
-            <div 
-              className="vacation-stat clickable-stat"
-              onClick={() => setVacationModalType('vacation-taken')}
-              style={{cursor: 'pointer'}}
-              title="Click to view details"
-            >
-              <span className="stat-label">Taken Days</span>
-              <span className="stat-value" style={{color: '#FF9696'}}>{vacationTaken}</span>
-            </div>
-            <div 
-              className="vacation-stat clickable-stat"
-              onClick={() => setVacationModalType('vacation-to-be-added')}
-              style={{cursor: 'pointer'}}
-              title="Click to view details"
-            >
-              <span className="stat-label">To Be Added</span>
-              <span className="stat-value" style={{color: '#80FF00'}}>{toBeAdded}</span>
-            </div>
-          </div>
-          <div className="vacation-bottom-section">
-            <span className="balance-label">Current Available Balance</span>
-            <span className="balance-value">{vacationBalance.toFixed(1)}</span>
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <i className={`fa-solid ${isCheckedIn ? 'fa-spinner fa-spin' : 'fa-play'}`}></i>
+            <span>{isCheckedIn ? 'Tracking...' : 'Check In'}</span>
           </div>
         </div>
 
-        {/* Sick Days Card */}
-        <div className="vacation-card-redesigned">
-          <div className="vacation-top-section double-stat">
-            <div className="vacation-stat">
-              <span className="stat-label">Sick Days Balance</span>
-              <span className="stat-value">{sickDaysLimit}</span>
-            </div>
-            <div 
-              className="vacation-stat clickable-stat"
-              onClick={() => setVacationModalType('sick-used')}
-              style={{cursor: 'pointer'}}
-              title="Click to view details"
-            >
-              <span className="stat-label">Days Used</span>
-              <span className="stat-value" style={{color: '#FF9696'}}>{sickUsed}</span>
-            </div>
+        {/* Overtime Tile */}
+        <div 
+          className="bento-tile col-span-2 row-span-1 mobile-square"
+          onClick={() => {
+            hapticFeedback.buttonClick();
+            setShowOvertimeInHoursMinutes(!showOvertimeInHoursMinutes);
+          }}
+        >
+          <span className="bento-label">Overtime</span>
+          <span className={`bento-value ${overtime >= 0 ? 'text-green' : 'text-pink'}`}>
+            {formatOvertime(overtime)}
+          </span>
+        </div>
+
+        {/* Salary Tile */}
+        <div className="bento-tile col-span-2 row-span-1 mobile-square">
+          <span className="bento-label">Est. Salary</span>
+          <span className="bento-value text-cyan" style={{ filter: hideSalary ? 'blur(10px)' : 'none', opacity: hideSalary ? 0.5 : 1 }}>
+            {hideSalary ? '£0,000' : `£${totalSalary.toLocaleString()}`}
+          </span>
+          <button 
+            className="bento-eye-btn" 
+            onClick={(e) => {
+              e.stopPropagation();
+              hapticFeedback.toggleSwitch();
+              setHideSalary(!hideSalary);
+            }}
+          >
+            <i className={`fa-solid ${hideSalary ? 'fa-eye' : 'fa-eye-slash'}`}></i>
+          </button>
+        </div>
+
+        {/* Leave Balances (Moved up for mobile layout) */}
+        <div 
+          className="bento-tile col-span-3 flex-row-between mobile-square" 
+          onClick={() => { hapticFeedback.buttonClick(); setVacationModalType('vacation-taken'); }}
+        >
+          <div className="mobile-center-content">
+            <span className="bento-label">Vacation</span>
+            <span className="bento-value text-cyan">{vacationBalance.toFixed(1)}</span>
           </div>
-          <div className="vacation-bottom-section">
-            <span className="balance-label">Current Available Balance</span>
-            <span className="balance-value">{sickBalance.toFixed(1)}</span>
+          <i className="fa-solid fa-plane text-cyan" style={{ fontSize: '24px', opacity: 0.5 }}></i>
+        </div>
+        
+        <div 
+          className="bento-tile col-span-3 flex-row-between mobile-square" 
+          onClick={() => { hapticFeedback.buttonClick(); setVacationModalType('sick-used'); }}
+        >
+          <div className="mobile-center-content">
+            <span className="bento-label">Sick</span>
+            <span className="bento-value text-cyan">{sickBalance.toFixed(1)}</span>
           </div>
+          <i className="fa-solid fa-briefcase-medical text-cyan" style={{ fontSize: '24px', opacity: 0.5 }}></i>
+        </div>
+
+        {/* Action Row */}
+        <div className="bento-tile tile-action col-span-2" onClick={() => { hapticFeedback.buttonClick(); setShowManualIn(true); }}>
+          <i className="fa-solid fa-clock"></i>
+          <span>Manual In</span>
+        </div>
+        <div className="bento-tile tile-action col-span-2" onClick={() => { hapticFeedback.buttonClick(); setShowManualOut(true); }}>
+          <i className="fa-regular fa-clock"></i>
+          <span>Manual Out</span>
+        </div>
+        <div className="bento-tile tile-action col-span-2" onClick={() => { hapticFeedback.buttonClick(); setShowAddBreak(true); }}>
+          <i className="fa-solid fa-mug-hot"></i>
+          <span>Break</span>
+        </div>
+
+        {/* Check Out Tile */}
+        <div 
+          className={`bento-tile tile-danger col-span-4 ${!isCheckedIn ? 'disabled' : ''}`}
+          onClick={() => {
+            if (isCheckedIn) {
+              hapticFeedback.checkOut();
+              checkOut();
+            }
+          }}
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '12px' }}
+        >
+          <i className="fa-solid fa-stop" style={{ fontSize: '28px', color: 'var(--accent-hot-pink)' }}></i>
+          <span style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-primary)' }}>Stop Timer</span>
+        </div>
+
+        {/* Insights Tile */}
+        <div className="bento-tile tile-action col-span-2" onClick={() => { hapticFeedback.buttonClick(); setShowViewHours(true); }}>
+          <i className="fa-solid fa-chart-pie text-cyan"></i>
+          <span>Insights</span>
+        </div>
+
+        {/* Bottom Actions */}
+        <div className="bento-tile tile-action col-span-3 flex-row-between" onClick={() => { hapticFeedback.buttonClick(); setShowAddDay(true); }}>
+          <span style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)' }}>Add Day</span>
+          <i className="fa-solid fa-plus text-green"></i>
+        </div>
+        <div 
+          className="bento-tile tile-action col-span-3 flex-row-between" 
+          onClick={() => {
+            hapticFeedback.buttonClick();
+            const today = new Date().toISOString().split('T')[0];
+            setCalculatorDate(today);
+            setShowLeaveCalculator(true);
+          }}
+        >
+          <span style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)' }}>Calculator</span>
+          <i className="fa-solid fa-calculator text-pink"></i>
         </div>
       </div>
 

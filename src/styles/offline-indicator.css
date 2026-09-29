@@ -20,9 +20,9 @@
 }
 
 .offline-indicator.offline-status {
-  background-color: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #ef4444;
+  background-color: rgba(255, 0, 128, 0.2);
+  border-color: rgba(255, 0, 128, 0.3);
+  color: #ff0080;
   animation: pulse 2s infinite;
 }
 
@@ -62,7 +62,7 @@
 }
 
 .queued-count {
-  background-color: rgba(239, 68, 68, 0.8);
+  background-color: rgba(255, 0, 128, 0.8);
   color: white;
   border-radius: 10px;
   padding: 2px 6px;
@@ -119,10 +119,10 @@
   top: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(135deg, #dc2626, #ef4444);
+  background: linear-gradient(135deg, #dc2626, #ff0080);
   color: white;
   z-index: 1000;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 4px 12px rgba(255, 0, 128, 0.3);
   animation: slideDown 0.3s ease-out;
 }
 
@@ -324,7 +324,7 @@
   top: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(135deg, #dc2626, #ef4444);
+  background: linear-gradient(135deg, #dc2626, #ff0080);
   color: white;
   z-index: 999;
   display: flex;
@@ -334,7 +334,7 @@
   padding: 6px 12px;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 2px 8px rgba(255, 0, 128, 0.3);
   animation: slideDown 0.3s ease-out;
 }
 
@@ -428,8 +428,8 @@
 }
 
 [data-theme="dark"] .offline-indicator.offline-status {
-  background-color: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.25);
+  background-color: rgba(255, 0, 128, 0.15);
+  border-color: rgba(255, 0, 128, 0.25);
 }
 
 [data-theme="dark"] .offline-indicator.slow-connection-status {

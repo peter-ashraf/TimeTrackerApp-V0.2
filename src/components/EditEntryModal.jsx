@@ -235,17 +235,19 @@ function EditEntryModal({ entry, onClose }) {
 
   return (
     <>
-    <ModalShell onClose={onClose} contentClassName="edit-entry-modal" closeOnOverlay={false}>
+    <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="edit-entry-modal">
       <div className="modal-header">
-        <h2>✏️ Edit Entry - {entry.date}</h2>
+        <h2>Edit Entry: {entry.date}</h2>
       </div>
-      <div className="modal-body">
-        <div className="form-group">
-          <label className="form-label">Type</label>
+      <div className="modal-body bento-modal-grid">
+        
+        {/* Entry Type */}
+        <div className="bento-modal-card full-width">
+          <div className="bento-modal-card-label">📁 Entry Type</div>
           <CustomSelect
             id="entry-type-select"
             name="type"
-            value={editedEntry.type}
+            value={editedEntry.type || 'Regular'}
             onChange={(e) => setEditedEntry({ ...editedEntry, type: e.target.value })}
             options={[
               { label: 'Regular', value: 'Regular' },
@@ -255,135 +257,71 @@ function EditEntryModal({ entry, onClose }) {
               { label: 'Leave', value: 'Leave' },
               { label: 'To Be Added', value: 'To Be Added' }
             ]}
+            className="bento-modal-card-input"
           />
         </div>
 
         {editedEntry.type === 'Regular' && (
-          <>
-            <h4>⏰ Time Intervals</h4>
-            <p className="help-text">
-              Use 24-hour format with seconds: <strong>HH:MM:SS</strong> (e.g., 08:30:00, 17:45:30)
-              <br />
-              <small>💡 Tip: Click the clock icon to pick time with seconds</small>
-            </p>
+          <div className="bento-modal-card full-width">
+            <div className="bento-modal-card-label">⏱️ Time Intervals</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {editedEntry.intervals.map((interval, index) => {
+                const isFirst = index === 0;
+                const firstLabel = isFirst ? 'Check In' : 'Break End';
+                const secondLabel = isFirst ? 'Check Out (or Break Start)' : 'Check Out';
 
-            {editedEntry.intervals.map((interval, index) => {
-              const isMainWork = index === 0;
-              // SWAPPED LABELS: Main is In/Out, Breaks are Out/In
-              const firstLabel = isMainWork ? 'CHECK IN' : 'CHECK OUT';
-              const secondLabel = isMainWork ? 'CHECK OUT' : 'CHECK IN';
+                return (
+                  <div key={index} style={{ background: 'rgba(0,0,0,0.15)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', position: 'relative' }}>
+                    
+                    <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+                      {/* Check In */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{firstLabel}</div>
+                        <input
+                          type="time"
+                          step="1"
+                          className="bento-modal-card-input"
+                          value={isValidTime(interval.in) || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(interval.in) ? interval.in : ''}
+                          onChange={(e) => handleTimePickerChange(index, 'in', e.target.value)}
+                          style={{ margin: 0, width: '100%', boxSizing: 'border-box' }}
+                        />
+                      </div>
 
-              return (
-                <div key={index} className="form-group interval-group">
-                  <label className="interval-label">
-                    {index === 0 ? '🕐 Main Work Hours' : `☕ Break ${index}`}
-                  </label>
-                  
-                  {/* Check In */}
-                  <div className="time-input-wrapper">
-                    <label className="time-input-label">{firstLabel}</label>
-                    <div className="time-input-with-picker">
-                      <input
-                        type="text"
-                        className="form-control time-input-text"
-                        placeholder="08:30:00"
-                        value={interval.in || ''}
-                        onChange={(e) => handleIntervalChange(index, 'in', e.target.value)}
-                        maxLength="8"
-                      />
-                      <button
-                        type="button"
-                        className="time-picker-button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.currentTarget.nextElementSibling.showPicker();
-                        }}
-                        title="Pick time"
-                      >
-                        🕐
-                      </button>
-                      <input
-                        type="time"
-                        step="1"
-                        className="time-picker-input"
-                        value={
-                          isValidTime(interval.in) ||
-                            /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(interval.in)
-                            ? interval.in
-                            : ''
-                        }
-                        onChange={(e) => handleTimePickerChange(index, 'in', e.target.value)}
-                        title="Pick time (HH:MM:SS)"
-                      />
+                      {/* Check Out */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{secondLabel}</div>
+                        <input
+                          type="time"
+                          step="1"
+                          className="bento-modal-card-input"
+                          value={isValidTime(interval.out) || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(interval.out) ? interval.out : ''}
+                          onChange={(e) => handleTimePickerChange(index, 'out', e.target.value)}
+                          style={{ margin: 0, width: '100%', boxSizing: 'border-box' }}
+                        />
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Check Out */}
-                  <div className="time-input-wrapper">
-                    <label className="time-input-label">{secondLabel}</label>
-                    <div className="time-input-with-picker">
-                      <input
-                        type="text"
-                        className="form-control time-input-text"
-                        placeholder="17:45:00"
-                        value={interval.out || ''}
-                        onChange={(e) => handleIntervalChange(index, 'out', e.target.value)}
-                        maxLength="8"
-                      />
+                    
+                    {editedEntry.intervals.length > 1 && (
                       <button
-                        type="button"
-                        className="time-picker-button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.currentTarget.nextElementSibling.showPicker();
-                        }}
-                        title="Pick time"
-                      >
-                        🕐
-                      </button>
-                      <input
-                        type="time"
-                        step="1"
-                        className="time-picker-input"
-                        value={
-                          isValidTime(interval.out) ||
-                            /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(interval.out)
-                            ? interval.out
-                            : ''
-                        }
-                        onChange={(e) => handleTimePickerChange(index, 'out', e.target.value)}
-                        title="Pick time (HH:MM:SS)"
-                      />
-                    </div>
+                        onClick={() => removeInterval(index)}
+                        style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: 'none', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '12px' }}
+                        title="Remove interval"
+                      >✕</button>
+                    )}
                   </div>
-                  {!isValidTime(interval.in) && interval.in && (
-                    <small className="error-text">Invalid format. Use HH:MM:SS</small>
-                  )}
-                  {!isValidTime(interval.out) && interval.out && (
-                    <small className="error-text">Invalid format. Use HH:MM:SS</small>
-                  )}
-                  {editedEntry.intervals.length > 1 && (
-                    <button
-                      className="btn btn-sm btn-danger remove-interval-btn"
-                      onClick={() => removeInterval(index)}
-                      title="Remove interval"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-
-            <button className="btn btn-secondary add-interval-btn" onClick={addInterval}>
+                )
+              })}
+            </div>
+            
+            <button className="btn-secondary" onClick={addInterval} style={{ marginTop: '16px', background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px dashed rgba(255,255,255,0.2)', padding: '12px', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s', width: '100%', fontWeight: 600 }}>
               + Add Break Interval
             </button>
-          </>
+          </div>
         )}
 
         {editedEntry.type !== 'Regular' && (
-          <div className="form-group">
-            <label className="form-label">Duration</label>
+          <div className="bento-modal-card full-width">
+            <div className="bento-modal-card-label">⏳ Duration</div>
             <CustomSelect
               id="entry-duration-select"
               name="duration"
@@ -393,29 +331,30 @@ function EditEntryModal({ entry, onClose }) {
                 { label: 'Half Day', value: 0.5 },
                 { label: 'Full Day', value: 1 }
               ]}
+              className="bento-modal-card-input"
             />
           </div>
         )}
 
-        <div className="form-group">
-          <label className="form-label">Notes</label>
+        {/* Notes */}
+        <div className="bento-modal-card full-width">
+          <div className="bento-modal-card-label">📝 Notes</div>
           <textarea
-            className="form-control"
-            placeholder="Add notes (optional)"
+            className="bento-modal-card-input"
+            placeholder="Add notes..."
             rows="3"
             value={editedEntry.notes || ''}
             onChange={(e) => setEditedEntry({ ...editedEntry, notes: e.target.value })}
+            style={{ resize: 'none' }}
           />
         </div>
       </div>
 
       <div className="modal-footer">
-        <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </button>
-        </div>
+        <button className="btn-secondary bento-modal-btn-outline" onClick={(e) => { const modal = e.target.closest('.bento-modal-overlay'); if (modal) { modal.classList.add('closing'); const content = modal.querySelector('.modal-content'); if (content) content.classList.add('closing'); } setTimeout(onClose, 350); }}>Cancel</button>
+        <button className="btn-primary bento-modal-btn-glow" onClick={handleSave} disabled={isSaving}>
+          {isSaving ? 'Saving...' : 'Save Changes'}
+        </button>
       </div>
     </ModalShell>
     <AlertModal

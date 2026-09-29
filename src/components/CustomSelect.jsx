@@ -8,7 +8,8 @@ const CustomSelect = ({
     id,
     name,
     disabled = false,
-    placeholder = 'Select an option'
+    placeholder = 'Select an option',
+    dropUp = false
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef(null);
@@ -38,7 +39,7 @@ const CustomSelect = ({
 
     return (
         <div
-            className={`custom-select-container ${isOpen ? 'open' : ''} ${disabled ? 'disabled' : ''}`}
+            className={`custom-select-container ${isOpen ? 'open' : ''} ${disabled ? 'disabled' : ''} ${dropUp ? 'drop-up' : ''}`}
             ref={containerRef}
             id={id}
         >

@@ -65,74 +65,71 @@ function AddBreakModal({ onClose }) {
 
   return (
     <>
-      <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="add-break-modal">
-      <div className="modal-header">
-        <h2>Add Break</h2>
-      </div>
-      <div className="modal-body">
-        <div className="form-group">
-          <label className="form-label">Date</label>
-          <input
-            type="date"
-            className="form-control"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-          />
+      <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="add-break-modal" title="Add Break">
+        <div className="modal-header">
+          <h2>Add Break</h2>
         </div>
-
-        <div className="form-group interval-group">
-          <label>Break Times</label>
+        <div className="modal-body bento-modal-grid">
           
-          <div className="time-input-wrapper">
-            <label className="time-input-label">Break Start</label>
+          <div className="bento-modal-card full-width">
+            <div className="bento-modal-card-label">📅 Date</div>
+            <input
+              type="date"
+              className="bento-modal-card-input"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+            />
+          </div>
+
+          <div className="bento-modal-card">
+            <div className="bento-modal-card-label">☕ Break Start</div>
             <input
               type="time"
-              className="form-control"
-              placeholder="Break Start"
+              className="bento-modal-card-input"
               value={breakStart}
               onChange={(e) => setBreakStart(e.target.value)}
             />
           </div>
 
-          <div className="time-input-wrapper">
-            <label className="time-input-label">Break End</label>
+          <div className="bento-modal-card">
+            <div className="bento-modal-card-label">✅ Break End</div>
             <input
               type="time"
-              className="form-control"
-              placeholder="Break End"
+              className="bento-modal-card-input"
               value={breakEnd}
               onChange={(e) => setBreakEnd(e.target.value)}
             />
           </div>
-        </div>
 
-        <div className="form-group">
-          <label className="form-label">Notes (optional)</label>
-          <textarea
-            className="form-control"
-            placeholder="Add notes about this break (optional)"
-            rows="3"
-            value={breakNotes}
-            onChange={(e) => setBreakNotes(e.target.value)}
-          />
+          <div className="bento-modal-card full-width">
+            <div className="bento-modal-card-label">📝 Notes</div>
+            <input
+              type="text"
+              className="bento-modal-card-input"
+              placeholder="e.g. Lunch"
+              value={breakNotes}
+              onChange={(e) => setBreakNotes(e.target.value)}
+            />
+          </div>
+          
         </div>
-      </div>
-
-      <div className="modal-footer">
-        <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave}>Add Break</button>
+        <div className="modal-footer">
+          <button className="btn-secondary bento-modal-btn-outline" onClick={(e) => { const modal = e.target.closest('.bento-modal-overlay'); if (modal) { modal.classList.add('closing'); const content = modal.querySelector('.modal-content'); if (content) content.classList.add('closing'); } setTimeout(onClose, 350); }}>
+            Cancel
+          </button>
+          <button className="btn-primary bento-modal-btn-glow" onClick={handleSave}>
+            Save Break
+          </button>
         </div>
-      </div>
-    </ModalShell>
-    
-    <AlertModal
-      isOpen={alertModal.isOpen}
-      message={alertModal.message}
-      type={alertModal.type}
-      onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
-    />
-  </>
+      </ModalShell>
+      {alertModal.isOpen && (
+        <AlertModal
+          message={alertModal.message}
+          type={alertModal.type}
+          onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        />
+      )}
+    </>
   );
 }
 

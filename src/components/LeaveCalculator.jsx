@@ -2,9 +2,20 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 import '../styles/leave-calculator.css';
+import CustomSelect from './CustomSelect';
 
 const LeaveCalculator = ({ selectedDate, onClose }) => {
   const { entries, employee, getCurrentPeriod, calculateOvertimeDetails } = useTimeTracker();
+
+  const handleCancel = (e) => {
+    const modal = e.target.closest('.bento-modal-overlay');
+    if (modal) {
+      modal.classList.add('closing');
+      const content = modal.querySelector('.modal-content');
+      if (content) content.classList.add('closing');
+    }
+    setTimeout(onClose, 350);
+  };
   
   // Calculator mode: 'forward' (check-in + leave time → balance) or 'reverse' (overtime → leave time)
   const [calcMode, setCalcMode] = useState('forward');
@@ -21,6 +32,7 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
   const [overtimeMode, setOvertimeMode] = useState('spend'); // 'spend' or 'keep'
   const [userBreakMinutes, setUserBreakMinutes] = useState(0);
   const [plannedBreakStartTime, setPlannedBreakStartTime] = useState('13:00');
+  const [showBreakDetails, setShowBreakDetails] = useState(false);
   
   // Calculation results
   const [projectedWorkedMinutes, setProjectedWorkedMinutes] = useState(0);
@@ -417,258 +429,243 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
   }
 
   return (
-    <ModalShell isOpen={true} onClose={onClose} title="Leave Time Calculator">
-      <div className="modal-header"><h2>Leave Calculator</h2></div>
-      <div className="modal-body leave-calculator">
-        {/* Date Display */}
-        <div className="calculator-section">
-          <label className="calculator-label">Selected Date</label>
-          <div className="calculator-value">{selectedDate}</div>
-        </div>
-
-        {/* Required Daily Duration */}
-        <div className="calculator-section">
-          <label className="calculator-label">Required Daily Duration</label>
-          <div className="calculator-value">
-            {formatMinutesAsHours(requiredDailyMinutes)}
-            <span className="calculator-hint">
-              {employee.employeeType === 'part-time' ? ' (Part-time)' : ' (Full-time)'}
-            </span>
-          </div>
-        </div>
-
-        {/* Break Duration */}
-        <div className="calculator-section">
-          <label className="calculator-label">Expected Break Duration (minutes)</label>
-          <div className="calculator-input-group">
-            <input
-              type="number"
-              className="calculator-input"
-              value={userBreakMinutes === 0 ? '' : userBreakMinutes}
-              onChange={(e) => setUserBreakMinutes(e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0)}
-              min="0"
-              step="5"
-              placeholder="e.g., 60"
-            />
-            {loadedBreakMinutes > 0 && userBreakMinutes !== loadedBreakMinutes && (
-              <button
-                className="btn btn-outline calculator-input-btn"
-                onClick={() => setUserBreakMinutes(loadedBreakMinutes)}
-                title="Use recorded breaks"
-              >
-                Use Logged ({loadedBreakMinutes}m)
-              </button>
-            )}
-          </div>
-          <div className="calculator-hint">
-            Time you plan to spend on breaks today
-          </div>
-        </div>
-
-        {/* Planned Break Start Time */}
-        <div className="calculator-section">
-          <label className="calculator-label">Planned Break Start Time</label>
-          <input
-            type="time"
-            className="calculator-input"
-            value={plannedBreakStartTime}
-            onChange={(e) => setPlannedBreakStartTime(e.target.value)}
-          />
-          <div className="calculator-hint">
-            Breaks from {formatTime12Hour(minutesToTime(allowedBreakStartMins).substring(0,5))} to {formatTime12Hour(minutesToTime(allowedBreakEndMins).substring(0,5))} ({minutesToTime(allowedBreakStartMins).substring(0,5)} - {minutesToTime(allowedBreakEndMins).substring(0,5)}) are paid and do not count against your required hours.
-          </div>
-        </div>
-
-        {/* Check-in Time */}
-        <div className="calculator-section">
-          <label className="calculator-label">Check-in Time</label>
-          {hasExistingCheckIn ? (
-            <div className="calculator-value readonly">
-              {loadedCheckIn}
-              <span className="calculator-hint"> (Loaded from record)</span>
+    <ModalShell isOpen={true} onClose={onClose} title="Leave Calculator">
+      <div className="modal-header">
+        <h2>{calcMode === 'forward' ? 'Calculate Leave Time' : 'Calculate Overtime Target'}</h2>
+      </div>
+      
+      <div className="modal-body leave-calculator" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        
+        {/* ROW 1: Date & Required */}
+        <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+          {/* Date Selection */}
+          <div className="bento-modal-card" style={{ flex: 1 }}>
+            <div className="bento-modal-card-label">📅 Date</div>
+            <div className="bento-modal-huge-value" style={{ fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0, textAlign: 'left' }}>
+              {selectedDate}
             </div>
-          ) : (
-            <>
+          </div>
+
+          {/* Required Duration */}
+          <div className="bento-modal-card" style={{ flex: 1 }}>
+            <div className="bento-modal-card-label">⏱ Required</div>
+            <div className="bento-modal-huge-value" style={{ fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0, textAlign: 'left', display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+              {formatMinutesAsHours(requiredDailyMinutes)}
+              <small style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', fontWeight: 500 }}>{employee.employeeType === 'part-time' ? 'PT' : 'FT'}</small>
+            </div>
+          </div>
+        </div>
+
+        {/* ROW 2: Check-in Time & Min Fulfillment */}
+        <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+          {/* Check-in Time */}
+          <div className="bento-modal-card" style={{ flex: 1, flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <div className="bento-modal-card-label" style={{ marginBottom: 0 }}>🕒 Check-in Time</div>
+            {hasExistingCheckIn ? (
+              <div className="bento-modal-huge-value" style={{ fontSize: '1.4rem', color: '#00f0ff', margin: 0, marginTop: 'auto' }}>
+                {loadedCheckIn}
+              </div>
+            ) : (
               <input
                 type="time"
-                className="calculator-input"
+                className="bento-modal-card-input"
                 value={checkInTime}
                 onChange={(e) => setCheckInTime(e.target.value)}
                 step="1"
+                style={{ width: '100%', marginTop: 'auto' }}
               />
-              {!checkInTime && (
-                <div className="calculator-warning">⚠️ Check-in time is required</div>
-              )}
-            </>
+            )}
+          </div>
+
+          {/* Minimum Required Leave Time */}
+          {fulfillmentLeaveTime ? (
+            <div className="bento-modal-card" style={{ flex: 1, border: '1px solid rgba(16, 185, 129, 0.3)', background: 'rgba(16, 185, 129, 0.05)', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <div className="bento-modal-card-label" style={{ color: '#10b981', marginBottom: 0 }}>✅ Min Fulfillment</div>
+              <div className="bento-modal-huge-value" style={{ margin: 0, textShadow: 'none', fontSize: '1.4rem', color: '#10b981', marginTop: 'auto' }}>
+                {formatTime12Hour(fulfillmentLeaveTime)}
+              </div>
+            </div>
+          ) : (
+            <div style={{ flex: 1 }}></div>
           )}
         </div>
 
-        {/* Calculation Mode Toggle */}
-        <div className="calculator-section">
-          <label className="calculator-label">Calculation Mode</label>
-          <div className="calculator-toggle-group">
-            <button
-              className={`calculator-toggle ${calcMode === 'forward' ? 'active' : ''}`}
-              onClick={() => setCalcMode('forward')}
-            >
-              Forward
-            </button>
-            <button
-              className={`calculator-toggle ${calcMode === 'reverse' ? 'active' : ''}`}
-              onClick={() => setCalcMode('reverse')}
-            >
-              Reverse
-            </button>
-          </div>
-          <div className="calculator-hint">
-            {calcMode === 'forward' 
-              ? 'Enter leave time to see how it affects your total overtime' 
-              : 'Enter desired overtime to calculate when to leave'}
+        {/* Break Details Toggle */}
+        <div className="bento-modal-card" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setShowBreakDetails(!showBreakDetails)}>
+          <div className="bento-modal-card-label" style={{ marginBottom: 0 }}>☕ Break Settings</div>
+          <div style={{ display: 'flex', alignItems: 'center', background: showBreakDetails ? 'rgba(0, 240, 255, 0.2)' : 'rgba(255,255,255,0.1)', borderRadius: '20px', padding: '4px', width: '44px', transition: 'all 0.3s' }}>
+            <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: showBreakDetails ? '#00f0ff' : '#94a3b8', transform: showBreakDetails ? 'translateX(18px)' : 'translateX(0)', transition: 'all 0.3s' }} />
           </div>
         </div>
 
-        {/* Minimum Required Leave Time Display */}
-        {fulfillmentLeaveTime && (
-          <div className="calculator-section">
-            <label className="calculator-label">Fulfillment Leave Time</label>
-            <div className="calculator-value readonly" style={{ fontWeight: 'bold' }}>
-              {formatTime12Hour(fulfillmentLeaveTime)} <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>({fulfillmentLeaveTime})</span>
-              <div className="calculator-hint" style={{ marginTop: '6px', fontSize: '0.85rem' }}>
-                Leave at this time to fulfill your required {formatMinutesAsHours(requiredDailyMinutes)} without any overtime.
+        {/* Break Details Content */}
+        {showBreakDetails && (
+          <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+            <div className="bento-modal-card" style={{ flex: 1 }}>
+              <div className="bento-modal-card-label">☕ Break Start</div>
+              <input
+                type="time"
+                className="bento-modal-card-input"
+                value={plannedBreakStartTime}
+                onChange={(e) => setPlannedBreakStartTime(e.target.value)}
+              />
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '6px' }}>
+                Paid: {formatTime12Hour(minutesToTime(allowedBreakStartMins).substring(0,5))}
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Forward Mode: Leave Time Input */}
-        {calcMode === 'forward' && (
-          <div className="calculator-section">
-            <label className="calculator-label">Expected Leave Time</label>
-            <input
-              type="time"
-              className="calculator-input"
-              value={leaveTime}
-              onChange={(e) => setLeaveTime(e.target.value)}
-              step="1"
-            />
-          </div>
-        )}
-
-        {/* Reverse Mode: Overtime Input */}
-        {calcMode === 'reverse' && (
-          <>
-            <div className="calculator-section">
-              <label className="calculator-label">Target Daily Overtime (hours)</label>
-              <div className="calculator-input-group">
+            
+            <div className="bento-modal-card" style={{ flex: 1 }}>
+              <div className="bento-modal-card-label">⏳ Duration (m)</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto' }}>
                 <input
                   type="number"
-                  className="calculator-input"
-                  value={overtimeAmount}
-                  onChange={(e) => setOvertimeAmount(e.target.value)}
-                  step="0.25"
-                  min="0"
-                  placeholder="e.g., 1.5"
+                  className="bento-modal-card-input"
+                  value={userBreakMinutes === 0 ? '' : userBreakMinutes}
+                  onChange={(e) => setUserBreakMinutes(e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0)}
+                  min="0" step="5" placeholder="e.g., 60"
+                  style={{ marginTop: 0 }}
                 />
-                <button
-                  className="btn btn-outline calculator-input-btn"
-                  onClick={() => setOvertimeAmount((currentTotalOvertimeMinutes / 60).toFixed(2))}
-                  title="Use current total overtime"
-                >
-                  Use Total
-                </button>
-              </div>
-              <div className="calculator-hint">
-                How much overtime do you want to have for this day?
-                {currentTotalOvertimeMinutes > 0 && (
-                  <span> (Current total: {(currentTotalOvertimeMinutes / 60).toFixed(2)}h)</span>
+                {loadedBreakMinutes > 0 && userBreakMinutes !== loadedBreakMinutes && (
+                  <button className="btn-secondary" onClick={() => setUserBreakMinutes(loadedBreakMinutes)} style={{ borderRadius: '12px', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'white' }}>
+                    Use Logged ({loadedBreakMinutes}m)
+                  </button>
                 )}
               </div>
             </div>
-            <div className="calculator-section">
-              <label className="calculator-label">Calculation Type</label>
-              <div className="calculator-toggle-group">
+          </div>
+        )}
+
+        {/* Mode Toggle */}
+        <div className="bento-modal-card" style={{ gridColumn: 'span 2' }}>
+          <div className="bento-modal-card-label">⚙️ Mode</div>
+          <div style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.3)', padding: '6px', borderRadius: '16px' }}>
+            <button 
+              style={{ flex: 1, padding: '10px', borderRadius: '12px', border: 'none', background: calcMode === 'forward' ? 'rgba(255,255,255,0.1)' : 'transparent', color: calcMode === 'forward' ? 'white' : 'var(--text-secondary)', fontWeight: 600, transition: 'all 0.2s', fontSize: '0.9rem' }}
+              onClick={() => setCalcMode('forward')}
+            >
+              Target Leave Time
+            </button>
+            <button 
+              style={{ flex: 1, padding: '10px', borderRadius: '12px', border: 'none', background: calcMode === 'reverse' ? 'rgba(255,255,255,0.1)' : 'transparent', color: calcMode === 'reverse' ? 'white' : 'var(--text-secondary)', fontWeight: 600, transition: 'all 0.2s', fontSize: '0.9rem' }}
+              onClick={() => setCalcMode('reverse')}
+            >
+              Target Overtime
+            </button>
+          </div>
+        </div>
+
+
+
+        {calcMode === 'forward' ? (
+          <>
+            <div className="bento-modal-card" style={{ gridColumn: 'span 2', border: '1px solid rgba(0, 240, 255, 0.3)', background: 'rgba(0, 240, 255, 0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div className="bento-modal-card-label" style={{ marginBottom: 0, color: '#00f0ff' }}>🎯 Expected Leave Time</div>
+              <input
+                type="time"
+                className="bento-modal-card-input"
+                value={leaveTime}
+                onChange={(e) => setLeaveTime(e.target.value)}
+                step="1"
+                style={{ width: 'auto', marginTop: 0, background: 'rgba(0,0,0,0.5)', borderColor: '#00f0ff' }}
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="bento-modal-card" style={{ gridColumn: 'span 1' }}>
+              <div className="bento-modal-card-label">🎯 Target Overtime</div>
+              <div style={{ display: 'flex', gap: '8px', flexDirection: 'column', marginTop: 'auto' }}>
+                <input
+                  type="number"
+                  className="bento-modal-card-input"
+                  value={overtimeAmount}
+                  onChange={(e) => setOvertimeAmount(e.target.value)}
+                  step="0.25" min="0" placeholder="e.g., 1.5"
+                  style={{ marginTop: 0 }}
+                />
                 <button
-                  className={`calculator-toggle ${overtimeMode === 'spend' ? 'active' : ''}`}
-                  onClick={() => setOvertimeMode('spend')}
+                  className="btn-secondary"
+                  onClick={() => setOvertimeAmount((currentTotalOvertimeMinutes / 60).toFixed(2))}
+                  style={{ borderRadius: '12px', padding: '6px', fontSize: '0.75rem', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'white' }}
                 >
-                  Add to Required
-                </button>
-                <button
-                  className={`calculator-toggle ${overtimeMode === 'keep' ? 'active' : ''}`}
-                  onClick={() => setOvertimeMode('keep')}
-                >
-                  Total Target
+                  Use Max
                 </button>
               </div>
-              <div className="calculator-hint">
-                {overtimeMode === 'spend' 
-                  ? 'Work required hours + this overtime amount (e.g., 9h + 1.5h = 10.5h total)' 
-                  : 'Work exactly this many hours total (e.g., 10.5h includes required hours)'}
-              </div>
+            </div>
+            <div className="bento-modal-card" style={{ gridColumn: 'span 1' }}>
+              <div className="bento-modal-card-label">📊 Logic</div>
+              <CustomSelect
+                id="overtime-logic-select"
+                className="bento-modal-card-input"
+                value={overtimeMode}
+                onChange={(e) => setOvertimeMode(e.target.value)}
+                dropUp={true}
+                options={[
+                  { value: 'spend', label: 'Add to Required' },
+                  { value: 'keep', label: 'Total Target' }
+                ]}
+              />
             </div>
           </>
         )}
 
-        {/* Validation Error */}
         {validationError && (
-          <div className="calculator-error">{validationError}</div>
-        )}
-
-        {/* Calculation Results */}
-        {projectedWorkedMinutes > 0 && (
-          <div className="calculator-results">
-            <div className="calculator-result-row">
-              <span className="result-label">Projected Work Time:</span>
-              <span className="result-value">{formatMinutesAsHours(projectedWorkedMinutes)}</span>
-            </div>
-            <div className="calculator-result-row">
-              <span className="result-label">Daily Balance:</span>
-              <span className={`result-value ${dailyBalanceMinutes >= 0 ? 'positive' : 'negative'}`}>
-                {formatMinutesAsHours(dailyBalanceMinutes)}
-              </span>
-            </div>
-            {calcMode === 'forward' && (
-              <>
-                <div className="calculator-result-row">
-                  <span className="result-label">Current Total Overtime:</span>
-                  <span className="result-value">{formatMinutesAsHours(currentTotalOvertimeMinutes, true)}</span>
-                </div>
-                <div className="calculator-result-row">
-                  <span className="result-label">Projected Total Overtime:</span>
-                  <span className={`result-value ${projectedTotalOvertimeMinutes >= 0 ? 'positive' : 'negative'}`}>
-                    {formatMinutesAsHours(projectedTotalOvertimeMinutes, true)}
-                  </span>
-                </div>
-                <div className="calculator-result-row">
-                  <span className="result-label">Overtime Change:</span>
-                  <span className={`result-value ${projectedTotalOvertimeMinutes >= currentTotalOvertimeMinutes ? 'positive' : 'negative'}`}>
-                    {projectedTotalOvertimeMinutes > currentTotalOvertimeMinutes ? '+' : ''}
-                    {formatMinutesAsHours(projectedTotalOvertimeMinutes - currentTotalOvertimeMinutes, true)}
-                  </span>
-                </div>
-              </>
-            )}
-            {calcMode === 'reverse' && leaveTime && (
-              <div className="calculator-result-row">
-                <span className="result-label">Calculated Leave Time:</span>
-                <span className="result-value">{leaveTime}</span>
-              </div>
-            )}
+          <div className="bento-modal-card" style={{ gridColumn: 'span 2', border: '1px solid rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.05)' }}>
+            <div style={{ color: 'var(--color-warning)', fontWeight: 600 }}>{validationError}</div>
           </div>
         )}
 
-        {/* Actions (Moved outside modal-body for fixed footer) */}
+        {projectedWorkedMinutes > 0 && (
+          <div className="bento-modal-card" style={{ gridColumn: 'span 2' }}>
+            <div className="bento-modal-card-label">📈 Calculation Results</div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Projected Work Time</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>{formatMinutesAsHours(projectedWorkedMinutes)}</div>
+              </div>
+              
+              <div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Daily Balance</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: 700, color: dailyBalanceMinutes > 0 ? '#10b981' : dailyBalanceMinutes < 0 ? '#ff0080' : 'var(--text-primary)' }}>
+                  {dailyBalanceMinutes > 0 ? '+' : ''}{formatMinutesAsHours(dailyBalanceMinutes)}
+                </div>
+              </div>
+
+              {calcMode === 'forward' && (
+                <>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Total Overtime Change</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 700, color: (projectedTotalOvertimeMinutes - currentTotalOvertimeMinutes) > 0 ? '#10b981' : (projectedTotalOvertimeMinutes - currentTotalOvertimeMinutes) < 0 ? '#ff0080' : 'var(--text-primary)' }}>
+                      {(projectedTotalOvertimeMinutes - currentTotalOvertimeMinutes) > 0 ? '+' : ''}
+                      {formatMinutesAsHours(projectedTotalOvertimeMinutes - currentTotalOvertimeMinutes, true)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>New Total Overtime</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 700, color: projectedTotalOvertimeMinutes > 0 ? '#10b981' : projectedTotalOvertimeMinutes < 0 ? '#ff0080' : 'var(--text-primary)' }}>
+                      {formatMinutesAsHours(projectedTotalOvertimeMinutes, true)}
+                    </div>
+                  </div>
+                </>
+              )}
+              
+              {calcMode === 'reverse' && leaveTime && (
+                <div style={{ gridColumn: 'span 2', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '12px', padding: '12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--color-success)', fontWeight: 700, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Required Leave Time</div>
+                  <div className="bento-modal-huge-value" style={{ margin: 0, fontSize: '1.6rem' }}>{leaveTime}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
-      <div className="modal-footer calculator-actions">
-        <button className="btn btn-secondary" onClick={onClose}>
+      <div className="modal-footer">
+        <button className="btn btn-secondary" onClick={handleCancel}>
           Cancel
         </button>
-        {calcMode === 'forward' && leaveTime && !validationError && (
-          <button className="btn btn-primary" onClick={handleSave}>
-            Use This Leave Time
-          </button>
-        )}
-        {calcMode === 'reverse' && leaveTime && !validationError && (
+        {((calcMode === 'forward' && leaveTime) || (calcMode === 'reverse' && leaveTime)) && !validationError && (
           <button className="btn btn-primary" onClick={handleSave}>
             Use Calculated Time
           </button>

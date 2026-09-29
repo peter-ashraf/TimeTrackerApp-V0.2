@@ -1,237 +1,156 @@
+/* ============================================================
+   BOTTOM SHEET BACKUP REMINDER MODAL
+   ============================================================ */
+
 .modal-content.backup-reminder-modal {
-  max-width: 500px;
-  max-height: 90vh;
-  display: flex !important;
-  flex-direction: column !important;
-  text-align: center;
-  padding: 0 !important;
-  overflow: hidden !important;
+  /* Inherit bottom sheet dimensions */
 }
 
 .modal-content.backup-reminder-modal .backup-reminder-modal-content {
-  position: relative;
-  z-index: 10001; /* Higher than header (1000) and other modals (2000) */
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto !important;
-  padding: 1rem;
-  /* Hide scrollbar but keep functionality */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
-}
-
-.modal-content.backup-reminder-modal .backup-reminder-modal-content::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
+  flex: 1 !important;
+  overflow-y: visible !important;
+  padding: 24px 24px 0 24px !important;
+  text-align: center !important;
 }
 
 /* Backup reminder overlay with highest z-index */
 .backup-reminder-overlay {
-  z-index: 10002 !important; /* Highest priority to appear above everything */
+  z-index: 100000 !important;
 }
 
-/* Force modal overlay to be on top for backup reminder */
-.modal-overlay:has(.backup-reminder-modal),
-.modal-overlay .backup-reminder-modal {
-  z-index: 10001 !important;
-}
-
-/* More specific selector to override base modal styles */
 div.modal-overlay div.backup-reminder-modal {
-  z-index: 10001 !important;
+  z-index: 100001 !important;
   position: relative !important;
 }
 
 .backup-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-  animation: pulse 2s infinite;
+  font-size: 4rem !important;
+  margin-bottom: 24px !important;
+  animation: pulse 2s infinite !important;
+  filter: drop-shadow(0 0 16px rgba(0, 240, 255, 0.4)) !important;
 }
 
 @keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
 }
 
 .backup-reminder-modal h3 {
-  margin: 0.5rem 0 1rem;
-
+  margin: 0 0 12px !important;
+  font-size: 1.6rem !important;
+  font-weight: 800 !important;
+  color: white !important;
+  letter-spacing: -0.02em !important;
 }
 
 .backup-message {
-
-  margin: 1rem 0;
-  line-height: 1.6;
+  margin: 0 0 24px !important;
+  line-height: 1.6 !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 1rem !important;
+  font-weight: 500 !important;
 }
 
 .backup-warning {
-  background: rgba(255, 165, 0, 0.1);
-  border-left: 4px solid #ffa500;
-  padding: 1rem;
-  margin: 1.5rem 0;
-  text-align: left;
-  border-radius: 4px;
+  background: rgba(255, 0, 128, 0.1) !important;
+  border-radius: 16px !important;
+  padding: 16px !important;
+  margin: 0 0 24px !important;
+  text-align: left !important;
+  font-size: 0.95rem !important;
+  color: white !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
 }
 
 .backup-warning strong {
-  color: #ffa500;
-  display: block;
-  margin-bottom: 0.5rem;
+  color: #ff0080 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 1rem !important;
 }
 
 .backup-recommendation {
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-  margin: 1rem 0 1.5rem;
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  margin: 0 0 24px !important;
 }
 
 /* Remind Later Section */
 .backup-reminder-modal .form-group {
-  margin: 1.5rem 0;
-  text-align: left;
+  margin: 0 0 32px !important;
+  text-align: left !important;
+  position: relative !important;
+  z-index: 999 !important;
 }
 
 .backup-reminder-modal .form-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-
-  font-size: 0.95rem;
+  display: block !important;
+  margin-bottom: 12px !important;
+  font-weight: 700 !important;
+  font-size: 0.8rem !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  text-transform: uppercase !important;
 }
 
+.backup-reminder-modal select,
 .backup-reminder-modal .form-control {
-  width: 100%;
-  padding: 0.75rem;
-  border: 2px solid var(--border-color, #ddd);
-  border-radius: 6px;
-  font-size: 1rem;
-  background: var(--bg-secondary, white);
-  color: var(--text-primary);
+  width: 100% !important;
+  padding: 16px 20px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-radius: 16px !important;
+  font-size: 1.1rem !important;
+  color: white !important;
+  transition: all 0.2s ease !important;
+  border: none !important;
 }
 
-.backup-reminder-modal .form-control:focus {
-  outline: none;
-  border-color: var(--primary-color, #4a9eff);
-  box-shadow: 0 0 0 3px rgba(var(--primary-rgb, 74, 158, 255), 0.1);
-}
-
-.remind-later-section {
-  margin: 1.5rem 0;
-  padding: 1rem;
-  background: rgba(var(--primary-rgb, 74, 158, 255), 0.05);
-  border-radius: 8px;
-}
-
-.remind-later-section .form-label {
-  display: block;
-  margin-bottom: 0.75rem;
-  font-weight: 500;
-
-  font-size: 0.95rem;
-}
-
-.remind-options {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.remind-option-btn {
-  padding: 0.5rem 1rem;
-  border: 2px solid var(--border-color, #ddd);
-  background: var(--bg-secondary, white);
-  color: var(--text-primary);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s;
-}
-
-.remind-option-btn:hover {
-  border-color: var(--primary-color, #4a9eff);
-  background: rgba(var(--primary-rgb, 74, 158, 255), 0.1);
-}
-
-.remind-option-btn.active {
-  border-color: var(--primary-color, #4a9eff);
-  background: var(--primary-color, #4a9eff);
-  color: white;
-  font-weight: 500;
-}
-
-.custom-days-input {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
-.custom-days-input input {
-  width: 80px;
-  padding: 0.5rem;
-  border: 2px solid var(--border-color, #ddd);
-  border-radius: 6px;
-  font-size: 1rem;
-  text-align: center;
-}
-
-.custom-days-input span {
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-}
-
+/* Actions Grid */
 .modal-content.backup-reminder-modal .backup-actions {
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  justify-content: center;
-  padding: 1rem;
-  border-top: 1px solid var(--color-card-border-inner);
-  flex-shrink: 0;
-  margin: 0;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+  padding: 24px !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+@media (max-width: 600px) {
+  .modal-content.backup-reminder-modal .backup-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+  }
 }
 
 .backup-actions .btn {
-  min-width: 120px;
+  width: 100% !important;
+  padding: 20px !important;
+  border-radius: 16px !important;
+  font-weight: 800 !important;
+  font-size: 1.1rem !important;
+  cursor: pointer !important;
+  border: none !important;
 }
 
-.backup-actions .btn-sm {
-  font-size: 0.85rem;
-  padding: 0.5rem 1rem;
-  min-width: auto;
+.backup-actions .btn-primary {
+  background: #00f0ff !important;
+  color: black !important;
 }
 
-.backup-actions .btn span {
-  margin-right: 0.5rem;
+.backup-actions .btn-primary:active {
+  transform: scale(0.96) !important;
 }
 
+.backup-actions .btn-secondary {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: white !important;
+}
 
-/* Button Styles */
 .backup-actions .btn-dismiss {
-  opacity: 0.7;
+  background: transparent !important;
+  color: #ff0080 !important;
 }
-
-.backup-actions .btn-dismiss:hover {
-  opacity: 1;
-  background: #ff6b6b;
-  border-color: #ff6b6b;
-  color: white;
-}
-
-/* Responsive */
-@media (max-width: 600px) {
-  .remind-options {
-    flex-direction: column;
-  }
-  
-  .remind-option-btn {
-    width: 100%;
-  }
-
-  .backup-actions .btn {
-    width: 100%;
-  }
-}
-

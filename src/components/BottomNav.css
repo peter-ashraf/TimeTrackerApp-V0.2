@@ -1,0 +1,76 @@
+.bento-bottom-nav {
+  position: fixed;
+  bottom: 16px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  z-index: var(--z-nav);
+  pointer-events: none;
+}
+
+.bento-nav-container {
+  display: flex;
+  background-color: var(--bg-nav);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: var(--radius-pill);
+  padding: 8px;
+  gap: 8px;
+  box-shadow: var(--shadow-nav);
+  pointer-events: auto;
+  border: 1px solid var(--border-light);
+}
+
+.bento-nav-btn {
+  background: transparent;
+  border: none;
+  height: 50px;
+  border-radius: var(--radius-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  gap: 0;
+  padding: 0 14px;
+}
+
+/* On mobile: icon only, fixed square width */
+@media (max-width: 768px) {
+  .bento-nav-btn {
+    width: 50px;
+    padding: 0;
+  }
+  .bento-nav-label {
+    display: none;
+  }
+}
+
+/* On desktop: icon + label */
+@media (min-width: 769px) {
+  .bento-nav-btn {
+    padding: 0 20px;
+    gap: 10px;
+    width: auto;
+  }
+  .bento-nav-label {
+    display: inline;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+}
+
+.bento-nav-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.bento-nav-btn.active {
+  background-color: var(--text-primary);
+  color: var(--bg-primary);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+}

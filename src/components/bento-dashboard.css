@@ -1,0 +1,293 @@
+.bento-main {
+  padding: var(--screen-padding);
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.bento-header-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bento-user-greeting h1 {
+  font-size: 42px;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -1px;
+  background: linear-gradient(to right, #FFF, var(--text-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.bento-user-greeting p {
+  color: var(--accent-cyan);
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-auto-rows: minmax(110px, auto);
+  gap: 24px;
+}
+
+/* Base Tile Styling */
+.bento-tile {
+  background: var(--bg-secondary);
+  backdrop-filter: var(--glass-backdrop-filter);
+  -webkit-backdrop-filter: var(--glass-backdrop-filter);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .bento-tile:hover {
+    transform: translateY(-5px) scale(1.02);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+}
+
+.bento-tile:active {
+  transform: scale(0.98);
+}
+
+.bento-tile.no-hover:active {
+  transform: none;
+}
+
+@media (hover: hover) {
+  .bento-tile.no-hover:hover {
+    transform: none;
+    border-color: rgba(255, 255, 255, 0.05);
+    box-shadow: var(--glass-shadow);
+  }
+}
+
+/* GRID SPANS (6-column layout) */
+.col-span-1 { grid-column: span 1; }
+.col-span-2 { grid-column: span 2; }
+.col-span-3 { grid-column: span 3; }
+.col-span-4 { grid-column: span 4; }
+.col-span-5 { grid-column: span 5; }
+.col-span-6 { grid-column: span 6; }
+
+.row-span-1 { grid-row: span 1; }
+.row-span-2 { grid-row: span 2; }
+.row-span-3 { grid-row: span 3; }
+
+/* Specific Tile Designs */
+
+.tile-hero {
+  background: linear-gradient(135deg, rgba(176, 38, 255, 0.2), rgba(0, 240, 255, 0.1));
+  border: 1px solid rgba(176, 38, 255, 0.3);
+  box-shadow: var(--glow-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.tile-hero:hover {
+  border-color: rgba(176, 38, 255, 0.6);
+  box-shadow: 0 0 40px rgba(176, 38, 255, 0.4);
+}
+.tile-hero i {
+  font-size: 64px;
+  margin-bottom: 16px;
+  background: linear-gradient(to right, var(--accent-cyan), var(--accent-cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.5));
+}
+.tile-hero span {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+.tile-hero.active {
+  background: linear-gradient(135deg, rgba(57, 255, 20, 0.15), rgba(0, 240, 255, 0.1));
+  border-color: rgba(57, 255, 20, 0.4);
+  box-shadow: var(--glow-green);
+}
+.tile-hero.active i {
+  background: var(--accent-neon-green);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 15px rgba(57, 255, 20, 0.6));
+}
+
+.bento-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.bento-value {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.text-cyan { color: var(--accent-cyan); text-shadow: 0 0 10px rgba(0, 240, 255, 0.3); }
+.text-green { color: var(--accent-neon-green); text-shadow: 0 0 10px rgba(57, 255, 20, 0.3); }
+.text-pink { color: var(--accent-hot-pink); text-shadow: 0 0 10px rgba(255, 0, 127, 0.3); }
+.text-purple { color: var(--accent-cyan); text-shadow: var(--glow-cyan); } /* Alias for legacy class */
+
+.tile-action {
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--bg-tertiary);
+}
+.tile-action i {
+  font-size: 28px;
+  color: var(--accent-cyan);
+}
+.tile-action span {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.bento-eye-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+.bento-eye-btn:hover {
+  background: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+  box-shadow: var(--glow-cyan);
+  color: #000;
+}
+
+.tile-danger {
+  background: linear-gradient(135deg, rgba(255, 0, 127, 0.15), var(--bg-tertiary));
+  border-color: rgba(255, 0, 127, 0.3);
+}
+.tile-danger:hover {
+  border-color: rgba(255, 0, 127, 0.6);
+  box-shadow: 0 0 30px rgba(255, 0, 127, 0.3);
+}
+.tile-danger.disabled {
+  opacity: 0.3;
+  pointer-events: none;
+  filter: grayscale(1);
+}
+
+.flex-row-between {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .bento-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .col-span-6 { grid-column: span 4; }
+  .col-span-5 { grid-column: span 4; }
+  .col-span-4 { grid-column: span 4; }
+  .col-span-3 { grid-column: span 2; }
+}
+
+@media (max-width: 600px) {
+  .bento-grid {
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: minmax(90px, auto);
+    gap: 12px;
+    grid-auto-flow: dense;
+  }
+  
+  .tile-hero {
+    grid-column: span 2 !important;
+    grid-row: span 2 !important;
+  }
+  
+  .mobile-square {
+    grid-column: span 1 !important;
+    grid-row: span 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 8px !important;
+    padding: 8px !important;
+  }
+  
+  .mobile-square .mobile-center-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  
+  .mobile-square .bento-label {
+    font-size: 10px !important;
+    margin-bottom: 0 !important;
+  }
+  
+  .mobile-square .bento-value {
+    font-size: 16px !important;
+  }
+  
+  .mobile-square i {
+    font-size: 18px !important;
+    margin: 0 !important;
+  }
+  
+  .mobile-square .bento-eye-btn {
+    position: absolute !important;
+    top: 4px !important;
+    right: 4px !important;
+    width: 20px !important;
+    height: 20px !important;
+    font-size: 10px !important;
+  }
+  
+  .col-span-6, .col-span-5, .col-span-4 { grid-column: span 4; }
+  .col-span-3, .col-span-2 { grid-column: span 2; }
+  
+  .bento-main {
+    padding: 12px;
+  }
+  
+  .bento-tile {
+    padding: 12px;
+  }
+}

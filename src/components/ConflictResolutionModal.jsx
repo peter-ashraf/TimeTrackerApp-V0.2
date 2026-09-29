@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import ModalShell from './ModalShell';
 import '../styles/conflict-resolution-modal.css';
 
 const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
@@ -251,8 +251,13 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
   const totalCount = activeConflicts.length;
 
   const modalMarkup = (
-    <div className="conflict-modal-overlay">
-      <div className="conflict-modal">
+    <ModalShell
+      onClose={onClose}
+      contentClassName="conflict-modal"
+      overlayClassName="conflict-modal-overlay"
+      showCloseButton={true}
+    >
+      <div className="conflict-modal-content bento-modal-card">
         <div className="conflict-header">
           <div>
             <h2>Sync Conflicts Found</h2>
@@ -262,14 +267,6 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
             </span>
           </div>
 
-          <button
-            type="button"
-            className="conflict-close-btn"
-            onClick={onClose}
-            aria-label="Close conflict resolution modal"
-          >
-            ×
-          </button>
           <button
             type="button"
             className="conflict-bulk-toggle"
@@ -300,7 +297,7 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
         )}
 
         <div className="conflict-list">
-          <div className="conflict-card">
+          <div className="conflict-card bento-modal-card">
             <div className="conflict-card-header">
               <div>
                 <h3>{formatDate(currentConflict.date)}</h3>
@@ -405,10 +402,10 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
           </div>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 
-  return createPortal(modalMarkup, document.body);
+  return modalMarkup;
 };
 
 export default ConflictResolutionModal;
