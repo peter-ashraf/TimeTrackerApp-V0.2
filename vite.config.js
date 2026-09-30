@@ -63,15 +63,16 @@ export default defineConfig({
         start_url: '/TimeTrackerApp-V0.2/',
         icons: [
           {
-            src: 'icons/adaptive-icon.png',
-            sizes: '192x192',
+            src: 'icons/adaptive-icon-light.png',
+            sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
           },
           {
-            src: 'icons/adaptive-icon.png',
+            src: 'icons/adaptive-icon-dark-mode.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
       },
