@@ -84,16 +84,16 @@
 }
 
 /* GRID SPANS (6-column layout) */
-.col-span-1 { grid-column: span 1; }
-.col-span-2 { grid-column: span 2; }
-.col-span-3 { grid-column: span 3; }
-.col-span-4 { grid-column: span 4; }
-.col-span-5 { grid-column: span 5; }
-.col-span-6 { grid-column: span 6; }
+.bento-grid .col-span-1 { grid-column: span 1; }
+.bento-grid .col-span-2 { grid-column: span 2; }
+.bento-grid .col-span-3 { grid-column: span 3; }
+.bento-grid .col-span-4 { grid-column: span 4; }
+.bento-grid .col-span-5 { grid-column: span 5; }
+.bento-grid .col-span-6 { grid-column: span 6; }
 
-.row-span-1 { grid-row: span 1; }
-.row-span-2 { grid-row: span 2; }
-.row-span-3 { grid-row: span 3; }
+.bento-grid .row-span-1 { grid-row: span 1; }
+.bento-grid .row-span-2 { grid-row: span 2; }
+.bento-grid .row-span-3 { grid-row: span 3; }
 
 /* Specific Tile Designs */
 
@@ -219,10 +219,10 @@
   .bento-grid {
     grid-template-columns: repeat(4, 1fr);
   }
-  .col-span-6 { grid-column: span 4; }
-  .col-span-5 { grid-column: span 4; }
-  .col-span-4 { grid-column: span 4; }
-  .col-span-3 { grid-column: span 2; }
+  .bento-grid .col-span-6 { grid-column: span 4; }
+  .bento-grid .col-span-5 { grid-column: span 4; }
+  .bento-grid .col-span-4 { grid-column: span 4; }
+  .bento-grid .col-span-3 { grid-column: span 2; }
 }
 
 @media (max-width: 600px) {
@@ -280,8 +280,8 @@
     font-size: 10px !important;
   }
   
-  .col-span-6, .col-span-5, .col-span-4 { grid-column: span 4; }
-  .col-span-3, .col-span-2 { grid-column: span 2; }
+  .bento-grid .col-span-6, .bento-grid .col-span-5, .bento-grid .col-span-4 { grid-column: span 4; }
+  .bento-grid .col-span-3, .bento-grid .col-span-2 { grid-column: span 2; }
   
   .bento-main {
     padding: 12px;
