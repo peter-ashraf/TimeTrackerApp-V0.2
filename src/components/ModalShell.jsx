@@ -1,7 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import { createPortal } from 'react-dom';
 import '../styles/bento-modals.css'; // Injecting Bento modal overrides globally
 import '../styles/bento-modals-grid.css'; // Grid architecture
+
+// Context so any child can call the animated close without needing a prop chain
+export const SheetCloseContext = createContext(() => {});
+
+// Convenience hook for consuming the animated close inside modal children
+export function useSheetClose() {
+  return useContext(SheetCloseContext);
+}
 
 function ModalShell({ onClose, children, contentClassName = '', closeOnOverlay = true, overlayClassName = '', showCloseButton = true }) {
   const [isClosing, setIsClosing] = useState(false);
@@ -79,7 +87,10 @@ function ModalShell({ onClose, children, contentClassName = '', closeOnOverlay =
             Done
           </button>
         )}
-        {children}
+        {/* Provide animated close to all descendants */}
+        <SheetCloseContext.Provider value={handleClose}>
+          {children}
+        </SheetCloseContext.Provider>
       </div>
     </div>
   );

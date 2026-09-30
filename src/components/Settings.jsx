@@ -10,7 +10,7 @@ import { backgroundSync } from "../utils/backgroundSync";
 import { offlineQueue } from "../utils/offlineQueue";
 const ExportModal = React.lazy(() => import("./ExportModal"));
 const ImportModal = React.lazy(() => import("./ImportModal"));
-import ModalShell from "./ModalShell";
+import ModalShell, { useSheetClose } from "./ModalShell";
 import ConflictResolutionModal from "./ConflictResolutionModal";
 import { setSimpleEncryptedItem } from "../utils/simple-encryption";
 import { useUserPreferences } from "../context/UserPreferencesContext";
@@ -334,7 +334,29 @@ const validatePeriodDates = (start, end, existingPeriods, editingId = null) => {
   return errors;
 };
 
+// ── Animated close helpers (module-level so React keeps a stable identity) ──
+// These consume SheetCloseContext to trigger the slide-down animation before
+// calling setActiveModal(null). Defining them inside Settings() would give
+// them a new component type on every render, breaking context consumption.
+function SpokeDoneBtn() {
+  const close = useSheetClose();
+  return <button type="button" className="spoke-done-btn" onClick={close}>Done</button>;
+}
+function SpokeCancelBtn() {
+  const close = useSheetClose();
+  return <button type="button" className="spoke-btn-outline" onClick={close}>Cancel</button>;
+}
+function SpokeSaveBtn({ onSave, children }) {
+  const close = useSheetClose();
+  return (
+    <button type="button" className="spoke-btn-primary" onClick={(e) => { onSave(e); close(); }}>
+      {children ?? 'Save Changes'}
+    </button>
+  );
+}
+
 function Settings() {
+
   const {
     employee,
     leaveSettings,
@@ -1907,1408 +1929,544 @@ function Settings() {
     });
   };
 
-  
+
   return (
-    <main className="settings-page main-content" style={{ background: 'var(--bg-primary)' }}>
-      <div className="settings-header" style={{ padding: '24px 20px 16px', display: 'flex', flexDirection: 'column' }}>
-        <h1 style={{ fontSize: '32px', marginBottom: '8px' }}>⚙️ Settings</h1>
-        <p style={{ margin: "4px 0 0 0", color: "var(--text-secondary)" }}>Manage your preferences, data, and account</p>
+    <main className="settings-page main-content">
+      {/* ── Page Header ── */}
+      <div style={{ padding: '24px 20px 12px' }}>
+        <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: 800 }}>Settings</h1>
+        <p style={{ margin: '6px 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Manage your preferences, data &amp; account</p>
       </div>
 
+      {/* ── Hub Menu ── */}
       {activeModal === null && (
-        <div className="settings-panels-scroll" style={{ padding: '0 20px 24px' }}>
-          <div className="settings-bento-grid-layout" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            
-            <button type="button" className="settings-menu-item" onClick={() => setActiveModal('theme')}>
-              <div className="settings-menu-left"><i className="fa-solid fa-palette"></i> <span>Theme & Design</span></div>
-              <i className="fa-solid fa-chevron-right chevron-icon"></i>
-            </button>
-
-            <button type="button" className="settings-menu-item" onClick={() => setActiveModal('employee')}>
-              <div className="settings-menu-left"><i className="fa-solid fa-user"></i> <span>Employee Information</span></div>
-              <i className="fa-solid fa-chevron-right chevron-icon"></i>
-            </button>
-            
-            <button type="button" className="settings-menu-item" onClick={() => setActiveModal('reminders')}>
-              <div className="settings-menu-left"><i className="fa-solid fa-bell"></i> <span>Check-in Reminders</span></div>
-              <i className="fa-solid fa-chevron-right chevron-icon"></i>
-            </button>
-            
-            <button type="button" className="settings-menu-item" onClick={() => setActiveModal('periods')}>
-              <div className="settings-menu-left"><i className="fa-solid fa-calendar-days"></i> <span>Pay Period Management</span></div>
-              <i className="fa-solid fa-chevron-right chevron-icon"></i>
-            </button>
-
-            <button type="button" className="settings-menu-item" onClick={() => setActiveModal('data')}>
-              <div className="settings-menu-left"><i className="fa-solid fa-database"></i> <span>Data Management</span></div>
-              <i className="fa-solid fa-chevron-right chevron-icon"></i>
-            </button>
-
-            <button type="button" className="settings-menu-item danger-item" onClick={() => setActiveModal('danger')}>
-              <div className="settings-menu-left"><i className="fa-solid fa-triangle-exclamation"></i> <span>Danger Zone</span></div>
-              <i className="fa-solid fa-chevron-right chevron-icon"></i>
-            </button>
-
-          </div>
+        <div style={{ padding: '0 16px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <button type="button" className="settings-menu-item" onClick={() => setActiveModal('theme')}>
+            <div className="settings-menu-left"><i className="fa-solid fa-palette" /><span>Theme &amp; Design</span></div>
+            <i className="fa-solid fa-chevron-right chevron-icon" />
+          </button>
+          <button type="button" className="settings-menu-item" onClick={() => setActiveModal('employee')}>
+            <div className="settings-menu-left"><i className="fa-solid fa-user" /><span>Employee Information</span></div>
+            <i className="fa-solid fa-chevron-right chevron-icon" />
+          </button>
+          <button type="button" className="settings-menu-item" onClick={() => setActiveModal('reminders')}>
+            <div className="settings-menu-left"><i className="fa-solid fa-bell" /><span>Check-in Reminders</span></div>
+            <i className="fa-solid fa-chevron-right chevron-icon" />
+          </button>
+          <button type="button" className="settings-menu-item" onClick={() => setActiveModal('periods')}>
+            <div className="settings-menu-left"><i className="fa-solid fa-calendar-days" /><span>Pay Period Management</span></div>
+            <i className="fa-solid fa-chevron-right chevron-icon" />
+          </button>
+          <button type="button" className="settings-menu-item" onClick={() => setActiveModal('data')}>
+            <div className="settings-menu-left"><i className="fa-solid fa-database" /><span>Data Management</span></div>
+            <i className="fa-solid fa-chevron-right chevron-icon" />
+          </button>
+          <button type="button" className="settings-menu-item danger-item" onClick={() => setActiveModal('danger')}>
+            <div className="settings-menu-left"><i className="fa-solid fa-triangle-exclamation" /><span>Danger Zone</span></div>
+            <i className="fa-solid fa-chevron-right chevron-icon" />
+          </button>
         </div>
       )}
 
-      {/* Theme Modal */}
+      {/* ═══ SPOKE: Theme & Design ═══ */}
       {activeModal === 'theme' && (
         <ModalShell onClose={() => setActiveModal(null)} closeOnOverlay={true} contentClassName="settings-spoke-modal" showCloseButton={false}>
-          <div className="modal-header" style={{ padding: '24px 24px 16px', borderBottom: '1px solid var(--border-light)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-               <div>
-                  <h2 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-primary)' }}><i className="fa-solid fa-palette"></i> Theme & Design</h2>
-                  <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)' }}>Switch between the modern Bento grid and the Legacy UI.</p>
-               </div>
-               <button type="button" className="text-btn" style={{ color: 'var(--accent-cyan)', fontWeight: '600', background: 'transparent', border: 'none', padding: '8px', cursor: 'pointer' }} onClick={() => setActiveModal(null)}>Done</button>
-            </div>
+          <div className="spoke-header">
+            <h2 className="spoke-header-title"><i className="fa-solid fa-palette" />Theme &amp; Design</h2>
+            <SpokeDoneBtn />
           </div>
-          <div className="modal-body settings-bento-grid-layout" style={{ padding: '24px', overflowY: 'auto' }}>
-            <div className="settings-bento-card" style={{ gridColumn: '1 / -1' }}>
-              <div className="settings-bento-card-label">🎨 UI Version</div>
-              <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.9rem' }}>Choose your preferred interface. This updates the entire layout of the app instantly.</p>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button type="button" className={`btn ${userPreferences?.designVersion === 'legacy' ? 'btn-secondary' : 'btn-primary'}`} style={{ flex: 1, padding: '12px' }} onClick={() => updatePreferences({ designVersion: 'bento' })}>Bento (V2)</button>
-                <button type="button" className={`btn ${userPreferences?.designVersion === 'legacy' ? 'btn-primary' : 'btn-secondary'}`} style={{ flex: 1, padding: '12px' }} onClick={() => updatePreferences({ designVersion: 'legacy' })}>Legacy (V1)</button>
+          <div className="spoke-content">
+            <div className="spoke-section">
+              <div className="spoke-section-label">UI Version</div>
+              <div className="spoke-card">
+                <div className="spoke-row">
+                  <div className="spoke-row-left">
+                    <span className="spoke-row-label">Bento Grid (V2)</span>
+                    <span className="spoke-row-hint">Modern glassmorphism layout</span>
+                  </div>
+                  <button type="button" onClick={() => updatePreferences({ designVersion: 'bento' })}
+                    style={{ padding: '6px 16px', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700, background: userPreferences?.designVersion !== 'legacy' ? 'var(--accent-cyan)' : 'var(--bg-tertiary)', color: userPreferences?.designVersion !== 'legacy' ? '#000' : 'var(--text-secondary)', border: 'none', cursor: 'pointer' }}>
+                    {userPreferences?.designVersion !== 'legacy' ? '✓ Active' : 'Switch'}
+                  </button>
+                </div>
+                <div className="spoke-row">
+                  <div className="spoke-row-left">
+                    <span className="spoke-row-label">Legacy (V1)</span>
+                    <span className="spoke-row-hint">Classic tabbed layout</span>
+                  </div>
+                  <button type="button" onClick={() => updatePreferences({ designVersion: 'legacy' })}
+                    style={{ padding: '6px 16px', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700, background: userPreferences?.designVersion === 'legacy' ? 'var(--accent-cyan)' : 'var(--bg-tertiary)', color: userPreferences?.designVersion === 'legacy' ? '#000' : 'var(--text-secondary)', border: 'none', cursor: 'pointer' }}>
+                    {userPreferences?.designVersion === 'legacy' ? '✓ Active' : 'Switch'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </ModalShell>
       )}
 
+
+      {/* ═══ SPOKE: Employee Information ═══ */}
       {activeModal === 'employee' && (
         <ModalShell onClose={() => setActiveModal(null)} closeOnOverlay={true} contentClassName="settings-spoke-modal" showCloseButton={false}>
-          <div className="modal-header" style={{ padding: '24px 24px 16px', borderBottom: '1px solid var(--border-light)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-               <div>
-                  <h2 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-primary)' }}><i className="fa-solid fa-user"></i> Employee Information</h2>
-                  <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)' }}>Manage your profile, working hours, and leave balances.</p>
-               </div>
-               <button type="button" className="text-btn" style={{ color: 'var(--accent-cyan)', fontWeight: '600', background: 'transparent', border: 'none', padding: '8px', cursor: 'pointer' }} onClick={() => setActiveModal(null)}>Done</button>
-            </div>
+          <div className="spoke-header">
+            <h2 className="spoke-header-title"><i className="fa-solid fa-user" />Employee Information</h2>
+            <SpokeDoneBtn />
           </div>
-          <div className="modal-body settings-bento-grid-layout" style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            
-        {/* ✅ UNIFIED EMPLOYEE INFORMATION & LEAVE SETTINGS */}<div className="settings-bento-card col-span-3">
-        
-
-        <form onSubmit={handleSaveAll} className="settings-nested-grid">
-          
-          <div className="settings-subsection">
-            <h3 className="bento-card-title">Personal Details</h3>
-            <div className="form-group">
-              <label className="form-label">Display Name</label>
-              <input
-                type="text"
-                className="form-control"
-                value={name ?? ""}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your display name"
-              />
-              <small className="form-help">
-                This is how your name appears throughout the app. Your login
-                username (<strong>{currentUser?.username}</strong>) remains
-                unchanged.
-              </small>
-            </div>
-
-            {!hideSalary && (
-              <div className="form-group">
-                <label className="form-label">Monthly Salary (L.E.)</label>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  className="form-control"
-                  value={salary ?? 0}
-                  onChange={(e) => setSalary(e.target.value)}
-                  placeholder="Enter monthly salary"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-            )}
-
-            {hideSalary && (
-              <div className="form-group">
-                <label className="form-label">Monthly Salary (L.E.)</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value="******"
-                  disabled
-                  style={{
-                    backgroundColor: "transparent",
-                    color: "#6c757d",
-                    cursor: "not-allowed",
-                    filter: "blur(4px)",
-                    userSelect: "none",
-                  }}
-                  readOnly
-                />
-                <p className="help-text">
-                  💡 Salary is hidden for privacy. Toggle visibility in Dashboard to edit.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="settings-subsection">
-            <h3 className="bento-card-title">Work Schedule</h3>
-            <div className="form-group">
-              <label className="form-label">Employee Type</label>
-              <CustomSelect
-                id="employee-type-select"
-                name="employeeType"
-                value={employeeType ?? "full-time"}
-                onChange={(e) => setEmployeeType(e.target.value)}
-                options={[
-                  { label: "Full-Time", value: "full-time" },
-                  { label: "Part-Time", value: "part-time" },
-                ]}
-              />
-            </div>
-
-            {employeeType === "part-time" && (
-              <>
-                <div className="form-group">
-                  <label className="form-label">Daily Hours</label>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    className="form-control"
-                    value={dailyHours ?? 9}
-                    onChange={(e) => setDailyHours(e.target.value)}
-                    placeholder="Enter daily work hours"
-                    min="6"
-                    max="9"
-                    step="0.5"
-                  />
-                  <p className="help-text">
-                    💡 Part-time employees work between 6-9 hours per day
-                  </p>
+          <div className="spoke-content" style={{ overflowY: 'auto', flex: 1 }}>
+            <div className="spoke-section">
+              <div className="spoke-section-label">Personal Details</div>
+              <div className="spoke-card">
+                <div className="spoke-row spoke-row-full">
+                  <div className="spoke-row-left">
+                    <span className="spoke-row-label">Display Name</span>
+                    <span className="spoke-row-hint">Login stays as <strong>{currentUser?.username}</strong></span>
+                  </div>
+                  <div className="spoke-row-control">
+                    <input type="text" className="bento-input" value={name ?? ''} onChange={(e) => setName(e.target.value)} placeholder="Your display name" />
+                  </div>
                 </div>
-
-                <div className="form-group">
-                  <label className="form-label">Work Days per Week</label>
-                  <CustomSelect
-                    id="work-days-per-week-select"
-                    name="workDaysPerWeek"
-                    value={workDaysPerWeek ?? 5}
-                    onChange={(e) => setWorkDaysPerWeek(e.target.value)}
-                    options={[
-                      { label: "3 days", value: "3" },
-                      { label: "4 days", value: "4" },
-                      { label: "5 days", value: "5" },
-                    ]}
-                  />
-                  <p className="help-text">
-                    💡 Part-time employees work between 3-5 days per week
-                  </p>
+                {!hideSalary && (
+                  <div className="spoke-row spoke-row-full">
+                    <div className="spoke-row-left"><span className="spoke-row-label">Monthly Salary (L.E.)</span></div>
+                    <div className="spoke-row-control">
+                      <input type="number" inputMode="decimal" className="bento-input" value={salary ?? 0} onChange={(e) => setSalary(e.target.value)} placeholder="0.00" min="0" step="0.01" />
+                    </div>
+                  </div>
+                )}
+                {hideSalary && (
+                  <div className="spoke-row">
+                    <div className="spoke-row-left">
+                      <span className="spoke-row-label">Monthly Salary</span>
+                      <span className="spoke-row-hint">Toggle visibility on Dashboard to edit</span>
+                    </div>
+                    <span style={{ color: 'var(--text-tertiary)', letterSpacing: '0.15em' }}>••••••</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="spoke-section">
+              <div className="spoke-section-label">Work Schedule</div>
+              <div className="spoke-card">
+                <div className="spoke-row spoke-row-full">
+                  <div className="spoke-row-left"><span className="spoke-row-label">Employee Type</span></div>
+                  <div className="spoke-row-control">
+                    <CustomSelect id="employee-type-select" name="employeeType" value={employeeType ?? 'full-time'} onChange={(e) => setEmployeeType(e.target.value)}
+                      options={[{ label: 'Full-Time', value: 'full-time' }, { label: 'Part-Time', value: 'part-time' }]} />
+                  </div>
                 </div>
-              </>
-            )}
-
-            <div className="form-group">
-              <label className="form-label">Monthly Hours</label>
-              <input
-                type="text"
-                className="form-control"
-                value={
-                  employeeType === "part-time"
-                    ? "Calculated based on actual hours worked"
-                    : (monthlyHours ?? 187)
-                }
-                disabled
-                style={{
-                  backgroundColor: "transparent",
-                  color: "#6c757d",
-                  cursor: "not-allowed",
-                  userSelect: "none",
-                }}
-                readOnly
-              />
-              <p className="help-text">
-                💡 {employeeType === "part-time" ? `Monthly hours will be calculated based on actual hours worked.` : "Fixed at 187 hours for full-time employees"}
-              </p>
+                {employeeType === 'part-time' && (
+                  <>
+                    <div className="spoke-row spoke-row-full">
+                      <div className="spoke-row-left">
+                        <span className="spoke-row-label">Daily Hours</span>
+                        <span className="spoke-row-hint">6–9 hours/day</span>
+                      </div>
+                      <div className="spoke-row-control">
+                        <input type="number" inputMode="decimal" className="bento-input" value={dailyHours ?? 9} onChange={(e) => setDailyHours(e.target.value)} min="6" max="9" step="0.5" />
+                      </div>
+                    </div>
+                    <div className="spoke-row spoke-row-full">
+                      <div className="spoke-row-left">
+                        <span className="spoke-row-label">Work Days / Week</span>
+                        <span className="spoke-row-hint">3–5 days</span>
+                      </div>
+                      <div className="spoke-row-control">
+                        <CustomSelect id="work-days-per-week-select" name="workDaysPerWeek" value={workDaysPerWeek ?? 5} onChange={(e) => setWorkDaysPerWeek(e.target.value)}
+                          options={[{ label: '3 days', value: '3' }, { label: '4 days', value: '4' }, { label: '5 days', value: '5' }]} />
+                      </div>
+                    </div>
+                  </>
+                )}
+                <div className="spoke-row">
+                  <div className="spoke-row-left">
+                    <span className="spoke-row-label">Monthly Hours</span>
+                    <span className="spoke-row-hint">{employeeType === 'part-time' ? 'Calculated from actual hours' : 'Fixed 187h for full-time'}</span>
+                  </div>
+                  <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{employeeType === 'part-time' ? 'Auto' : (monthlyHours ?? 187)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="spoke-section">
+              <div className="spoke-section-label">Leave Policy &amp; Breaks</div>
+              <div className="spoke-card">
+                <div className="spoke-row spoke-row-full">
+                  <div className="spoke-row-left">
+                    <span className="spoke-row-label">Daily Break Start</span>
+                    <span className="spoke-row-hint">30-min unpaid break each workday</span>
+                  </div>
+                  <div className="spoke-row-control">
+                    <input type="time" className="bento-input" value={breakStartTime} onChange={(e) => setBreakStartTime(e.target.value)} required />
+                  </div>
+                </div>
+                <div className="spoke-row spoke-row-full">
+                  <div className="spoke-row-left"><span className="spoke-row-label">Annual Vacation Days</span></div>
+                  <div className="spoke-row-control">
+                    <input type="number" inputMode="numeric" className="bento-input" value={annualVacation ?? 10} onChange={(e) => { setLeaveInputsDirty(true); setAnnualVacation(e.target.value); }} min="0" max="365" />
+                  </div>
+                </div>
+                <div className="spoke-row spoke-row-full">
+                  <div className="spoke-row-left"><span className="spoke-row-label">Sick Days</span></div>
+                  <div className="spoke-row-control">
+                    <input type="number" inputMode="numeric" className="bento-input" value={sickDays ?? 7} onChange={(e) => { setLeaveInputsDirty(true); setSickDays(e.target.value); }} min="0" max="365" />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-
-          <div className="settings-subsection">
-            <h3 className="bento-card-title">Leave Policy & Breaks</h3>
-            <div className="form-group">
-              <label className="form-label">Daily Break Start Time</label>
-              <input
-                type="time"
-                className="form-control"
-                value={breakStartTime}
-                onChange={(e) => setBreakStartTime(e.target.value)}
-                required
-              />
-              <p className="help-text">
-                💡 A 30-minute unpaid break starts at this time every workday.
-              </p>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Annual Vacation Days</label>
-              <input
-                type="number"
-                inputMode="numeric"
-                className="form-control"
-                value={annualVacation ?? 10}
-                onChange={(e) => {
-                  setLeaveInputsDirty(true);
-                  setAnnualVacation(e.target.value);
-                }}
-                placeholder="Enter annual vacation days"
-                min="0"
-                max="365"
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Sick Days</label>
-              <input
-                type="number"
-                inputMode="numeric"
-                className="form-control"
-                value={sickDays ?? 7}
-                onChange={(e) => {
-                  setLeaveInputsDirty(true);
-                  setSickDays(e.target.value);
-                }}
-                placeholder="Enter sick days"
-                min="0"
-                max="365"
-              />
-            </div>
+          <div className="spoke-footer">
+            <SpokeCancelBtn />
+            <SpokeSaveBtn onSave={(e) => { hapticFeedback.buttonClick(); handleSaveAll(e); }}>Save Changes</SpokeSaveBtn>
           </div>
-
-          <div className="settings-subsection" style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none" }}>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={(e) => { hapticFeedback.buttonClick(); handleSaveAll(e); }}
-            >
-              💾 Save All Settings
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Check-in Reminders Settings */}
-          </div>
-          
-          <div className="modal-footer" style={{ padding: '16px 24px 24px', display: 'flex', gap: '12px', borderTop: '1px solid var(--border-light)', background: 'var(--bg-secondary)', marginTop: 'auto' }}>
-            <button type="button" className="btn-secondary bento-modal-btn-outline" style={{ flex: 1 }} onClick={() => setActiveModal(null)}>Cancel</button>
-            <button type="button" className="btn-primary bento-modal-btn-glow" style={{ flex: 2 }} onClick={(e) => { handleSaveAll(e); setActiveModal(null); }}>Save Settings</button>
-          </div>
-
         </ModalShell>
       )}
 
+      {/* ═══ SPOKE: Check-in Reminders ═══ */}
       {activeModal === 'reminders' && (
         <ModalShell onClose={() => setActiveModal(null)} closeOnOverlay={true} contentClassName="settings-spoke-modal" showCloseButton={false}>
-          <div className="modal-header" style={{ padding: '24px 24px 16px', borderBottom: '1px solid var(--border-light)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-               <div>
-                  <h2 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-primary)' }}><i className="fa-solid fa-bell"></i> Check-in Reminders</h2>
-                  <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)' }}>Configure your automated check-in notifications.</p>
-               </div>
-               <button type="button" className="text-btn" style={{ color: 'var(--accent-cyan)', fontWeight: '600', background: 'transparent', border: 'none', padding: '8px', cursor: 'pointer' }} onClick={() => setActiveModal(null)}>Done</button>
-            </div>
+          <div className="spoke-header">
+            <h2 className="spoke-header-title"><i className="fa-solid fa-bell" />Check-in Reminders</h2>
+            <SpokeDoneBtn />
           </div>
-          <div className="modal-body settings-bento-grid-layout" style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div className="settings-bento-card col-span-3">
-        
-        <p className="settings-description">
-          Configure daily check-in reminders so you never forget to log your
-          time.
-        </p>
-
-        <form onSubmit={(event) => handleSaveAll(event, { forceReminderSave: true })}>
-          <div className="form-group">
-            <div className="haptic-feedback-toggle">
-              <label htmlFor="reminders-toggle" className="form-label">
-                Enable Reminders
-              </label>
-              <div className="toggle-wrapper">
-                <div className="haptic-toggle-switch">
-                  <input
-                    type="checkbox"
-                    id="reminders-toggle"
-                    checked={remindersEnabled}
-                    onChange={(e) => setRemindersEnabled(e.target.checked)}
-                  />
-                  <label
-                    htmlFor="reminders-toggle"
-                    className="haptic-toggle-label"
-                  >
-                    <span className="haptic-toggle-slider"></span>
+          <div className="spoke-content" style={{ overflowY: 'auto', flex: 1 }}>
+            <div className="spoke-section">
+              <div className="spoke-section-label">Reminder Settings</div>
+              <div className="spoke-card">
+                <div className="spoke-row">
+                  <div className="spoke-row-left">
+                    <span className="spoke-row-label">Enable Reminders</span>
+                    <span className="spoke-row-hint">Daily automated check-in notifications</span>
+                  </div>
+                  <label className="bento-toggle-wrapper">
+                    <input type="checkbox" checked={remindersEnabled} onChange={(e) => setRemindersEnabled(e.target.checked)} />
+                    <span className="bento-toggle-track" />
                   </label>
                 </div>
-                <span className="haptic-toggle-status-text">
-                  {remindersEnabled ? "Enabled" : "Disabled"}
-                </span>
+                {remindersEnabled && (
+                  <>
+                    <div className="spoke-row spoke-row-full">
+                      <div className="spoke-row-left"><span className="spoke-row-label">Start Time</span></div>
+                      <div className="spoke-row-control">
+                        <input type="time" className="bento-input" value={reminderStartTime} onChange={(e) => setReminderStartTime(e.target.value)} required />
+                      </div>
+                    </div>
+                    <div className="spoke-row spoke-row-full">
+                      <div className="spoke-row-left"><span className="spoke-row-label">Number of Reminders</span></div>
+                      <div className="spoke-row-control">
+                        {reminderCount === 'custom' ? (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <input type="number" inputMode="numeric" className="bento-input" style={{ flex: 1 }} value={customReminderCount} onChange={(e) => setCustomReminderCount(e.target.value)} min="1" max="100" />
+                            <button type="button" className="spoke-btn-outline" style={{ flex: '0 0 auto', padding: '10px 14px' }} onClick={() => setReminderCount('3')}>Reset</button>
+                          </div>
+                        ) : (
+                          <CustomSelect id="reminder-count" name="reminderCount" value={reminderCount} onChange={(e) => setReminderCount(e.target.value)}
+                            options={[{ label: '1', value: '1' }, { label: '2', value: '2' }, { label: '3', value: '3' }, { label: '4', value: '4' }, { label: '5', value: '5' }, { label: 'Custom', value: 'custom' }]} />
+                        )}
+                      </div>
+                    </div>
+                    <div className="spoke-row spoke-row-full">
+                      <div className="spoke-row-left"><span className="spoke-row-label">Interval Between Reminders</span></div>
+                      <div className="spoke-row-control">
+                        {reminderInterval === 'custom' ? (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <input type="number" inputMode="numeric" className="bento-input" style={{ flex: 1 }} value={customReminderInterval} onChange={(e) => setCustomReminderInterval(e.target.value)} min="1" max="1440" />
+                            <button type="button" className="spoke-btn-outline" style={{ flex: '0 0 auto', padding: '10px 14px' }} onClick={() => setReminderInterval('15')}>Reset</button>
+                          </div>
+                        ) : (
+                          <CustomSelect id="reminder-interval" name="reminderInterval" value={reminderInterval} onChange={(e) => setReminderInterval(e.target.value)}
+                            options={[{ label: '5 min', value: '5' }, { label: '10 min', value: '10' }, { label: '15 min', value: '15' }, { label: '30 min', value: '30' }, { label: 'Custom', value: 'custom' }]} />
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
-          </div>
-
-          {remindersEnabled && (
-            <>
-              <div className="form-group">
-                <label className="form-label">Start Time</label>
-                <input
-                  type="time"
-                  className="form-control"
-                  value={reminderStartTime}
-                  onChange={(e) => setReminderStartTime(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Number of Reminders</label>
-                {reminderCount === "custom" ? (
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      className="form-control"
-                      value={customReminderCount}
-                      onChange={(e) => setCustomReminderCount(e.target.value)}
-                      min="1"
-                      max="100"
-                      style={{
-                        flex: 1,
-                        padding: "10px",
-                        border: "1px solid #ddd",
-                        borderRadius: "4px",
-                        fontSize: "16px"
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => setReminderCount("3")}
-                      style={{ padding: "10px 15px" }}
-                    >
-                      Reset
+            {remindersEnabled && (
+              <div className="spoke-section">
+                <div className="spoke-section-label">Push Notifications</div>
+                <div className="spoke-card">
+                  <div className="spoke-row">
+                    <div className="spoke-row-left">
+                      <span className="spoke-row-label">Push Notifications</span>
+                      <span className="spoke-row-hint">{!import.meta.env.PROD ? 'Production only (HTTPS required)' : 'Requires Home Screen install (iOS)'}</span>
+                    </div>
+                    <button type="button" disabled={!import.meta.env.PROD || isNotificationBusy} onClick={handleTogglePushNotifications}
+                      style={{ padding: '6px 14px', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700, background: isNotificationSubscribed ? 'rgba(239,68,68,0.15)' : 'rgba(0,240,255,0.12)', color: isNotificationSubscribed ? '#ef4444' : 'var(--accent-cyan)', border: `1px solid ${isNotificationSubscribed ? 'rgba(239,68,68,0.3)' : 'rgba(0,240,255,0.25)'}`, cursor: 'pointer', opacity: !import.meta.env.PROD || isNotificationBusy ? 0.5 : 1 }}>
+                      {isNotificationBusy ? 'Updating…' : isNotificationSubscribed ? 'Disable' : 'Enable'}
                     </button>
                   </div>
-                ) : (
-                  <CustomSelect
-                    id="reminder-count"
-                    name="reminderCount"
-                    value={reminderCount}
-                    onChange={(e) => setReminderCount(e.target.value)}
-                    options={[
-                      { label: "1 Reminder", value: "1" },
-                      { label: "2 Reminders", value: "2" },
-                      { label: "3 Reminders", value: "3" },
-                      { label: "4 Reminders", value: "4" },
-                      { label: "5 Reminders", value: "5" },
-                      { label: "Custom", value: "custom" },
-                    ]}
-                  />
-                )}
-              </div>
-              <div className="form-group">
-                <label className="form-label">Interval between Reminders</label>
-                {reminderInterval === "custom" ? (
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      className="form-control"
-                      value={customReminderInterval}
-                      onChange={(e) => setCustomReminderInterval(e.target.value)}
-                      min="1"
-                      max="1440"
-                      style={{
-                        flex: 1,
-                        padding: "10px",
-                        border: "1px solid #ddd",
-                        borderRadius: "4px",
-                        fontSize: "16px"
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => setReminderInterval("15")}
-                      style={{ padding: "10px 15px" }}
-                    >
-                      Reset
-                    </button>
+                  <div className="spoke-row">
+                    <div className="spoke-row-left">
+                      <span className="spoke-row-label">Test Notifications</span>
+                      <span className="spoke-row-hint">Verify your setup works</span>
+                    </div>
+                    <button type="button" onClick={() => setShowTestNotifModal(true)} style={{ padding: '6px 14px', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', cursor: 'pointer' }}>Test</button>
                   </div>
-                ) : (
-                  <CustomSelect
-                    id="reminder-interval"
-                    name="reminderInterval"
-                    value={reminderInterval}
-                    onChange={(e) => setReminderInterval(e.target.value)}
-                    options={[
-                      { label: "5 Minutes", value: "5" },
-                      { label: "10 Minutes", value: "10" },
-                      { label: "15 Minutes", value: "15" },
-                      { label: "30 Minutes", value: "30" },
-                      { label: "Custom", value: "custom" },
-                    ]}
-                  />
+                </div>
+              </div>
+            )}
+            <div className="spoke-section">
+              <div className="spoke-section-label">Feedback</div>
+              <div className="spoke-card">
+                <div className="spoke-row">
+                  <div className="spoke-row-left">
+                    <span className="spoke-row-label">Haptic Feedback</span>
+                    <span className="spoke-row-hint">{hapticFeedback.isSupported() ? 'Vibration on button taps' : '⚠️ Not supported on this device'}</span>
+                  </div>
+                  <label className="bento-toggle-wrapper">
+                    <input type="checkbox" checked={hapticEnabled} disabled={!hapticFeedback.isSupported()} onChange={() => { hapticFeedback.toggleSwitch(); handleHapticToggle(); }} />
+                    <span className="bento-toggle-track" />
+                  </label>
+                </div>
+                {hapticEnabled && hapticFeedback.isSupported() && (
+                  <div className="spoke-row">
+                    <div className="spoke-row-left"><span className="spoke-row-label">Test Vibration</span></div>
+                    <button type="button" onClick={() => { hapticFeedback.buttonClick(); hapticFeedback.testAll(); }} style={{ padding: '6px 14px', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', cursor: 'pointer' }}>Test</button>
+                  </div>
                 )}
               </div>
-
-              <div style={{ marginTop: "15px", marginBottom: "20px" }}>
-                <button
-                  type="button"
-                  className={`btn ${isNotificationSubscribed ? "btn-secondary" : "btn-outline"}`}
-                  disabled={!import.meta.env.PROD || isNotificationBusy}
-                  onClick={handleTogglePushNotifications}
-                >
-                  <span>
-                    <i
-                      className={`fa-solid ${isNotificationSubscribed ? "fa-bell-slash" : "fa-bell"}`}
-                      aria-hidden="true"
-                    ></i>{" "}
-                    {isNotificationBusy
-                      ? "Updating Push Notifications..."
-                      : isNotificationSubscribed
-                        ? "Disable Push Notifications"
-                        : "Enable Push Notifications"}
-                  </span>
-                </button>
-                {!import.meta.env.PROD && (
-                  <p className="help-text" style={{ marginTop: "8px", fontSize: "12px", color: "#666" }}>
-                    Push notifications are only available in production mode. Use the Test Notifications button below to test notifications in development.
-                  </p>
-                )}
-                <p className="help-text" style={{ marginTop: "8px" }}>
-                  <strong>Notes:<br /></strong>- Notifications only work if your phone is
-                  connected to the internet and the app is added to your home
-                  screen. <br/>- iOS requires this app to be added to the Home Screen
-                  to receive notifications. <br/>- Multi-notification tests use app timers, so keep the app open during the test interval.
-                </p>
-
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ marginTop: "15px", width: "100%" }}
-                  onClick={() => setShowTestNotifModal(true)}
-                >
-                  🧪 Test Notifications
-                </button>
-              </div>
-
-              <button
-                type="submit"
-                className="btn btn-primary"
-                onClick={() => hapticFeedback.buttonClick()}
-              >
-                💾 Save Reminder Settings
-              </button>
-              {reminderSaveStatus.message && (
-                <p
-                  className={`reminder-save-status reminder-save-status-${reminderSaveStatus.type}`}
-                  role={reminderSaveStatus.type === "error" ? "alert" : "status"}
-                >
-                  {reminderSaveStatus.message}
-                </p>
-              )}
-            </>
-          )}
-        </form>
-      </div>
-
-      {/* Haptic Feedback Settings */}<div className="settings-bento-card col-span-3">
-        
-        <p className="settings-description">
-          Control vibration feedback for button interactions and other UI
-          actions.
-        </p>
-
-        <div className="form-group">
-          <div className="haptic-feedback-toggle">
-            <label htmlFor="haptic-toggle" className="form-label">
-              Enable Haptic Feedback
-            </label>
-            <div className="toggle-wrapper">
-              <div className="haptic-toggle-switch">
-                <input
-                  type="checkbox"
-                  id="haptic-toggle"
-                  checked={hapticEnabled}
-                  onChange={() => {
-                    hapticFeedback.toggleSwitch();
-                    handleHapticToggle();
-                  }}
-                  disabled={!hapticFeedback.isSupported()}
-                />
-                <label htmlFor="haptic-toggle" className="haptic-toggle-label">
-                  <span className="haptic-toggle-slider"></span>
-                </label>
-              </div>
-              <span className="haptic-toggle-status-text">
-                {hapticEnabled ? "Enabled" : "Disabled"}
-              </span>
             </div>
+            {reminderSaveStatus.message && (
+              <div style={{ margin: '12px 0', padding: '10px 14px', borderRadius: '12px', background: reminderSaveStatus.type === 'error' ? 'rgba(239,68,68,0.1)' : 'rgba(57,255,20,0.08)', color: reminderSaveStatus.type === 'error' ? '#ef4444' : 'var(--accent-neon-green)', fontSize: '0.85rem', fontWeight: 600 }}>
+                {reminderSaveStatus.message}
+              </div>
+            )}
           </div>
-          {!hapticFeedback.isSupported() && (
-            <p
-              className="help-text"
-              style={{ color: "#6c757d", marginTop: "8px" }}
-            >
-              ⚠️ Haptic feedback is not supported on this device/browser.
-            </p>
-          )}
-          {hapticFeedback.isSupported() && (
-            <p
-              className="help-text"
-              style={{ color: "#6c757d", marginTop: "8px" }}
-            >
-              💡 Provides vibration feedback for button clicks, check-in/out
-              actions, and other interactions.
-            </p>
-          )}
-        </div>
-
-        {hapticEnabled && hapticFeedback.isSupported() && (
-          <div className="form-group">
-            <button
-              className="btn btn-outline btn-sm"
-              onClick={() => {
-                hapticFeedback.buttonClick();
-                hapticFeedback.testAll();
-              }}
-            >
-              🎯 Test All Vibration Patterns
-            </button>
-            <p className="help-text" style={{ marginTop: "8px" }}>
-              Test different vibration patterns used throughout the app.
-            </p>
+          <div className="spoke-footer">
+            <SpokeCancelBtn />
+            <SpokeSaveBtn onSave={(e) => { hapticFeedback.buttonClick(); handleSaveAll(e, { forceReminderSave: true }); }}>Save</SpokeSaveBtn>
           </div>
-        )}
-      </div>
-          </div>
-          
-          <div className="modal-footer" style={{ padding: '16px 24px 24px', display: 'flex', gap: '12px', borderTop: '1px solid var(--border-light)', background: 'var(--bg-secondary)', marginTop: 'auto' }}>
-            <button type="button" className="btn-secondary bento-modal-btn-outline" style={{ flex: 1 }} onClick={() => setActiveModal(null)}>Cancel</button>
-            <button type="button" className="btn-primary bento-modal-btn-glow" style={{ flex: 2 }} onClick={(e) => { handleSaveAll(e); setActiveModal(null); }}>Save Settings</button>
-          </div>
-
         </ModalShell>
       )}
 
+      {/* ═══ SPOKE: Pay Period Management ═══ */}
       {activeModal === 'periods' && (
         <ModalShell onClose={() => setActiveModal(null)} closeOnOverlay={true} contentClassName="settings-spoke-modal" showCloseButton={false}>
-          <div className="modal-header" style={{ padding: '24px 24px 16px', borderBottom: '1px solid var(--border-light)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-               <div>
-                  <h2 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-primary)' }}><i className="fa-solid fa-calendar-days"></i> Pay Period Management</h2>
-                  <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)' }}>Setup and manage your pay periods.</p>
-               </div>
-               <button type="button" className="text-btn" style={{ color: 'var(--accent-cyan)', fontWeight: '600', background: 'transparent', border: 'none', padding: '8px', cursor: 'pointer' }} onClick={() => setActiveModal(null)}>Done</button>
-            </div>
+          <div className="spoke-header">
+            <h2 className="spoke-header-title"><i className="fa-solid fa-calendar-days" />Pay Periods</h2>
+            <SpokeDoneBtn />
           </div>
-          <div className="modal-body settings-bento-grid-layout" style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div className="settings-bento-card col-span-3 pay-period-settings-section">
-        <h3>📅 Pay Period Management</h3>
-        <p className="settings-description">
-          Define custom pay periods for your timesheet. Periods must be
-          continuous with no gaps or overlaps.
-        </p>
-
-        <div className="periods-list">
-          {/* Previous Periods Accordion */}
-          {previous.length > 0 && (
-            <div className="period-section">
-              <button
-                className="period-accordion-header"
-                onClick={() => setShowPrevious(!showPrevious)}
-              >
-                <span className="accordion-icon">
-                  {showPrevious ? "▼" : "▶"}
-                </span>
-                <span className="period-section-header-text">
-                  PREVIOUS PERIODS ({previous.length})
-                </span>
-              </button>
-
-              {showPrevious && (
-                <div className="period-section-content accordion-content">
-                  {previous.map((period) => (
-                    <div key={period.id} className="period-item">
-                      <div className="period-info">
-                        <span className="period-label">{period.label}</span>
-                      </div>
-                      <div className="period-actions">
-                        <button
-                          className="btn btn-sm btn-outline"
-                          onClick={() => handleSetCurrentPeriod(period)}
-                          disabled={period.id.startsWith("period-") || settingCurrentPeriodId === period.id}
-                        >
-                          {settingCurrentPeriodId === period.id
-                            ? "Setting..."
-                            : period.id.startsWith("period-")
-                              ? "Saving..."
-                              : "Set as Current"}
-                        </button>
-                        <button
-                          className="btn btn-sm btn-outline"
-                          onClick={() => {
-                            setEditingPeriodId(period.id);
-                            setNewPeriodStart(
-                              period.start_date || period.start,
-                            );
-                            setNewPeriodEnd(period.end_date || period.end);
-                            setShowAddPeriod(true);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => handleDeletePeriod(period.id)}
-                        >
-                          Delete
-                        </button>
+          <div className="spoke-content" style={{ overflowY: 'auto', flex: 1 }}>
+            {current && (
+              <div className="spoke-section">
+                <div className="spoke-section-label">Current Period</div>
+                <div className="spoke-card">
+                  <div className="bento-period-item">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                      <span className="bento-period-label">{current.label}</span>
+                      <span className="bento-period-badge">Active</span>
+                    </div>
+                    <div className="bento-period-actions">
+                      <button className="bento-period-btn" onClick={() => { setEditingPeriodId(current.id); setNewPeriodStart(current.start_date || current.start); setNewPeriodEnd(current.end_date || current.end); setShowAddPeriod(true); }}>Edit</button>
+                      <button className="bento-period-btn danger" onClick={() => handleDeletePeriod(current.id)} disabled={periods.length === 1}>Delete</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {upcoming.length > 0 && (
+              <div className="spoke-section">
+                <div className="spoke-section-label">Upcoming</div>
+                <div className="spoke-card">
+                  <button className="bento-accordion-btn" onClick={() => setShowUpcoming(!showUpcoming)}>
+                    <i className={`fa-solid fa-chevron-${showUpcoming ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} />
+                    {upcoming.length} period{upcoming.length !== 1 ? 's' : ''}
+                  </button>
+                  {showUpcoming && upcoming.map((period) => (
+                    <div key={period.id} className="bento-period-item">
+                      <span className="bento-period-label" style={{ flex: 1 }}>{period.label}</span>
+                      <div className="bento-period-actions">
+                        <button className="bento-period-btn" onClick={() => handleSetCurrentPeriod(period)} disabled={period.id.startsWith('period-') || settingCurrentPeriodId === period.id}>{settingCurrentPeriodId === period.id ? '…' : 'Set Current'}</button>
+                        <button className="bento-period-btn" onClick={() => { setEditingPeriodId(period.id); setNewPeriodStart(period.start_date || period.start); setNewPeriodEnd(period.end_date || period.end); setShowAddPeriod(true); }}>Edit</button>
+                        <button className="bento-period-btn danger" onClick={() => handleDeletePeriod(period.id)}>Delete</button>
                       </div>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Current Period Section */}
-          {current && (
-            <div className="period-section">
-              <h4 className="period-section-header current-period-header">
-                📅 CURRENT PERIOD
-              </h4>
-              <div className="period-section-content">
-                <div className="period-item period-current">
-                  <div className="period-info">
-                    <span className="period-label">{current.label}</span>
-                    <span className="period-badge">Current</span>
-                  </div>
-                  <div className="period-actions">
-                    <button
-                      className="btn btn-sm btn-outline"
-                      onClick={() => {
-                        setEditingPeriodId(current.id);
-                        setNewPeriodStart(current.start_date || current.start);
-                        setNewPeriodEnd(current.end_date || current.end);
-                        setShowAddPeriod(true);
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() => handleDeletePeriod(current.id)}
-                      disabled={periods.length === 1}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
               </div>
-            </div>
-          )}
-
-          {/* Upcoming Periods Accordion */}
-          {upcoming.length > 0 && (
-            <div className="period-section">
-              <button
-                className="period-accordion-header"
-                onClick={() => setShowUpcoming(!showUpcoming)}
-              >
-                <span className="accordion-icon">
-                  {showUpcoming ? "▼" : "▶"}
-                </span>
-                <span className="period-section-header-text">
-                  UPCOMING PERIODS ({upcoming.length})
-                </span>
-              </button>
-
-              {showUpcoming && (
-                <div className="period-section-content accordion-content">
-                  {upcoming.map((period) => (
-                    <div key={period.id} className="period-item">
-                      <div className="period-info">
-                        <span className="period-label">{period.label}</span>
-                      </div>
-                      <div className="period-actions">
-                        <button
-                          className="btn btn-sm btn-outline"
-                          onClick={() => handleSetCurrentPeriod(period)}
-                          disabled={period.id.startsWith("period-") || settingCurrentPeriodId === period.id}
-                        >
-                          {settingCurrentPeriodId === period.id
-                            ? "Setting..."
-                            : period.id.startsWith("period-")
-                              ? "Saving..."
-                              : "Set as Current"}
-                        </button>
-                        <button
-                          className="btn btn-sm btn-outline"
-                          onClick={() => {
-                            setEditingPeriodId(period.id);
-                            setNewPeriodStart(
-                              period.start_date || period.start,
-                            );
-                            setNewPeriodEnd(period.end_date || period.end);
-                            setShowAddPeriod(true);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => handleDeletePeriod(period.id)}
-                        >
-                          Delete
-                        </button>
+            )}
+            {previous.length > 0 && (
+              <div className="spoke-section">
+                <div className="spoke-section-label">Previous</div>
+                <div className="spoke-card">
+                  <button className="bento-accordion-btn" onClick={() => setShowPrevious(!showPrevious)}>
+                    <i className={`fa-solid fa-chevron-${showPrevious ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} />
+                    {previous.length} period{previous.length !== 1 ? 's' : ''}
+                  </button>
+                  {showPrevious && previous.map((period) => (
+                    <div key={period.id} className="bento-period-item">
+                      <span className="bento-period-label" style={{ flex: 1 }}>{period.label}</span>
+                      <div className="bento-period-actions">
+                        <button className="bento-period-btn" onClick={() => handleSetCurrentPeriod(period)} disabled={period.id.startsWith('period-') || settingCurrentPeriodId === period.id}>{settingCurrentPeriodId === period.id ? '…' : 'Set Current'}</button>
+                        <button className="bento-period-btn" onClick={() => { setEditingPeriodId(period.id); setNewPeriodStart(period.start_date || period.start); setNewPeriodEnd(period.end_date || period.end); setShowAddPeriod(true); }}>Edit</button>
+                        <button className="bento-period-btn danger" onClick={() => handleDeletePeriod(period.id)}>Delete</button>
                       </div>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
+            )}
+            <div className="spoke-section">
+              <button type="button" className="spoke-btn-primary" style={{ width: '100%' }} onClick={() => { setEditingPeriodId(null); setNewPeriodStart(''); setNewPeriodEnd(''); setShowAddPeriod(true); }}>
+                <i className="fa-solid fa-plus" style={{ marginRight: '8px' }} />Add Pay Period
+              </button>
             </div>
-          )}
-        </div>
-
-        <div className="period-actions-bar">
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              setEditingPeriodId(null);
-              setNewPeriodStart("");
-              setNewPeriodEnd("");
-              setShowAddPeriod(true);
-            }}
-          >
-            ➕ Add Pay Period
-          </button>
-        </div>
-
-        {/* Add Period Modal */}
-        {showAddPeriod && (
-          <ModalShell
-            onClose={() => setShowAddPeriod(false)}
-            closeOnOverlay={false}
-          >
-            <form onSubmit={handleAddPeriod}>
-              <h3>
-                {editingPeriodId ? "Edit Pay Period" : "Add New Pay Period"}
-              </h3>
-              <p className="settings-description">
-                Period label will be automatically generated from the dates
-              </p>
-
-              <div className="form-group">
-                <label className="form-label">Start Date</label>
-                <input
-                  type="date"
-                  className="form-control"
-                  value={newPeriodStart}
-                  onChange={(e) => setNewPeriodStart(e.target.value)}
-                  max={newPeriodEnd || undefined}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">End Date</label>
-                <input
-                  type="date"
-                  className="form-control"
-                  value={newPeriodEnd}
-                  onChange={(e) => setNewPeriodEnd(e.target.value)}
-                  min={newPeriodStart || undefined}
-                  required
-                />
-              </div>
-
-              {newPeriodStart && newPeriodEnd && (
-                <div className="form-group">
-                  <label className="form-label">Generated Label Preview</label>
-                  <div className="period-preview">
-                    {(() => {
-                      const startDate = new Date(newPeriodStart);
-                      const endDate = new Date(newPeriodEnd);
-                      const formatDate = (date) => {
-                        const day = date.getDate();
-                        const month = date.toLocaleString("en-US", {
-                          month: "short",
-                        });
-                        return `${day} ${month}`;
-                      };
-                      return `${formatDate(startDate)} - ${formatDate(endDate)} ${endDate.getFullYear()}`;
-                    })()}
-                  </div>
-                </div>
-              )}
-
-              <div className="form-actions">
-                <button type="submit" className="btn btn-primary">
-                  {editingPeriodId ? "Update Period" : "Add Period"}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setShowAddPeriod(false);
-                    setEditingPeriodId(null);
-                    setNewPeriodStart("");
-                    setNewPeriodEnd("");
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </ModalShell>
-        )}
-      </div>
           </div>
-          
+          {showAddPeriod && (
+            <ModalShell onClose={() => setShowAddPeriod(false)}>
+              <div style={{ padding: '24px 20px' }}>
+                <h2 style={{ margin: '0 0 20px', fontSize: '1.3rem', fontWeight: 800 }}>{editingPeriodId ? 'Edit Period' : 'Add Pay Period'}</h2>
+                <form onSubmit={handleSavePeriod} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div>
+                    <label className="spoke-row-label" style={{ display: 'block', marginBottom: '8px' }}>Start Date</label>
+                    <input type="date" className="bento-input" value={newPeriodStart} onChange={(e) => setNewPeriodStart(e.target.value)} required />
+                  </div>
+                  <div>
+                    <label className="spoke-row-label" style={{ display: 'block', marginBottom: '8px' }}>End Date</label>
+                    <input type="date" className="bento-input" value={newPeriodEnd} onChange={(e) => setNewPeriodEnd(e.target.value)} required />
+                  </div>
+                  {periodError && <p style={{ color: '#ef4444', fontSize: '0.85rem', margin: 0 }}>{periodError}</p>}
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                    <button type="button" className="spoke-btn-outline" style={{ flex: 1 }} onClick={() => { setShowAddPeriod(false); setEditingPeriodId(null); setNewPeriodStart(''); setNewPeriodEnd(''); }}>Cancel</button>
+                    <button type="submit" className="spoke-btn-primary" style={{ flex: 2 }}>{editingPeriodId ? 'Update' : 'Add Period'}</button>
+                  </div>
+                </form>
+              </div>
+            </ModalShell>
+          )}
         </ModalShell>
       )}
 
+      {/* ═══ SPOKE: Data Management ═══ */}
       {activeModal === 'data' && (
         <ModalShell onClose={() => setActiveModal(null)} closeOnOverlay={true} contentClassName="settings-spoke-modal" showCloseButton={false}>
-          <div className="modal-header" style={{ padding: '24px 24px 16px', borderBottom: '1px solid var(--border-light)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-               <div>
-                  <h2 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-primary)' }}><i className="fa-solid fa-database"></i> Data Management</h2>
-                  <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)' }}>Export, backup, or optimize your tracking data.</p>
-               </div>
-               <button type="button" className="text-btn" style={{ color: 'var(--accent-cyan)', fontWeight: '600', background: 'transparent', border: 'none', padding: '8px', cursor: 'pointer' }} onClick={() => setActiveModal(null)}>Done</button>
+          <div className="spoke-header">
+            <h2 className="spoke-header-title"><i className="fa-solid fa-database" />Data Management</h2>
+            <SpokeDoneBtn />
+          </div>
+          <div className="spoke-content" style={{ overflowY: 'auto', flex: 1 }}>
+            <div className="spoke-section">
+              <div className="spoke-section-label">Backup &amp; Restore</div>
+              <div className="spoke-card">
+                <div className="spoke-row">
+                  <div className="spoke-row-left">
+                    <span className="spoke-row-label">Export Data</span>
+                    <span className="spoke-row-hint">Download timesheet as Excel</span>
+                  </div>
+                  <button type="button" onClick={() => { hapticFeedback.buttonClick(); handleOpenExport(); }} style={{ padding: '7px 16px', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(0,240,255,0.12)', color: 'var(--accent-cyan)', border: '1px solid rgba(0,240,255,0.25)', cursor: 'pointer' }}>Export</button>
+                </div>
+                <div className="spoke-row">
+                  <div className="spoke-row-left">
+                    <span className="spoke-row-label">Import Data</span>
+                    <span className="spoke-row-hint">Restore from a previous backup</span>
+                  </div>
+                  <button type="button" onClick={() => { hapticFeedback.buttonClick(); setShowImportModal(true); }} style={{ padding: '7px 16px', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', cursor: 'pointer' }}>Import</button>
+                </div>
+              </div>
+            </div>
+            <div className="spoke-section">
+              <div className="spoke-section-label">Sync Status</div>
+              <div className="spoke-card">
+                <div className="bento-stat-grid">
+                  <div className="bento-stat-cell"><span className="bento-stat-label">Connection</span><span className={`bento-stat-value ${syncStatus.isOnline ? 'is-online' : 'is-offline'}`}>{syncStatus.isOnline ? 'Online' : 'Offline'}</span></div>
+                  <div className="bento-stat-cell"><span className="bento-stat-label">Activity</span><span className="bento-stat-value">{syncStatus.isSyncing ? 'Syncing' : 'Idle'}</span></div>
+                  <div className="bento-stat-cell"><span className="bento-stat-label">Last Saved</span><span className="bento-stat-value">{lastSaved ? formatRelativeTime(new Date(lastSaved)) : '—'}</span></div>
+                  <div className="bento-stat-cell"><span className="bento-stat-label">Conflicts</span><span className={`bento-stat-value ${pendingConflicts?.length ? 'has-warning' : ''}`}>{pendingConflicts?.length || 0}</span></div>
+                  <div className="bento-stat-cell"><span className="bento-stat-label">Pending Uploads</span><span className={`bento-stat-value ${syncStatus.backgroundQueue ? 'has-warning' : ''}`}>{syncStatus.backgroundQueue || 0}</span></div>
+                  <div className="bento-stat-cell"><span className="bento-stat-label">Offline Changes</span><span className={`bento-stat-value ${(syncStatus.timeEntrySync?.pending || syncStatus.offlineQueue?.pending) ? 'has-warning' : ''}`}>{(syncStatus.timeEntrySync?.pending || 0) + (syncStatus.offlineQueue?.pending || 0)}</span></div>
+                </div>
+                <div className="spoke-row" style={{ borderTop: '1px solid var(--border-light)' }}>
+                  <span className="spoke-row-hint">Updated {syncStatus.checkedAt ? formatRelativeTime(new Date(syncStatus.checkedAt)) : '—'}</span>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button type="button" onClick={handleRefreshSyncStatus} style={{ padding: '6px 12px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 600, background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-light)', cursor: 'pointer' }}>Refresh</button>
+                    <button type="button" onClick={handleSyncNow} disabled={isSyncingNow} style={{ padding: '6px 12px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 600, background: 'rgba(0,240,255,0.12)', color: 'var(--accent-cyan)', border: '1px solid rgba(0,240,255,0.25)', cursor: 'pointer', opacity: isSyncingNow ? 0.5 : 1 }}>{isSyncingNow ? 'Syncing…' : 'Sync Now'}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="spoke-section">
+              <div className="spoke-section-label">App Updates</div>
+              <div className="spoke-card">
+                <div className="spoke-row">
+                  <div className="spoke-row-left">
+                    <span className="spoke-row-label">Current Version</span>
+                    <span className="spoke-row-hint">v{appVersion} · {import.meta.env.PROD ? 'Installed' : 'Dev preview'}</span>
+                  </div>
+                  <button type="button" onClick={handleCheckForAppUpdate} disabled={isCheckingVersion} style={{ padding: '6px 14px', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', cursor: 'pointer', opacity: isCheckingVersion ? 0.5 : 1 }}>{isCheckingVersion ? 'Checking…' : 'Check'}</button>
+                </div>
+                {pendingUpdateRegistration && (
+                  <div className="spoke-row">
+                    <div className="spoke-row-left"><span className="spoke-row-label">Update Ready</span></div>
+                    <button type="button" onClick={handleReloadAppUpdate} style={{ padding: '6px 14px', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(57,255,20,0.12)', color: 'var(--accent-neon-green)', border: '1px solid rgba(57,255,20,0.25)', cursor: 'pointer' }}>Reload</button>
+                  </div>
+                )}
+                {versionCheckStatus && <div style={{ padding: '8px 16px 12px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{versionCheckStatus}</div>}
+              </div>
             </div>
           </div>
-          <div className="modal-body settings-bento-grid-layout" style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div className="settings-bento-card col-span-3">
-        <div className="settings-section-header">
-          
-          <div className="sync-status-actions">
-            <button
-              type="button"
-              className="btn btn-sm btn-outline"
-              onClick={handleRefreshSyncStatus}
-            >
-              Refresh Status
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-primary"
-              onClick={handleSyncNow}
-              disabled={isSyncingNow}
-            >
-              {isSyncingNow ? "Syncing..." : "Sync Now"}
-            </button>
-          </div>
-        </div>
-
-        <div className="sync-status-grid">
-          <div className="sync-status-card">
-            <span className="sync-status-label">Connection</span>
-            <strong
-              className={`sync-status-value ${
-                syncStatus.isOnline ? "is-online" : "is-offline"
-              }`}
-            >
-              {syncStatus.isOnline ? "Online" : "Offline"}
-            </strong>
-          </div>
-
-          <div className="sync-status-card">
-            <span className="sync-status-label">Sync Activity</span>
-            <strong className="sync-status-value">
-              {syncStatus.isSyncing ? "Syncing" : "Idle"}
-            </strong>
-          </div>
-
-          <div className="sync-status-card">
-            <span className="sync-status-label">Last Saved</span>
-            <strong className="sync-status-value">
-              {lastSaved ? formatRelativeTime(new Date(lastSaved)) : "-"}
-            </strong>
-          </div>
-
-          <div className="sync-status-card">
-            <span className="sync-status-label">Last Refreshed</span>
-            <strong className="sync-status-value">
-              {lastRefreshed
-                ? formatRelativeTime(new Date(lastRefreshed))
-                : "-"}
-            </strong>
-          </div>
-
-          <div className="sync-status-card">
-            <span className="sync-status-label">Conflicts</span>
-            <strong
-              className={`sync-status-value ${
-                pendingConflicts?.length ? "has-warning" : ""
-              }`}
-            >
-              {pendingConflicts?.length || 0}
-            </strong>
-          </div>
-
-          <div className="sync-status-card">
-            <span className="sync-status-label">Profile Save Queue</span>
-            <strong
-              className={`sync-status-value ${
-                syncStatus.appSaveQueue ? "has-warning" : ""
-              }`}
-            >
-              {syncStatus.appSaveQueue}
-            </strong>
-          </div>
-
-          <div className="sync-status-card">
-            <span className="sync-status-label">Pending Uploads</span>
-            <strong
-              className={`sync-status-value ${
-                syncStatus.backgroundQueue ? "has-warning" : ""
-              }`}
-            >
-              {syncStatus.backgroundQueue}
-            </strong>
-          </div>
-
-          <div className="sync-status-card">
-            <span className="sync-status-label">Offline Changes</span>
-            <strong
-              className={`sync-status-value ${
-                syncStatus.timeEntrySync?.pending ||
-                syncStatus.offlineQueue?.pending ||
-                syncStatus.offlineQueue?.failed
-                  ? "has-warning"
-                  : ""
-              }`}
-            >
-              {(syncStatus.timeEntrySync?.pending || 0) +
-                (syncStatus.offlineQueue?.pending || 0)}{" "}
-              pending
-            </strong>
-          </div>
-        </div>
-
-        {syncStatus.timeEntrySync?.pending > 0 && (
-          <div className="sync-pending-details">
-            <span className="sync-pending-details-label">
-              Pending time entries
-            </span>
-            <span className="sync-pending-details-dates">
-              {syncStatus.timeEntrySync.dates.join(", ")}
-            </span>
-          </div>
-        )}
-
-        <div className="sync-status-footer">
-          <span>
-            {syncStatus.timeEntrySync?.pending
-              ? `Pending time entries: ${syncStatus.timeEntrySync.dates.join(", ")}`
-              : saveStatus?.message || "No current save message"}
-          </span>
-          <span>
-            Checked{" "}
-            {syncStatus.checkedAt
-              ? formatRelativeTime(new Date(syncStatus.checkedAt))
-              : "-"}
-          </span>
-        </div>
-      </div><div className="settings-bento-card col-span-3">
-        <div className="settings-section-header app-version-header">
-          <div>
-            
-            <p className="settings-description">
-              Check whether a newer installed app build is ready to load.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="btn btn-sm btn-primary"
-            onClick={handleCheckForAppUpdate}
-            disabled={isCheckingVersion}
-          >
-            {isCheckingVersion ? "Checking..." : "Check for Updates"}
-          </button>
-          {pendingUpdateRegistration && (
-            <button
-              type="button"
-              className="btn btn-sm btn-secondary"
-              onClick={handleReloadAppUpdate}
-            >
-              Reload Update
-            </button>
-          )}
-        </div>
-
-        <div className="app-version-card">
-          <div>
-            <span className="sync-status-label">Current Version</span>
-            <strong className="sync-status-value">v{appVersion}</strong>
-          </div>
-          <div>
-            <span className="sync-status-label">Update Source</span>
-            <strong className="sync-status-value">
-              {import.meta.env.PROD ? "Installed app" : "Development preview"}
-            </strong>
-          </div>
-        </div>
-
-        {versionCheckStatus && (
-          <p className="version-check-status">{versionCheckStatus}</p>
-        )}
-      </div>
-
-      {/* NEW: Export/Import Data Section */}<div className="settings-bento-card col-span-3">
-        
-        <p className="settings-description">
-          Export your timesheet data to Excel or import data from a previous
-          backup.
-        </p>
-
-        <div className="data-management-actions">
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              hapticFeedback.buttonClick();
-              handleOpenExport();
-            }}
-            data-export-btn
-          >
-            📥 Export Data
-          </button>
-
-          <button
-            className="btn btn-secondary"
-            onClick={() => {
-              hapticFeedback.buttonClick();
-              setShowImportModal(true);
-            }}
-          >
-            📤 Import Data
-          </button>
-        </div>
-      </div>
-
-      {/* Danger Zone */}
-      <div
-        className={`settings-bento-card col-span-6 danger-zone ${
-          isDangerUnlocked ? "is-unlocked" : "is-locked"
-        }`}
-      >
-        
-
-        <div className="danger-zone-header">
-          
-          {isDangerUnlocked ? (
-            <button
-              type="button"
-              className="danger-lock-badge is-unlocked is-clickable"
-              onClick={handleLockDangerZone}
-              aria-label="Lock Danger Zone"
-              title="Lock Danger Zone"
-            >
-              Unlocked
-            </button>
-          ) : (
-            <span className="danger-lock-badge">Locked</span>
-          )}
-        </div>
-
-        {!isDangerUnlocked && (
-          <form className="danger-unlock-form" onSubmit={handleUnlockDangerZone}>
-            <label htmlFor="danger-password" className="form-label">
-              Enter your password to enable destructive actions
-            </label>
-            <div className="danger-unlock-row">
-              <input
-                id="danger-password"
-                type="password"
-                className={`form-control ${dangerUnlockError ? "input-error" : ""}`}
-                value={dangerPassword}
-                onChange={(event) => {
-                  setDangerPassword(event.target.value);
-                  setDangerUnlockError("");
-                }}
-                placeholder="Password"
-                autoComplete="current-password"
-              />
-              <button
-                type="submit"
-                className="btn btn-danger"
-                disabled={isUnlockingDanger || !dangerPassword.trim()}
-              >
-                {isUnlockingDanger ? "Checking..." : "Unlock"}
-              </button>
-            </div>
-            {dangerUnlockError && (
-              <p className="danger-unlock-error">{dangerUnlockError}</p>
-            )}
-          </form>
-        )}
-
-        <fieldset
-          className="danger-actions danger-protected-content"
-          disabled={!isDangerUnlocked}
-          aria-disabled={!isDangerUnlocked}
-        >
-          <button
-            className="btn btn-danger"
-            onClick={() => {
-              hapticFeedback.error();
-              handleClearCurrentDay();
-            }}
-          >
-            🗑️ Clear Today's Data
-          </button>
-          <p className="help-text">Delete all time entries for today only.</p>
-
-          <button
-            className="btn btn-danger"
-            onClick={() => {
-              hapticFeedback.error();
-              handleClearCurrentPeriod();
-            }}
-          >
-            🗑️ Clear Current Period Data
-          </button>
-          <p className="help-text">
-            Delete all entries in the current pay period.
-          </p>
-
-          <button
-            className="btn btn-danger"
-            onClick={() => {
-              hapticFeedback.error();
-              handleClearAllData();
-            }}
-          >
-            🗑️ Delete All Data
-          </button>
-          <p className="help-text">
-            Delete all your timesheet data (entries, periods, settings).
-          </p>
-
-          {/* ✅ NEW: Delete Account */}
-          <button
-            className="btn btn-danger"
-            onClick={() => {
-              hapticFeedback.error();
-              handleDeleteAccount();
-            }}
-            style={{
-              marginTop: "20px",
-              borderTop: "2px solid #dc3545",
-              paddingTop: "20px",
-            }}
-          >
-            ☠️ Delete Account
-          </button>
-          <p
-            className="help-text"
-            style={{ marginTop: "20px", color: "#dc3545", fontWeight: "bold" }}
-          >
-            ⚠️ PERMANENTLY delete your account "{currentUser?.username}" and ALL
-            associated data. This cannot be undone!
-          </p>
-        </fieldset>
-      </div><div className="settings-bento-card col-span-6">
-        
-        <p className="settings-description">
-          Developer tools for troubleshooting and deployment verification.
-        </p>
-
-        {/* Cache Status Panel */}
-        <div className="diagnostics-panel">
-          <div className="diagnostics-panel-header">
-            <h3>Cache Status</h3>
-            <button
-              className="btn btn-sm btn-outline"
-              onClick={() => {
-                hapticFeedback.buttonClick();
-                readCacheStatus();
-              }}
-            >
-              🔄 Refresh
-            </button>
-          </div>
-          <table className="diagnostics-table">
-            <thead>
-              <tr>
-                <th>Cache Key</th>
-                <th>Status</th>
-                <th>Entry Count / Size</th>
-                <th>Last Cached</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>timeEntries</td>
-                <td>
-                  {cacheStatus.timeEntries?.status === "cached" ? (
-                    <span style={{ color: "#28a745" }}>✅ Cached</span>
-                  ) : (
-                    <span style={{ color: "#dc3545" }}>❌ Empty</span>
-                  )}
-                </td>
-                <td>{cacheStatus.timeEntries?.entryCount || "-"}</td>
-                <td>{cacheStatus.timeEntries?.lastCached || "-"}</td>
-              </tr>
-              <tr>
-                <td>payPeriods</td>
-                <td>
-                  {cacheStatus.payPeriods?.status === "cached" ? (
-                    <span style={{ color: "#28a745" }}>✅ Cached</span>
-                  ) : (
-                    <span style={{ color: "#dc3545" }}>❌ Empty</span>
-                  )}
-                </td>
-                <td>{cacheStatus.payPeriods?.entryCount || "-"}</td>
-                <td>{cacheStatus.payPeriods?.lastCached || "-"}</td>
-              </tr>
-              <tr>
-                <td>currentPeriod</td>
-                <td>
-                  {cacheStatus.currentPeriod?.status === "cached" ? (
-                    <span style={{ color: "#28a745" }}>✅ Cached</span>
-                  ) : (
-                    <span style={{ color: "#dc3545" }}>❌ Empty</span>
-                  )}
-                </td>
-                <td>{cacheStatus.currentPeriod?.entryCount || "-"}</td>
-                <td>{cacheStatus.currentPeriod?.lastCached || "-"}</td>
-              </tr>
-              <tr>
-                <td>userProfile</td>
-                <td>
-                  {cacheStatus.userProfile?.status === "cached" ? (
-                    <span style={{ color: "#28a745" }}>✅ Cached</span>
-                  ) : (
-                    <span style={{ color: "#dc3545" }}>❌ Empty</span>
-                  )}
-                </td>
-                <td>{cacheStatus.userProfile?.entryCount || "-"}</td>
-                <td>{cacheStatus.userProfile?.lastCached || "-"}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {import.meta.env.DEV && (
-          <div className="diagnostics-panel" style={{ marginTop: "20px" }}>
-            <div className="diagnostics-panel-header">
-              <h3>Conflict Modal Preview</h3>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline"
-                onClick={() => {
-                  hapticFeedback.buttonClick();
-                  setShowConflictPreview(true);
-                }}
-              >
-                Open Preview
-              </button>
-            </div>
-            <div className="conflict-preview-controls">
-              <label className="form-label" htmlFor="conflict-preview-count">
-                Number of conflicts
-              </label>
-              <input
-                id="conflict-preview-count"
-                type="number"
-                inputMode="numeric"
-                className="form-control"
-                min="1"
-                max="20"
-                value={conflictPreviewCount}
-                onChange={(event) => setConflictPreviewCount(event.target.value)}
-              />
-            </div>
-            <p className="settings-description">
-              Development-only sample conflicts for testing modal layout,
-              navigation, and resolution choices.
-            </p>
-          </div>
-        )}
-
-        {/* Build Info Panel */}
-        <div className="diagnostics-panel" style={{ marginTop: "20px" }}>
-          <div className="diagnostics-panel-header">
-            <h3>Build Info</h3>
-          </div>
-          <table className="diagnostics-table">
-            <tbody>
-              <tr>
-                <td>
-                  <strong>App Version</strong>
-                </td>
-                <td>
-                  v
-                  {typeof __APP_VERSION__ !== "undefined"
-                    ? __APP_VERSION__
-                    : "0.1.0"}
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <strong>Built At</strong>
-                </td>
-                <td>
-                  {typeof __BUILD_TIME__ !== "undefined"
-                    ? new Date(__BUILD_TIME__).toLocaleString("en-US", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "Unknown"}
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <strong>Commit</strong>
-                </td>
-                <td>
-                  {typeof __GIT_COMMIT__ !== "undefined"
-                    ? __GIT_COMMIT__.substring(0, 7)
-                    : "local"}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-          </div>
-          
         </ModalShell>
       )}
 
+      {/* ═══ SPOKE: Danger Zone ═══ */}
       {activeModal === 'danger' && (
         <ModalShell onClose={() => setActiveModal(null)} closeOnOverlay={true} contentClassName="settings-spoke-modal" showCloseButton={false}>
-          <div className="modal-header" style={{ padding: '24px 24px 16px', borderBottom: '1px solid var(--border-light)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-               <div>
-                  <h2 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-primary)' }}><i className="fa-solid fa-triangle-exclamation"></i> Danger Zone</h2>
-                  <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)' }}>Irreversible actions for your account and data.</p>
-               </div>
-               <button type="button" className="text-btn" style={{ color: 'var(--accent-cyan)', fontWeight: '600', background: 'transparent', border: 'none', padding: '8px', cursor: 'pointer' }} onClick={() => setActiveModal(null)}>Done</button>
+          <div className="spoke-header">
+            <h2 className="spoke-header-title" style={{ color: '#ef4444' }}><i className="fa-solid fa-triangle-exclamation" style={{ color: '#ef4444' }} />Danger Zone</h2>
+            <SpokeDoneBtn />
+          </div>
+          <div className="spoke-content" style={{ overflowY: 'auto', flex: 1 }}>
+            <div className="spoke-section">
+              <div className="danger-lock-card">
+                <div className="danger-lock-header">
+                  <span className="danger-lock-title">
+                    <i className={`fa-solid ${isDangerUnlocked ? 'fa-lock-open' : 'fa-lock'}`} />
+                    {isDangerUnlocked ? 'Actions unlocked' : 'Enter password to unlock'}
+                  </span>
+                  {isDangerUnlocked
+                    ? <button type="button" className="danger-lock-badge unlocked" onClick={handleLockDangerZone}>Lock</button>
+                    : <span className="danger-lock-badge locked">Locked</span>}
+                </div>
+                {!isDangerUnlocked && (
+                  <form onSubmit={handleUnlockDangerZone} style={{ padding: '14px 16px', display: 'flex', gap: '8px' }}>
+                    <input id="danger-password" type="password" className="bento-input" style={{ flex: 1, borderColor: dangerUnlockError ? '#ef4444' : undefined }}
+                      value={dangerPassword} onChange={(e) => { setDangerPassword(e.target.value); setDangerUnlockError(''); }} placeholder="Password" autoComplete="current-password" />
+                    <button type="submit" disabled={isUnlockingDanger || !dangerPassword.trim()}
+                      style={{ padding: '10px 18px', borderRadius: '12px', fontWeight: 700, fontSize: '0.9rem', background: '#ef4444', color: '#fff', border: 'none', cursor: 'pointer', opacity: isUnlockingDanger || !dangerPassword.trim() ? 0.5 : 1 }}>
+                      {isUnlockingDanger ? '…' : 'Unlock'}
+                    </button>
+                  </form>
+                )}
+                {dangerUnlockError && <p style={{ padding: '0 16px 12px', margin: 0, color: '#ef4444', fontSize: '0.82rem' }}>{dangerUnlockError}</p>}
+              </div>
+            </div>
+            <div className="spoke-section">
+              <div className="spoke-section-label">Destructive Actions</div>
+              <fieldset disabled={!isDangerUnlocked} aria-disabled={!isDangerUnlocked}
+                style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px', opacity: isDangerUnlocked ? 1 : 0.45, transition: 'opacity 0.2s' }}>
+                {[
+                  { label: "Clear Today's Data", hint: 'Delete all entries for today only', action: handleClearCurrentDay, text: 'Clear' },
+                  { label: 'Clear Current Period', hint: 'Delete all entries in active period', action: handleClearCurrentPeriod, text: 'Clear' },
+                  { label: 'Delete All Data', hint: 'Wipe all entries, periods & settings', action: handleClearAllData, text: 'Delete' },
+                ].map(({ label, hint, action, text }) => (
+                  <div key={label} style={{ background: 'var(--bg-secondary)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '16px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                    <div><div className="spoke-row-label">{label}</div><div className="spoke-row-hint">{hint}</div></div>
+                    <button type="button" className="spoke-btn-danger" style={{ width: 'auto' }} onClick={() => { hapticFeedback.error(); action(); }}>{text}</button>
+                  </div>
+                ))}
+                <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '16px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                  <div>
+                    <div className="spoke-row-label" style={{ color: '#ef4444' }}>Delete Account</div>
+                    <div className="spoke-row-hint">Permanently remove "<strong>{currentUser?.username}</strong>" — cannot be undone</div>
+                  </div>
+                  <button type="button" className="spoke-btn-danger" style={{ width: 'auto' }} onClick={() => { hapticFeedback.error(); handleDeleteAccount(); }}>Delete</button>
+                </div>
+              </fieldset>
             </div>
           </div>
-          <div className="modal-body settings-bento-grid-layout" style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            
-          </div>
-          
         </ModalShell>
       )}
+
 
 
       {/* Export Modal */}

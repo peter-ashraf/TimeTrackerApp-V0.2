@@ -353,15 +353,15 @@ function Timesheet({ setCurrentView }) {
 
             {/* Search Input (Full Width) */}
             <div className="bento-tile no-hover col-span-6" style={{ padding: '0', overflow: 'hidden' }}>
-              <div className="bento-search" style={{ margin: 0, height: '100%', border: 'none', background: 'transparent', boxShadow: 'none' }}>
-                <i className="fa-solid fa-magnifying-glass search-icon"></i>
+              <div className="bento-search" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', margin: "0px 0px 0px 0px !important", border: 'none', background: 'transparent', boxShadow: 'none' }}>
+                <i className="fa-solid fa-magnifying-glass search-icon" style={{ margin: "4px 16px" }}></i>
                 <input
                   type="text"
                   placeholder="Search by date, type, or notes..."
                   value={searchTerm}
                   onChange={handleSearchChange}
                   className="bento-search-input"
-                  style={{ background: 'transparent' }}
+                  style={{ background: 'transparent', margin: "4px 16px" }}
                 />
                 {searchTerm && (
                   <button
