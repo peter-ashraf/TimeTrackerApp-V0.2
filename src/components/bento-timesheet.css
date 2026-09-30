@@ -570,11 +570,14 @@
   align-items: center !important;
   font-size: 0.9rem !important;
   color: var(--text-secondary) !important;
+  width: 100%;
 }
 
 .stacked-timeline {
   display: flex !important;
   align-items: center !important;
+  justify-content: space-between !important;
+  width: 52% !important;
   gap: 8px !important;
   opacity: 0.8 !important;
 }
@@ -621,6 +624,10 @@
     grid-column: 1 / -1 !important;
     margin-bottom: 4px !important;
   }
+
+  .stacked-row{
+    min-height: 151px !important;
+  }
   .stacked-row .status-badge {
     grid-row: 2 !important;
     grid-column: 1 !important;
@@ -635,6 +642,19 @@
     align-items: flex-start !important;
     gap: 6px !important;
     margin-top: 8px !important;
+  }
+  .stacked-timeline{
+    width: 100% !important;
+  }
+
+  .glass-table-footer{
+    gap: 8px !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+  }
+
+  .glass-table-footer:first-child {
+    width: 70% !important;
   }
 }
 /* Scrollable container for max 5 entries */

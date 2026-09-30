@@ -438,21 +438,21 @@ function Timesheet({ setCurrentView }) {
                 </div>
                 
                 {periodEntries.length > 0 && (
-                  <div className="glass-table-footer" style={{ minHeight: '76px', padding: '2px 2px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', overflow: 'hidden' }}>
+                  <div className="glass-table-footer" style={{ minHeight: '76px', padding: '8px 8px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', overflow: 'hidden' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                       <i className="fa-solid fa-chart-pie" style={{ color: 'var(--accent-cyan)', fontSize: '20px' }}></i>
                       <span style={{ fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '14px' }}>Total</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '56%', gap: '12px', flexShrink: 0 }}>
+                      <div style={{ fontSize: '1.25rem', fontWeight: '800', whiteSpace: 'nowrap' }}>
+                        {overtimeDetails.totalHoursWorked.toFixed(2)} <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: '400' }}>hrs</span>
+                      </div>
                       {detailedView && (
                         <div style={{ display: 'flex', gap: '12px', color: 'var(--text-secondary)', fontSize: '0.85rem', borderRight: '1px solid var(--border-light)', paddingRight: '12px', whiteSpace: 'nowrap' }}>
                           <span>Extra: {(overtimeDetails.totalExtraHours > 0 ? '+' : '')}{overtimeDetails.totalExtraHours.toFixed(2)}h</span>
                           <span>Factor: {(overtimeDetails.totalExtraHoursWithFactor > 0 ? '+' : '')}{overtimeDetails.totalExtraHoursWithFactor.toFixed(2)}h</span>
                         </div>
                       )}
-                      <div style={{ fontSize: '1.25rem', fontWeight: '800', whiteSpace: 'nowrap' }}>
-                        {overtimeDetails.totalHoursWorked.toFixed(2)} <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: '400' }}>hrs</span>
-                      </div>
                     </div>
                   </div>
                 )}
