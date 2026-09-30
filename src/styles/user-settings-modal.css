@@ -33,7 +33,8 @@
 .modal-content.user-settings-modal .user-settings-tabs {
   display: flex !important;
   gap: 6px;
-  padding: 0 24px 16px;
+  margin: 4px 4px;
+  padding: 16px 24px;
   background: transparent;
   border-bottom: none;
   flex-shrink: 0;

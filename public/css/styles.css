@@ -314,7 +314,7 @@ body,
 .data-table,
 #tableContainer,
 .modal-content {
-  background-color: var(--color-surface) !important;
+  /* background-color: var(--color-surface) !important; */ 
   color: var(--color-text) !important;
   border-color: var(--color-border) !important;
 }
