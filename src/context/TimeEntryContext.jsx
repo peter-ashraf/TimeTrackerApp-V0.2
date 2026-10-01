@@ -677,6 +677,8 @@ export const TimeEntryProvider = ({ children }) => {
 
     const closeConflictModal = useCallback(() => {
       setIsConflictModalOpen(false);
+      setPendingConflicts([]);
+      setConflictResolver(null);
     }, []);
 
     const clearConflicts = useCallback(() => {

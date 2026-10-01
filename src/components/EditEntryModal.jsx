@@ -235,7 +235,7 @@ function EditEntryModal({ entry, onClose }) {
 
   return (
     <>
-    <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="edit-entry-modal">
+    <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="edit-entry-modal" showCloseButton={false}>
       <div className="modal-header">
         <h2>Edit Entry: {entry.date}</h2>
       </div>

@@ -354,17 +354,18 @@
   }
 
   .conflict-columns {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 
   .conflict-column {
-    padding: 0.75rem 1rem;
-    border-right: none;
-    border-bottom: 1px solid var(--color-border, #e5e7eb);
+    padding: 0.75rem 0.5rem;
+    border-right: 1px solid var(--color-border, #e5e7eb);
+    border-bottom: none;
     gap: 0.75rem;
   }
 
   .conflict-column:last-child {
+    border-right: none;
     border-bottom: none;
   }
 
@@ -393,10 +394,13 @@
   }
 
   .conflict-modal .btn {
-    width: 100%;
+    flex: 1;
     min-width: 0;
     min-height: 2.35rem;
     padding: 0.55rem 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .conflict-modal .btn-large {
