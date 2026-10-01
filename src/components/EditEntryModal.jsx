@@ -278,14 +278,31 @@ function EditEntryModal({ entry, onClose }) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{firstLabel}</div>
                         <input
-                          type="time"
-                          step="1"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
+                          type="tel"
+                          placeholder="HH:MM:SS"
                           className="bento-modal-card-input"
-                          value={isValidTime(interval.in) || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(interval.in) ? interval.in : ''}
-                          onChange={(e) => handleTimePickerChange(index, 'in', e.target.value)}
-                          style={{ margin: 0, width: '100%', boxSizing: 'border-box' }}
+                          value={interval.in || ''}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            let res = '';
+                            if (val.length > 0) res += val.substring(0, 2);
+                            if (val.length > 2) res += ':' + val.substring(2, 4);
+                            if (val.length > 4) res += ':' + val.substring(4, 6);
+                            handleTimePickerChange(index, 'in', res);
+                          }}
+                          onBlur={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            if (!val) return;
+                            let res = '';
+                            if (val.length === 1) res = `0${val}:00:00`;
+                            else if (val.length === 2) res = `${val}:00:00`;
+                            else if (val.length === 3) res = `${val.substring(0,2)}:0${val.substring(2,3)}:00`;
+                            else if (val.length === 4) res = `${val.substring(0,2)}:${val.substring(2,4)}:00`;
+                            else if (val.length === 5) res = `${val.substring(0,2)}:${val.substring(2,4)}:0${val.substring(4,5)}`;
+                            else if (val.length >= 6) res = `${val.substring(0,2)}:${val.substring(2,4)}:${val.substring(4,6)}`;
+                            handleTimePickerChange(index, 'in', res);
+                          }}
+                          style={{ margin: 0, width: '100%', boxSizing: 'border-box', textAlign: 'center' }}
                         />
                       </div>
 
@@ -293,14 +310,31 @@ function EditEntryModal({ entry, onClose }) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{secondLabel}</div>
                         <input
-                          type="time"
-                          step="1"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
+                          type="tel"
+                          placeholder="HH:MM:SS"
                           className="bento-modal-card-input"
-                          value={isValidTime(interval.out) || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(interval.out) ? interval.out : ''}
-                          onChange={(e) => handleTimePickerChange(index, 'out', e.target.value)}
-                          style={{ margin: 0, width: '100%', boxSizing: 'border-box' }}
+                          value={interval.out || ''}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            let res = '';
+                            if (val.length > 0) res += val.substring(0, 2);
+                            if (val.length > 2) res += ':' + val.substring(2, 4);
+                            if (val.length > 4) res += ':' + val.substring(4, 6);
+                            handleTimePickerChange(index, 'out', res);
+                          }}
+                          onBlur={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            if (!val) return;
+                            let res = '';
+                            if (val.length === 1) res = `0${val}:00:00`;
+                            else if (val.length === 2) res = `${val}:00:00`;
+                            else if (val.length === 3) res = `${val.substring(0,2)}:0${val.substring(2,3)}:00`;
+                            else if (val.length === 4) res = `${val.substring(0,2)}:${val.substring(2,4)}:00`;
+                            else if (val.length === 5) res = `${val.substring(0,2)}:${val.substring(2,4)}:0${val.substring(4,5)}`;
+                            else if (val.length >= 6) res = `${val.substring(0,2)}:${val.substring(2,4)}:${val.substring(4,6)}`;
+                            handleTimePickerChange(index, 'out', res);
+                          }}
+                          style={{ margin: 0, width: '100%', boxSizing: 'border-box', textAlign: 'center' }}
                         />
                       </div>
                     </div>
