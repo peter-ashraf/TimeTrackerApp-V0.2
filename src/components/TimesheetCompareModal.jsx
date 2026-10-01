@@ -409,8 +409,9 @@ function TimesheetCompareModal({ onClose, onEditEntry }) {
                           type="button"
                           className="btn btn-sm btn-danger"
                           onClick={() => setOcrData(prev => ({ ...prev, workRows: prev.workRows.filter(item => item.id !== row.id) }))}
+                          title="Delete"
                         >
-                          Delete
+                          <i className="fa-solid fa-trash"></i>
                         </button>
                       </td>
                     </tr>
@@ -467,8 +468,9 @@ function TimesheetCompareModal({ onClose, onEditEntry }) {
                           type="button"
                           className="btn btn-sm btn-danger"
                           onClick={() => setOcrData(prev => ({ ...prev, dayOffRows: prev.dayOffRows.filter(item => item.id !== row.id) }))}
+                          title="Delete"
                         >
-                          Delete
+                          <i className="fa-solid fa-trash"></i>
                         </button>
                       </td>
                     </tr>
