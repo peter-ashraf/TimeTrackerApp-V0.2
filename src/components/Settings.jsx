@@ -2097,7 +2097,33 @@ function Settings() {
                     <span className="spoke-row-hint">30-min unpaid break each workday</span>
                   </div>
                   <div className="spoke-row-control">
-                    <input type="time" className="bento-input" value={breakStartTime} onChange={(e) => setBreakStartTime(e.target.value)} required />
+                    <input
+                      type="tel"
+                      placeholder="HH:MM:SS"
+                      className="bento-input"
+                      value={breakStartTime || ''}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        let res = '';
+                        if (val.length > 0) res += val.substring(0, 2);
+                        if (val.length > 2) res += ':' + val.substring(2, 4);
+                        if (val.length > 4) res += ':' + val.substring(4, 6);
+                        setBreakStartTime(res);
+                      }}
+                      onBlur={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        if (!val) return;
+                        let res = '';
+                        if (val.length === 1) res = `0${val}:00:00`;
+                        else if (val.length === 2) res = `${val}:00:00`;
+                        else if (val.length === 3) res = `${val.substring(0,2)}:0${val.substring(2,3)}:00`;
+                        else if (val.length === 4) res = `${val.substring(0,2)}:${val.substring(2,4)}:00`;
+                        else if (val.length === 5) res = `${val.substring(0,2)}:${val.substring(2,4)}:0${val.substring(4,5)}`;
+                        else if (val.length >= 6) res = `${val.substring(0,2)}:${val.substring(2,4)}:${val.substring(4,6)}`;
+                        setBreakStartTime(res);
+                      }}
+                      required
+                    />
                   </div>
                 </div>
                 <div className="spoke-row spoke-row-full">
@@ -2148,7 +2174,33 @@ function Settings() {
                     <div className="spoke-row spoke-row-full">
                       <div className="spoke-row-left"><span className="spoke-row-label">Start Time</span></div>
                       <div className="spoke-row-control">
-                        <input type="time" className="bento-input" value={reminderStartTime} onChange={(e) => setReminderStartTime(e.target.value)} required />
+                        <input
+                          type="tel"
+                          placeholder="HH:MM:SS"
+                          className="bento-input"
+                          value={reminderStartTime || ''}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            let res = '';
+                            if (val.length > 0) res += val.substring(0, 2);
+                            if (val.length > 2) res += ':' + val.substring(2, 4);
+                            if (val.length > 4) res += ':' + val.substring(4, 6);
+                            setReminderStartTime(res);
+                          }}
+                          onBlur={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            if (!val) return;
+                            let res = '';
+                            if (val.length === 1) res = `0${val}:00:00`;
+                            else if (val.length === 2) res = `${val}:00:00`;
+                            else if (val.length === 3) res = `${val.substring(0,2)}:0${val.substring(2,3)}:00`;
+                            else if (val.length === 4) res = `${val.substring(0,2)}:${val.substring(2,4)}:00`;
+                            else if (val.length === 5) res = `${val.substring(0,2)}:${val.substring(2,4)}:0${val.substring(4,5)}`;
+                            else if (val.length >= 6) res = `${val.substring(0,2)}:${val.substring(2,4)}:${val.substring(4,6)}`;
+                            setReminderStartTime(res);
+                          }}
+                          required
+                        />
                       </div>
                     </div>
                     <div className="spoke-row spoke-row-full">

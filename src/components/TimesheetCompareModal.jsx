@@ -396,10 +396,60 @@ function TimesheetCompareModal({ onClose, onEditEntry }) {
                         <input className="form-control" value={row.day} onChange={(event) => updateWorkRow(row.id, 'day', event.target.value)} placeholder="Day" />
                       </td>
                       <td>
-                        <input className="form-control" type="time" step="1" value={row.checkIn} onChange={(event) => updateWorkRow(row.id, 'checkIn', event.target.value)} />
+                        <input
+                          className="form-control"
+                          type="tel"
+                          placeholder="HH:MM:SS"
+                          value={row.checkIn || ''}
+                          onChange={(event) => {
+                            const val = event.target.value.replace(/\D/g, '');
+                            let res = '';
+                            if (val.length > 0) res += val.substring(0, 2);
+                            if (val.length > 2) res += ':' + val.substring(2, 4);
+                            if (val.length > 4) res += ':' + val.substring(4, 6);
+                            updateWorkRow(row.id, 'checkIn', res);
+                          }}
+                          onBlur={(event) => {
+                            const val = event.target.value.replace(/\D/g, '');
+                            if (!val) return;
+                            let res = '';
+                            if (val.length === 1) res = `0${val}:00:00`;
+                            else if (val.length === 2) res = `${val}:00:00`;
+                            else if (val.length === 3) res = `${val.substring(0,2)}:0${val.substring(2,3)}:00`;
+                            else if (val.length === 4) res = `${val.substring(0,2)}:${val.substring(2,4)}:00`;
+                            else if (val.length === 5) res = `${val.substring(0,2)}:${val.substring(2,4)}:0${val.substring(4,5)}`;
+                            else if (val.length >= 6) res = `${val.substring(0,2)}:${val.substring(2,4)}:${val.substring(4,6)}`;
+                            updateWorkRow(row.id, 'checkIn', res);
+                          }}
+                        />
                       </td>
                       <td>
-                        <input className="form-control" type="time" step="1" value={row.checkOut} onChange={(event) => updateWorkRow(row.id, 'checkOut', event.target.value)} />
+                        <input
+                          className="form-control"
+                          type="tel"
+                          placeholder="HH:MM:SS"
+                          value={row.checkOut || ''}
+                          onChange={(event) => {
+                            const val = event.target.value.replace(/\D/g, '');
+                            let res = '';
+                            if (val.length > 0) res += val.substring(0, 2);
+                            if (val.length > 2) res += ':' + val.substring(2, 4);
+                            if (val.length > 4) res += ':' + val.substring(4, 6);
+                            updateWorkRow(row.id, 'checkOut', res);
+                          }}
+                          onBlur={(event) => {
+                            const val = event.target.value.replace(/\D/g, '');
+                            if (!val) return;
+                            let res = '';
+                            if (val.length === 1) res = `0${val}:00:00`;
+                            else if (val.length === 2) res = `${val}:00:00`;
+                            else if (val.length === 3) res = `${val.substring(0,2)}:0${val.substring(2,3)}:00`;
+                            else if (val.length === 4) res = `${val.substring(0,2)}:${val.substring(2,4)}:00`;
+                            else if (val.length === 5) res = `${val.substring(0,2)}:${val.substring(2,4)}:0${val.substring(4,5)}`;
+                            else if (val.length >= 6) res = `${val.substring(0,2)}:${val.substring(2,4)}:${val.substring(4,6)}`;
+                            updateWorkRow(row.id, 'checkOut', res);
+                          }}
+                        />
                       </td>
                       <td>
                         <input className="form-control" value={row.hrDuration} onChange={(event) => updateWorkRow(row.id, 'hrDuration', event.target.value)} placeholder="Time" />

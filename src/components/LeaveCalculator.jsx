@@ -467,12 +467,31 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
               </div>
             ) : (
               <input
-                type="time"
+                type="tel"
+                placeholder="HH:MM:SS"
                 className="bento-modal-card-input"
-                value={checkInTime}
-                onChange={(e) => setCheckInTime(e.target.value)}
-                step="1"
-                style={{ width: '100%', marginTop: 'auto' }}
+                value={checkInTime || ''}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  let res = '';
+                  if (val.length > 0) res += val.substring(0, 2);
+                  if (val.length > 2) res += ':' + val.substring(2, 4);
+                  if (val.length > 4) res += ':' + val.substring(4, 6);
+                  setCheckInTime(res);
+                }}
+                onBlur={(e) => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  if (!val) return;
+                  let res = '';
+                  if (val.length === 1) res = `0${val}:00:00`;
+                  else if (val.length === 2) res = `${val}:00:00`;
+                  else if (val.length === 3) res = `${val.substring(0,2)}:0${val.substring(2,3)}:00`;
+                  else if (val.length === 4) res = `${val.substring(0,2)}:${val.substring(2,4)}:00`;
+                  else if (val.length === 5) res = `${val.substring(0,2)}:${val.substring(2,4)}:0${val.substring(4,5)}`;
+                  else if (val.length >= 6) res = `${val.substring(0,2)}:${val.substring(2,4)}:${val.substring(4,6)}`;
+                  setCheckInTime(res);
+                }}
+                style={{ width: '100%', marginTop: 'auto', textAlign: 'center' }}
               />
             )}
           </div>
@@ -504,10 +523,31 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
             <div className="bento-modal-card" style={{ flex: 1 }}>
               <div className="bento-modal-card-label">☕ Break Start</div>
               <input
-                type="time"
+                type="tel"
+                placeholder="HH:MM:SS"
                 className="bento-modal-card-input"
-                value={plannedBreakStartTime}
-                onChange={(e) => setPlannedBreakStartTime(e.target.value)}
+                value={plannedBreakStartTime || ''}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  let res = '';
+                  if (val.length > 0) res += val.substring(0, 2);
+                  if (val.length > 2) res += ':' + val.substring(2, 4);
+                  if (val.length > 4) res += ':' + val.substring(4, 6);
+                  setPlannedBreakStartTime(res);
+                }}
+                onBlur={(e) => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  if (!val) return;
+                  let res = '';
+                  if (val.length === 1) res = `0${val}:00:00`;
+                  else if (val.length === 2) res = `${val}:00:00`;
+                  else if (val.length === 3) res = `${val.substring(0,2)}:0${val.substring(2,3)}:00`;
+                  else if (val.length === 4) res = `${val.substring(0,2)}:${val.substring(2,4)}:00`;
+                  else if (val.length === 5) res = `${val.substring(0,2)}:${val.substring(2,4)}:0${val.substring(4,5)}`;
+                  else if (val.length >= 6) res = `${val.substring(0,2)}:${val.substring(2,4)}:${val.substring(4,6)}`;
+                  setPlannedBreakStartTime(res);
+                }}
+                style={{ textAlign: 'center' }}
               />
               <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '6px' }}>
                 Paid: {formatTime12Hour(minutesToTime(allowedBreakStartMins).substring(0,5))}
@@ -561,12 +601,31 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
             <div className="bento-modal-card" style={{ gridColumn: 'span 2', border: '1px solid rgba(0, 240, 255, 0.3)', background: 'rgba(0, 240, 255, 0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <div className="bento-modal-card-label" style={{ marginBottom: 0, color: '#00f0ff' }}>🎯 Expected Leave Time</div>
               <input
-                type="time"
+                type="tel"
+                placeholder="HH:MM:SS"
                 className="bento-modal-card-input"
-                value={leaveTime}
-                onChange={(e) => setLeaveTime(e.target.value)}
-                step="1"
-                style={{ width: 'auto', marginTop: 0, background: 'rgba(0,0,0,0.5)', borderColor: '#00f0ff' }}
+                value={leaveTime || ''}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  let res = '';
+                  if (val.length > 0) res += val.substring(0, 2);
+                  if (val.length > 2) res += ':' + val.substring(2, 4);
+                  if (val.length > 4) res += ':' + val.substring(4, 6);
+                  setLeaveTime(res);
+                }}
+                onBlur={(e) => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  if (!val) return;
+                  let res = '';
+                  if (val.length === 1) res = `0${val}:00:00`;
+                  else if (val.length === 2) res = `${val}:00:00`;
+                  else if (val.length === 3) res = `${val.substring(0,2)}:0${val.substring(2,3)}:00`;
+                  else if (val.length === 4) res = `${val.substring(0,2)}:${val.substring(2,4)}:00`;
+                  else if (val.length === 5) res = `${val.substring(0,2)}:${val.substring(2,4)}:0${val.substring(4,5)}`;
+                  else if (val.length >= 6) res = `${val.substring(0,2)}:${val.substring(2,4)}:${val.substring(4,6)}`;
+                  setLeaveTime(res);
+                }}
+                style={{ width: 'auto', marginTop: 0, background: 'rgba(0,0,0,0.5)', borderColor: '#00f0ff', textAlign: 'center' }}
               />
             </div>
           </>
