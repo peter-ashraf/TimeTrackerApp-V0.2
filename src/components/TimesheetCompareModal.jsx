@@ -277,7 +277,7 @@ function TimesheetCompareModal({ onClose, onEditEntry }) {
   };
 
   return (
-    <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="timesheet-compare-modal">
+    <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="timesheet-compare-modal" maxWidth="90%">
       <div className="modal-header">
         <h2>Compare HR Timesheet</h2>
         <div className="compare-step-pills">
@@ -409,8 +409,9 @@ function TimesheetCompareModal({ onClose, onEditEntry }) {
                           type="button"
                           className="btn btn-sm btn-danger"
                           onClick={() => setOcrData(prev => ({ ...prev, workRows: prev.workRows.filter(item => item.id !== row.id) }))}
+                          title="Delete"
                         >
-                          Delete
+                          <i className="fa-solid fa-trash"></i>
                         </button>
                       </td>
                     </tr>
@@ -467,8 +468,9 @@ function TimesheetCompareModal({ onClose, onEditEntry }) {
                           type="button"
                           className="btn btn-sm btn-danger"
                           onClick={() => setOcrData(prev => ({ ...prev, dayOffRows: prev.dayOffRows.filter(item => item.id !== row.id) }))}
+                          title="Delete"
                         >
-                          Delete
+                          <i className="fa-solid fa-trash"></i>
                         </button>
                       </td>
                     </tr>

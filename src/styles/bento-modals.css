@@ -40,7 +40,6 @@ body .bento-modal-overlay .bento-sheet-content {
   opacity: 1 !important; /* Force fully opaque */
   mix-blend-mode: normal !important;
   width: 100% !important;
-  max-width: 700px !important;
   max-height: 90vh !important; /* Cap height to 90% of screen */
   display: flex !important;
   flex-direction: column !important;

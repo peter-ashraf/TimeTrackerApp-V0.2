@@ -280,8 +280,10 @@ function EditEntryModal({ entry, onClose }) {
                         <input
                           type="time"
                           step="1"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           className="bento-modal-card-input"
-                          value={isValidTime(interval.in) || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(interval.in) ? interval.in : ''}
+                          value={isValidTime(interval.in) || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(interval.in) ? interval.in : ''}
                           onChange={(e) => handleTimePickerChange(index, 'in', e.target.value)}
                           style={{ margin: 0, width: '100%', boxSizing: 'border-box' }}
                         />
@@ -293,8 +295,10 @@ function EditEntryModal({ entry, onClose }) {
                         <input
                           type="time"
                           step="1"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           className="bento-modal-card-input"
-                          value={isValidTime(interval.out) || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(interval.out) ? interval.out : ''}
+                          value={isValidTime(interval.out) || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(interval.out) ? interval.out : ''}
                           onChange={(e) => handleTimePickerChange(index, 'out', e.target.value)}
                           style={{ margin: 0, width: '100%', boxSizing: 'border-box' }}
                         />

@@ -718,7 +718,7 @@ function App() {
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
                 style={{
-                  minHeight: "100vh",
+                  minHeight: "100dvh",
 
                   display: "flex",
 
