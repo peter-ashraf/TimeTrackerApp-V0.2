@@ -230,12 +230,12 @@
 
 .compare-data-table th:nth-child(1),
 .compare-data-table td:nth-child(1) {
-  width: 132px;
+  width: 18%;
 }
 
 .compare-data-table th:nth-child(2),
 .compare-data-table td:nth-child(2) {
-  width: 86px;
+  width: 12%;
 }
 
 .compare-data-table th:nth-child(3),
@@ -244,12 +244,12 @@
 .compare-data-table td:nth-child(4),
 .compare-data-table th:nth-child(5),
 .compare-data-table td:nth-child(5) {
-  width: 112px;
+  width: auto;
 }
 
 .compare-data-table th:nth-child(6),
 .compare-data-table td:nth-child(6) {
-  width: 184px;
+  width: 60px;
 }
 
 .compare-review-table .form-control,
