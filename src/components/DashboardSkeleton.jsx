@@ -9,7 +9,7 @@ function DashboardSkeleton() {
         <div className="skeleton-shimmer" style={{ width: '150px', height: '16px', borderRadius: '4px' }}></div>
       </div>
 
-      <div className="bento-grid">
+      <div className="bento-grid dashboard-grid">
         {/* Massive Hero Check-In Tile */}
         <div className="bento-tile tile-hero col-span-4 row-span-2 skeleton-card">
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -49,38 +49,42 @@ function DashboardSkeleton() {
           </div>
         </div>
 
-        {/* Action Row */}
-        <div className="bento-tile tile-action col-span-2 skeleton-card">
+        {/* Manual In */}
+        <div className="bento-tile tile-action tile-manual-in col-span-2 skeleton-card">
           <div className="skeleton-shimmer" style={{ width: '28px', height: '28px', borderRadius: '50%' }}></div>
           <div className="skeleton-shimmer" style={{ width: '60px', height: '14px', borderRadius: '4px', marginTop: '8px' }}></div>
         </div>
-        <div className="bento-tile tile-action col-span-2 skeleton-card">
+
+        {/* Check Out Tile */}
+        <div className="bento-tile tile-danger tile-stop-timer col-span-4 skeleton-card">
+          <div className="skeleton-shimmer" style={{ width: '28px', height: '28px', borderRadius: '50%' }}></div>
+          <div className="skeleton-shimmer" style={{ width: '100px', height: '20px', borderRadius: '4px' }}></div>
+        </div>
+
+        {/* Manual Out */}
+        <div className="bento-tile tile-action tile-manual-out col-span-2 skeleton-card">
           <div className="skeleton-shimmer" style={{ width: '28px', height: '28px', borderRadius: '50%' }}></div>
           <div className="skeleton-shimmer" style={{ width: '70px', height: '14px', borderRadius: '4px', marginTop: '8px' }}></div>
         </div>
-        <div className="bento-tile tile-action col-span-2 skeleton-card">
+
+        {/* Break Tile */}
+        <div className="bento-tile tile-action tile-break col-span-2 skeleton-card">
           <div className="skeleton-shimmer" style={{ width: '28px', height: '28px', borderRadius: '50%' }}></div>
           <div className="skeleton-shimmer" style={{ width: '50px', height: '14px', borderRadius: '4px', marginTop: '8px' }}></div>
         </div>
 
-        {/* Check Out Tile */}
-        <div className="bento-tile tile-danger col-span-4 skeleton-card" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-          <div className="skeleton-shimmer" style={{ width: '28px', height: '28px', borderRadius: '50%' }}></div>
-          <div className="skeleton-shimmer" style={{ width: '120px', height: '20px', borderRadius: '4px' }}></div>
-        </div>
-
         {/* Insights Tile */}
-        <div className="bento-tile tile-action col-span-2 skeleton-card">
+        <div className="bento-tile tile-action tile-insights col-span-2 skeleton-card">
           <div className="skeleton-shimmer" style={{ width: '28px', height: '28px', borderRadius: '50%' }}></div>
           <div className="skeleton-shimmer" style={{ width: '60px', height: '14px', borderRadius: '4px', marginTop: '8px' }}></div>
         </div>
 
         {/* Bottom Actions */}
-        <div className="bento-tile tile-action col-span-3 flex-row-between skeleton-card">
+        <div className="bento-tile tile-action tile-add-day col-span-3 flex-row-between skeleton-card">
           <div className="skeleton-shimmer" style={{ width: '80px', height: '18px', borderRadius: '4px' }}></div>
           <div className="skeleton-shimmer" style={{ width: '24px', height: '24px', borderRadius: '50%' }}></div>
         </div>
-        <div className="bento-tile tile-action col-span-3 flex-row-between skeleton-card">
+        <div className="bento-tile tile-action tile-calculator col-span-3 flex-row-between skeleton-card">
           <div className="skeleton-shimmer" style={{ width: '90px', height: '18px', borderRadius: '4px' }}></div>
           <div className="skeleton-shimmer" style={{ width: '24px', height: '24px', borderRadius: '50%' }}></div>
         </div>

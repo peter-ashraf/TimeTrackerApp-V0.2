@@ -131,7 +131,7 @@ function Dashboard() {
         <p>{currentPeriod?.label || 'No Period'}</p>
       </div>
 
-      <div className="bento-grid">
+      <div className="bento-grid dashboard-grid">
         {/* Massive Hero Check-In Tile */}
         <div 
           className={`bento-tile tile-hero col-span-4 row-span-2 ${isCheckedIn ? 'active' : ''}`} 
@@ -203,48 +203,51 @@ function Dashboard() {
           <i className="fa-solid fa-briefcase-medical text-cyan" style={{ fontSize: '24px', opacity: 0.5 }}></i>
         </div>
 
-        {/* Action Row */}
-        <div className="bento-tile tile-action col-span-2" onClick={() => { hapticFeedback.buttonClick(); setShowManualIn(true); }}>
+        {/* Manual In */}
+        <div className="bento-tile tile-action tile-manual-in col-span-2" onClick={() => { hapticFeedback.buttonClick(); setShowManualIn(true); }}>
           <i className="fa-solid fa-clock"></i>
           <span>Manual In</span>
         </div>
-        <div className="bento-tile tile-action col-span-2" onClick={() => { hapticFeedback.buttonClick(); setShowManualOut(true); }}>
-          <i className="fa-regular fa-clock"></i>
-          <span>Manual Out</span>
-        </div>
-        <div className="bento-tile tile-action col-span-2" onClick={() => { hapticFeedback.buttonClick(); setShowAddBreak(true); }}>
-          <i className="fa-solid fa-mug-hot"></i>
-          <span>Break</span>
-        </div>
 
-        {/* Check Out Tile */}
+        {/* Check Out (Stop Timer) Tile */}
         <div 
-          className={`bento-tile tile-danger col-span-4 ${!isCheckedIn ? 'disabled' : ''}`}
+          className={`bento-tile tile-danger tile-stop-timer col-span-4 ${!isCheckedIn ? 'disabled' : ''}`}
           onClick={() => {
             if (isCheckedIn) {
               hapticFeedback.checkOut();
               checkOut();
             }
           }}
-          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '12px' }}
         >
-          <i className="fa-solid fa-stop" style={{ fontSize: '28px', color: 'var(--accent-hot-pink)' }}></i>
-          <span style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-primary)' }}>Stop Timer</span>
+          <i className="fa-solid fa-stop"></i>
+          <span>Stop Timer</span>
+        </div>
+
+        {/* Manual Out */}
+        <div className="bento-tile tile-action tile-manual-out col-span-2" onClick={() => { hapticFeedback.buttonClick(); setShowManualOut(true); }}>
+          <i className="fa-regular fa-clock"></i>
+          <span>Manual Out</span>
+        </div>
+
+        {/* Break Tile */}
+        <div className="bento-tile tile-action tile-break col-span-2" onClick={() => { hapticFeedback.buttonClick(); setShowAddBreak(true); }}>
+          <i className="fa-solid fa-mug-hot"></i>
+          <span>Break</span>
         </div>
 
         {/* Insights Tile */}
-        <div className="bento-tile tile-action col-span-2" onClick={() => { hapticFeedback.buttonClick(); setShowViewHours(true); }}>
+        <div className="bento-tile tile-action tile-insights col-span-2" onClick={() => { hapticFeedback.buttonClick(); setShowViewHours(true); }}>
           <i className="fa-solid fa-chart-pie text-cyan"></i>
           <span>Insights</span>
         </div>
 
         {/* Bottom Actions */}
-        <div className="bento-tile tile-action col-span-3 flex-row-between" onClick={() => { hapticFeedback.buttonClick(); setShowAddDay(true); }}>
+        <div className="bento-tile tile-action tile-add-day col-span-3 flex-row-between" onClick={() => { hapticFeedback.buttonClick(); setShowAddDay(true); }}>
           <span style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)' }}>Add Day</span>
           <i className="fa-solid fa-plus text-green"></i>
         </div>
         <div 
-          className="bento-tile tile-action col-span-3 flex-row-between" 
+          className="bento-tile tile-action tile-calculator col-span-3 flex-row-between" 
           onClick={() => {
             hapticFeedback.buttonClick();
             const today = new Date().toISOString().split('T')[0];

@@ -262,7 +262,7 @@ function Timesheet({ setCurrentView }) {
   };
 
   return (
-    <main className="main-content" style={{ minWidth: 0, maxWidth: '100%', padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '20px', boxSizing: 'border-box' }}>
+    <main className="main-content" style={{ minWidth: 0, maxWidth: '100%', padding: '0 20px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       {hasNoPeriods ? (
         <div style={{ textAlign: 'center', padding: '40px' }}>
           <h2>⚠️ No Periods Found</h2>
@@ -322,62 +322,10 @@ function Timesheet({ setCurrentView }) {
                 onChange={(e) => setViewingPeriodId(e.target.value)}
               />
             </div>
-
-            {/* Compare HR Data (Full width Hero Action) */}
-            <div className="bento-tile tile-action col-span-6" onClick={() => { hapticFeedback.buttonClick(); setShowCompareModal(true); }}>
-              <i className="fa-solid fa-code-compare" style={{ color: 'var(--accent-cyan)' }}></i>
-              <span style={{ color: 'var(--text-primary)' }}>Compare HR Data</span>
-            </div>
           </div>
 
-          {/* Controls above the Table */}
+          {/* Display Controls above the Table */}
           <div className="bento-grid" style={{ marginBottom: '24px' }}>
-            
-            {/* Top 3 Action Tiles */}
-            <div className="bento-action-grid">
-              <div className="bento-tile tile-action bento-action-btn" onClick={() => { hapticFeedback.buttonClick(); setShowManualIn(true); }}>
-                <i className="fa-solid fa-clock" style={{ fontSize: '24px' }}></i>
-                <span style={{ fontSize: '13px', textAlign: 'center' }}>Manual In</span>
-              </div>
-              
-              <div className="bento-tile tile-action bento-action-btn" onClick={() => { hapticFeedback.buttonClick(); setShowManualOut(true); }}>
-                <i className="fa-regular fa-clock" style={{ fontSize: '24px' }}></i>
-                <span style={{ fontSize: '13px', textAlign: 'center' }}>Manual Out</span>
-              </div>
-              
-              <div className="bento-tile tile-action bento-action-btn" onClick={() => { hapticFeedback.buttonClick(); setShowAddBreak(true); }}>
-                <i className="fa-solid fa-mug-hot" style={{ fontSize: '24px' }}></i>
-                <span style={{ fontSize: '13px', textAlign: 'center' }}>Add Break</span>
-              </div>
-            </div>
-
-            {/* Search Input (Full Width) */}
-            <div className="bento-tile no-hover col-span-6" style={{ padding: '0', overflow: 'hidden' }}>
-              <div className="bento-search" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', margin: "0px 0px 0px 0px !important", border: 'none', background: 'transparent', boxShadow: 'none' }}>
-                <i className="fa-solid fa-magnifying-glass search-icon" style={{ margin: "4px 16px" }}></i>
-                <input
-                  type="text"
-                  placeholder="Search by date, type, or notes..."
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                  className="bento-search-input"
-                  style={{ background: 'transparent', margin: "4px 16px" }}
-                />
-                {searchTerm && (
-                  <button
-                    className="bento-clear-btn"
-                    onClick={() => {
-                      setSearchTerm('');
-                      setFilteredEntries([]);
-                    }}
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Bottom 3 Action Tiles */}
             <div className="bento-action-grid">
               {/* Time Format Toggle */}
               <div className="bento-tile tile-action bento-action-btn" onClick={() => { hapticFeedback.buttonClick(); setUse12Hour(!use12Hour); }}>
@@ -458,6 +406,32 @@ function Timesheet({ setCurrentView }) {
                 )}
               </div>
             )}
+          </div>
+
+          {/* Controls under the Table */}
+          <div className="bento-grid" style={{ marginTop: '24px' }}>
+            {/* Compare HR Data (Full width Hero Action) */}
+            <div className="bento-tile tile-action col-span-6" onClick={() => { hapticFeedback.buttonClick(); setShowCompareModal(true); }}>
+              <i className="fa-solid fa-code-compare" style={{ color: 'var(--accent-cyan)' }}></i>
+              <span style={{ color: 'var(--text-primary)' }}>Compare HR Data</span>
+            </div>
+
+            <div className="bento-action-grid">
+              <div className="bento-tile tile-action bento-action-btn" onClick={() => { hapticFeedback.buttonClick(); setShowManualIn(true); }}>
+                <i className="fa-solid fa-clock" style={{ fontSize: '24px' }}></i>
+                <span style={{ fontSize: '13px', textAlign: 'center' }}>Manual In</span>
+              </div>
+              
+              <div className="bento-tile tile-action bento-action-btn" onClick={() => { hapticFeedback.buttonClick(); setShowManualOut(true); }}>
+                <i className="fa-regular fa-clock" style={{ fontSize: '24px' }}></i>
+                <span style={{ fontSize: '13px', textAlign: 'center' }}>Manual Out</span>
+              </div>
+              
+              <div className="bento-tile tile-action bento-action-btn" onClick={() => { hapticFeedback.buttonClick(); setShowAddBreak(true); }}>
+                <i className="fa-solid fa-mug-hot" style={{ fontSize: '24px' }}></i>
+                <span style={{ fontSize: '13px', textAlign: 'center' }}>Add Break</span>
+              </div>
+            </div>
           </div>
 
           {/* Modals */}

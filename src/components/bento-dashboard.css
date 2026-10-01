@@ -215,6 +215,22 @@
   align-items: center;
 }
 
+.tile-stop-timer {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.tile-stop-timer i {
+  font-size: 28px;
+  color: var(--accent-hot-pink);
+}
+.tile-stop-timer span {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
 @media (max-width: 900px) {
   .bento-grid {
     grid-template-columns: repeat(4, 1fr);
@@ -232,14 +248,60 @@
     gap: 12px;
     grid-auto-flow: dense;
   }
+  .bento-grid .col-span-6, .bento-grid .col-span-5, .bento-grid .col-span-4 { grid-column: span 4; }
+  .bento-grid .col-span-3, .bento-grid .col-span-2 { grid-column: span 2; }
+  
+  .bento-grid.dashboard-grid {
+    grid-template-columns: repeat(12, 1fr);
+  }
   
   .tile-hero {
-    grid-column: span 2 !important;
+    grid-column: span 6 !important;
     grid-row: span 2 !important;
   }
   
+  .tile-stop-timer {
+    grid-column: span 6 !important;
+    grid-row: span 2 !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  
+  .tile-stop-timer i {
+    font-size: 32px !important;
+  }
+  
+  .tile-stop-timer span {
+    font-size: 16px !important;
+  }
+  
+  .tile-manual-in { grid-column: span 6 !important; }
+  .tile-manual-out { grid-column: span 6 !important; }
+  
+  .tile-calculator { 
+    grid-column: span 12 !important; 
+    order: 10 !important;
+  }
+  
+  .tile-break { grid-column: span 4 !important; order: 11 !important; }
+  .tile-insights { grid-column: span 4 !important; order: 12 !important; }
+  .tile-add-day { 
+    grid-column: span 4 !important; 
+    order: 13 !important;
+    flex-direction: column !important; 
+    justify-content: center !important; 
+    align-items: center !important; 
+    gap: 8px !important; 
+  }
+  .tile-add-day span { font-size: 14px !important; font-weight: 500 !important; }
+  .tile-add-day i { margin: 0 !important; font-size: 24px !important; }
+
   .mobile-square {
     grid-column: span 1 !important;
+  }
+  
+  .dashboard-grid .mobile-square {
+    grid-column: span 3 !important;
     grid-row: span 1 !important;
     display: flex !important;
     flex-direction: column !important;
@@ -280,8 +342,14 @@
     font-size: 10px !important;
   }
   
-  .bento-grid .col-span-6, .bento-grid .col-span-5, .bento-grid .col-span-4 { grid-column: span 4; }
-  .bento-grid .col-span-3, .bento-grid .col-span-2 { grid-column: span 2; }
+  .mobile-square .bento-eye-btn {
+    position: absolute !important;
+    top: 4px !important;
+    right: 4px !important;
+    width: 20px !important;
+    height: 20px !important;
+    font-size: 10px !important;
+  }
   
   .bento-main {
     padding: 12px;
