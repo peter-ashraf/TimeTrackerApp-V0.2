@@ -195,7 +195,7 @@
   display: table;
   margin: 0;
   min-width: 720px;
-  table-layout: fixed;
+
   width: 100%;
 }
 
@@ -230,12 +230,12 @@
 
 .compare-data-table th:nth-child(1),
 .compare-data-table td:nth-child(1) {
-  width: 18%;
+  width: 20%;
 }
 
 .compare-data-table th:nth-child(2),
 .compare-data-table td:nth-child(2) {
-  width: 12%;
+  width: 15%;
 }
 
 .compare-data-table th:nth-child(3),
@@ -244,7 +244,7 @@
 .compare-data-table td:nth-child(4),
 .compare-data-table th:nth-child(5),
 .compare-data-table td:nth-child(5) {
-  width: auto;
+  width: 120px;
 }
 
 .compare-data-table th:nth-child(6),
