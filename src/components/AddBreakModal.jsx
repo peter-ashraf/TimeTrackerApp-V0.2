@@ -84,20 +84,62 @@ function AddBreakModal({ onClose }) {
           <div className="bento-modal-card">
             <div className="bento-modal-card-label">☕ Break Start</div>
             <input
-              type="time"
+              type="tel"
+              placeholder="HH:MM:SS"
               className="bento-modal-card-input"
-              value={breakStart}
-              onChange={(e) => setBreakStart(e.target.value)}
+              value={breakStart || ''}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, '');
+                let res = '';
+                if (val.length > 0) res += val.substring(0, 2);
+                if (val.length > 2) res += ':' + val.substring(2, 4);
+                if (val.length > 4) res += ':' + val.substring(4, 6);
+                setBreakStart(res);
+              }}
+              onBlur={(e) => {
+                const val = e.target.value.replace(/\D/g, '');
+                if (!val) return;
+                let res = '';
+                if (val.length === 1) res = `0${val}:00:00`;
+                else if (val.length === 2) res = `${val}:00:00`;
+                else if (val.length === 3) res = `${val.substring(0,2)}:0${val.substring(2,3)}:00`;
+                else if (val.length === 4) res = `${val.substring(0,2)}:${val.substring(2,4)}:00`;
+                else if (val.length === 5) res = `${val.substring(0,2)}:${val.substring(2,4)}:0${val.substring(4,5)}`;
+                else if (val.length >= 6) res = `${val.substring(0,2)}:${val.substring(2,4)}:${val.substring(4,6)}`;
+                setBreakStart(res);
+              }}
+              style={{ textAlign: 'center' }}
             />
           </div>
 
           <div className="bento-modal-card">
             <div className="bento-modal-card-label">✅ Break End</div>
             <input
-              type="time"
+              type="tel"
+              placeholder="HH:MM:SS"
               className="bento-modal-card-input"
-              value={breakEnd}
-              onChange={(e) => setBreakEnd(e.target.value)}
+              value={breakEnd || ''}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, '');
+                let res = '';
+                if (val.length > 0) res += val.substring(0, 2);
+                if (val.length > 2) res += ':' + val.substring(2, 4);
+                if (val.length > 4) res += ':' + val.substring(4, 6);
+                setBreakEnd(res);
+              }}
+              onBlur={(e) => {
+                const val = e.target.value.replace(/\D/g, '');
+                if (!val) return;
+                let res = '';
+                if (val.length === 1) res = `0${val}:00:00`;
+                else if (val.length === 2) res = `${val}:00:00`;
+                else if (val.length === 3) res = `${val.substring(0,2)}:0${val.substring(2,3)}:00`;
+                else if (val.length === 4) res = `${val.substring(0,2)}:${val.substring(2,4)}:00`;
+                else if (val.length === 5) res = `${val.substring(0,2)}:${val.substring(2,4)}:0${val.substring(4,5)}`;
+                else if (val.length >= 6) res = `${val.substring(0,2)}:${val.substring(2,4)}:${val.substring(4,6)}`;
+                setBreakEnd(res);
+              }}
+              style={{ textAlign: 'center' }}
             />
           </div>
 

@@ -11,6 +11,7 @@ import { offlineQueue } from "../utils/offlineQueue";
 const ExportModal = React.lazy(() => import("./ExportModal"));
 const ImportModal = React.lazy(() => import("./ImportModal"));
 import ModalShell, { useSheetClose } from "./ModalShell";
+import AlertModal from "./AlertModal";
 import ConflictResolutionModal from "./ConflictResolutionModal";
 import { setSimpleEncryptedItem } from "../utils/simple-encryption";
 import { useUserPreferences } from "../context/UserPreferencesContext";
@@ -2492,28 +2493,13 @@ function Settings() {
       )}
 
       {/* Notification Feedback Modal */}
-      {notifModal.isOpen && (
-        <ModalShell onClose={() => setNotifModal({ ...notifModal, isOpen: false })}>
-          <div style={{ padding: "40px", textAlign: "center" }}>
-            <div style={{ fontSize: "48px", marginBottom: "20px" }}>
-              {notifModal.isError ? "❌" : "✅"}
-            </div>
-            <h2 style={{ marginBottom: "15px", color: notifModal.isError ? "#dc3545" : "#28a745" }}>
-              {notifModal.title || (notifModal.isError ? "Settings Error" : "Success")}
-            </h2>
-            <p style={{ fontSize: "16px", lineHeight: "1.5", color: "#666" }}>
-              {notifModal.message}
-            </p>
-            <button
-              className="btn btn-primary"
-              style={{ marginTop: "25px" }}
-              onClick={() => setNotifModal({ ...notifModal, isOpen: false })}
-            >
-              OK
-            </button>
-          </div>
-        </ModalShell>
-      )}
+      <AlertModal
+        isOpen={notifModal.isOpen}
+        title={notifModal.title || (notifModal.isError ? "Settings Error" : "Success")}
+        message={notifModal.message}
+        type={notifModal.isError ? "error" : "success"}
+        onClose={() => setNotifModal({ ...notifModal, isOpen: false })}
+      />
 
       {/* Test Notification Modal */}
       {showTestNotifModal && (
