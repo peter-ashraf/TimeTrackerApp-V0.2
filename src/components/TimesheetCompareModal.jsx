@@ -277,7 +277,7 @@ function TimesheetCompareModal({ onClose, onEditEntry }) {
   };
 
   return (
-    <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="timesheet-compare-modal">
+    <ModalShell onClose={onClose} closeOnOverlay={false} contentClassName="timesheet-compare-modal" maxWidth="90%">
       <div className="modal-header">
         <h2>Compare HR Timesheet</h2>
         <div className="compare-step-pills">

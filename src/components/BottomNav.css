@@ -1,6 +1,6 @@
 .bento-bottom-nav {
   position: fixed;
-  bottom: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   left: 0;
   width: 100%;
   display: flex;

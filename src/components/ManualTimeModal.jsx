@@ -194,6 +194,8 @@ function ManualTimeModal({ mode, onClose }) {
             <input
               type="time"
               step="1"
+              inputMode="numeric"
+              pattern="[0-9]*"
               className="bento-modal-card-input"
               value={timeValue}
               onChange={(e) => setTimeValue(e.target.value)}

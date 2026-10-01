@@ -11,16 +11,15 @@ export function useSheetClose() {
   return useContext(SheetCloseContext);
 }
 
-function ModalShell({ onClose, children, contentClassName = '', closeOnOverlay = true, overlayClassName = '', showCloseButton = true }) {
+function ModalShell({ onClose, children, contentClassName = '', closeOnOverlay = true, overlayClassName = '', showCloseButton = true, maxWidth = '700px' }) {
   const [isClosing, setIsClosing] = useState(false);
   const [startY, setStartY] = useState(null);
 
   useEffect(() => {
     // Lock body scroll
-    const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
-      document.body.style.overflow = originalOverflow;
+      document.body.style.overflow = '';
     };
   }, []);
 
@@ -66,7 +65,7 @@ function ModalShell({ onClose, children, contentClassName = '', closeOnOverlay =
     >
       <div
         className={contentClass}
-        style={{ backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '700px', maxHeight: '90vh', overflow: 'hidden', overscrollBehavior: 'contain', borderTopLeftRadius: '32px', borderTopRightRadius: '32px' }}
+        style={{ backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', width: '100%', maxWidth: maxWidth, maxHeight: '90vh', overflow: 'hidden', overscrollBehavior: 'contain', borderTopLeftRadius: '32px', borderTopRightRadius: '32px' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div 
