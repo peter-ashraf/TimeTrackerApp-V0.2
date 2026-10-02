@@ -9,7 +9,7 @@
 .modal-content.backup-reminder-modal .backup-reminder-modal-content {
   flex: 1 !important;
   overflow-y: visible !important;
-  padding: 24px 24px 0 24px !important;
+  padding: 16px 16px 0 16px !important;
   text-align: center !important;
 }
 
@@ -24,8 +24,8 @@ div.modal-overlay div.backup-reminder-modal {
 }
 
 .backup-icon {
-  font-size: 4rem !important;
-  margin-bottom: 24px !important;
+  font-size: 3rem !important;
+  margin-bottom: 12px !important;
   animation: pulse 2s infinite !important;
   filter: drop-shadow(0 0 16px rgba(0, 240, 255, 0.4)) !important;
 }
@@ -36,32 +36,32 @@ div.modal-overlay div.backup-reminder-modal {
 }
 
 .backup-reminder-modal h3 {
-  margin: 0 0 12px !important;
-  font-size: 1.6rem !important;
+  margin: 0 0 8px !important;
+  font-size: 1.4rem !important;
   font-weight: 800 !important;
   color: white !important;
   letter-spacing: -0.02em !important;
 }
 
 .backup-message {
-  margin: 0 0 24px !important;
-  line-height: 1.6 !important;
+  margin: 0 0 12px !important;
+  line-height: 1.5 !important;
   color: rgba(255, 255, 255, 0.7) !important;
-  font-size: 1rem !important;
+  font-size: 0.95rem !important;
   font-weight: 500 !important;
 }
 
 .backup-warning {
   background: rgba(255, 0, 128, 0.1) !important;
-  border-radius: 16px !important;
-  padding: 16px !important;
-  margin: 0 0 24px !important;
+  border-radius: 12px !important;
+  padding: 12px !important;
+  margin: 0 0 12px !important;
   text-align: left !important;
-  font-size: 0.95rem !important;
+  font-size: 0.9rem !important;
   color: white !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 8px !important;
+  gap: 6px !important;
 }
 
 .backup-warning strong {
@@ -74,14 +74,14 @@ div.modal-overlay div.backup-reminder-modal {
 
 .backup-recommendation {
   color: rgba(255, 255, 255, 0.6) !important;
-  font-size: 0.9rem !important;
+  font-size: 0.85rem !important;
   font-weight: 600 !important;
-  margin: 0 0 24px !important;
+  margin: 0 0 12px !important;
 }
 
 /* Remind Later Section */
 .backup-reminder-modal .form-group {
-  margin: 0 0 32px !important;
+  margin: 0 0 16px !important;
   text-align: left !important;
   position: relative !important;
   z-index: 999 !important;
@@ -99,10 +99,10 @@ div.modal-overlay div.backup-reminder-modal {
 .backup-reminder-modal select,
 .backup-reminder-modal .form-control {
   width: 100% !important;
-  padding: 16px 20px !important;
+  padding: 12px 16px !important;
   background: rgba(255, 255, 255, 0.05) !important;
-  border-radius: 16px !important;
-  font-size: 1.1rem !important;
+  border-radius: 12px !important;
+  font-size: 1rem !important;
   color: white !important;
   transition: all 0.2s ease !important;
   border: none !important;
@@ -113,8 +113,8 @@ div.modal-overlay div.backup-reminder-modal {
   display: flex !important;
   flex-wrap: wrap !important;
   justify-content: flex-end !important;
-  gap: 12px !important;
-  padding: 24px !important;
+  gap: 10px !important;
+  padding: 12px !important;
   position: relative !important;
   z-index: 1 !important;
 }
@@ -128,10 +128,10 @@ div.modal-overlay div.backup-reminder-modal {
 
 .backup-actions .btn {
   width: 100% !important;
-  padding: 20px !important;
-  border-radius: 16px !important;
-  font-weight: 800 !important;
-  font-size: 1.1rem !important;
+  padding: 14px !important;
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+  font-size: 1rem !important;
   cursor: pointer !important;
   border: none !important;
 }
