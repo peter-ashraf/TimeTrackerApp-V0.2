@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
+import { useSupabaseAuth } from '../context/SupabaseAuthContext';
+import { supabaseData } from '../utils/supabaseData';
+import { planImport, getPeriodBounds } from '../utils/importPlanner';
 import ModalShell from './ModalShell';
 import CustomSelect from './CustomSelect';
 import '../styles/import-modal.css';
@@ -8,6 +11,7 @@ function ImportModal({ onClose }) {
   const {
     entries,
     setEntries,
+    saveTimeEntriesData,
     periods,
     setPeriods,
     calculateHoursWorked,
@@ -15,6 +19,8 @@ function ImportModal({ onClose }) {
     confirmModal,
     setConfirmModal
   } = useTimeTracker();
+
+  const { currentUser } = useSupabaseAuth();
 
   // ===== STATE MANAGEMENT =====
   const [selectedFile, setSelectedFile] = useState(null);
@@ -242,14 +248,18 @@ function ImportModal({ onClose }) {
 
   // Check if period exists in periods array
   const findPeriodByDateRange = (start, end) => {
-    return periods.find(p => p.start === start && p.end === end);
+    return periods.find(p => {
+      const bounds = getPeriodBounds(p);
+      return bounds.start === start && bounds.end === end;
+    });
   };
 
   // Check for conflicts (existing data in period)
   const checkForConflicts = (periodStart, periodEnd, importedData) => {
-    const existingEntriesInPeriod = entries.filter(e =>
-      e.date >= periodStart && e.date <= periodEnd
-    );
+    const existingEntriesInPeriod = entries.filter(e => {
+      const d = String(e.date).split('T')[0];
+      return d >= periodStart && d <= periodEnd;
+    });
 
     return {
       hasExisting: existingEntriesInPeriod.length > 0,
@@ -557,9 +567,10 @@ function ImportModal({ onClose }) {
     setSelectedPeriod(finalPeriod);
 
     // Check for conflicts
+    const bounds = getPeriodBounds(finalPeriod);
     const conflict = checkForConflicts(
-      finalPeriod.start,
-      finalPeriod.end,
+      bounds.start,
+      bounds.end,
       previewData
     );
 
@@ -575,55 +586,78 @@ function ImportModal({ onClose }) {
 
   // ===== IMPORT EXECUTION =====
 
-  const executeImport = (period, mode) => {
+  const executeImport = async (period, mode) => {
     try {
-      // CRITICAL: Get entries OUTSIDE selected period (NEVER TOUCH THESE)
-      const entriesOutsidePeriod = entries.filter(e =>
-        e.date < period.start || e.date > period.end
-      );
-
-      // Get entries INSIDE selected period
-      const entriesInsidePeriod = entries.filter(e =>
-        e.date >= period.start && e.date <= period.end
-      );
-
-      // Extract imported entries
       const importedEntries = previewData.map(item => item.entry);
+      const plan = planImport({
+        existingEntries: entries,
+        importedEntries,
+        period,
+        mode
+      });
 
-      let finalEntries;
+      // Show the result immediately, then persist it
+      setEntries(plan.finalEntries);
 
-      if (mode === 'replace') {
-        // REPLACE MODE: Keep outside + imported only
-        finalEntries = [...entriesOutsidePeriod, ...importedEntries];
-      } else {
-        // MERGE MODE: Keep outside + merge inside with imported
-        const mergedMap = new Map(entriesInsidePeriod.map(e => [e.date, e]));
-        importedEntries.forEach(e => mergedMap.set(e.date, e));
-        const mergedEntries = Array.from(mergedMap.values());
-        finalEntries = [...entriesOutsidePeriod, ...mergedEntries];
-      }
-
-      // CRITICAL: Sort by date ASCENDING (oldest first)
-      finalEntries.sort((a, b) => a.date.localeCompare(b.date));
-
-      // Update entries
-      setEntries(finalEntries);
-
-      // Create period if it doesn't exist
-      const periodExists = findPeriodByDateRange(period.start, period.end);
+      const bounds = getPeriodBounds(period);
+      const periodExists = findPeriodByDateRange(bounds.start, bounds.end);
       if (!periodExists) {
-        setPeriods([...periods, period]);
+        setPeriods([...periods, { ...period, start: bounds.start, end: bounds.end }]);
       }
 
-      const message = mode === 'replace'
-        ? `Import successful!\n\n${importedEntries.length} entries imported\nMode: Replace (period-scoped)\nPeriod: ${period.label}`
-        : `Import successful!\n\n${importedEntries.length} entries imported\nMode: Merge\nPeriod: ${period.label}`;
+      // Persist to the database (saveTimeEntriesData also updates local storage).
+      let failedSaves = 0;
+      let failedDeletes = 0;
+      const canUseCloud = currentUser && !currentUser.isLocalOnly && navigator.onLine;
+
+      for (const entry of plan.toSave) {
+        try {
+          await saveTimeEntriesData(entry);
+        } catch (saveError) {
+          failedSaves += 1;
+          console.error('[Import] Failed to save entry', entry.date, saveError);
+        }
+      }
+
+      if (canUseCloud) {
+        for (const removed of plan.toDelete) {
+          const result = await supabaseData.deleteTimeEntry({
+            id: removed.id,
+            userId: currentUser.id,
+            date: removed.date
+          });
+          if (!result?.success) {
+            failedDeletes += 1;
+            console.error('[Import] Failed to delete entry', removed.date, result);
+          }
+        }
+      }
+
+      const lines = [
+        'Import finished.',
+        '',
+        `${plan.toSave.length} entries imported`,
+        `Mode: ${mode === 'replace' ? 'Replace (period-scoped)' : 'Merge'}`,
+        `Period: ${period.label}`
+      ];
+      if (plan.skippedOutsidePeriod > 0) {
+        lines.push(`${plan.skippedOutsidePeriod} rows in the file were outside this period and were skipped`);
+      }
+      if (plan.duplicateRowsInFile > 0) {
+        lines.push(`${plan.duplicateRowsInFile} duplicate rows in the file were merged by date`);
+      }
+      if (mode === 'replace' && plan.toDelete.length > 0) {
+        lines.push(`${plan.toDelete.length - failedDeletes} existing entries in the period were removed`);
+      }
+      if (failedSaves > 0 || failedDeletes > 0) {
+        lines.push('', `Warning: ${failedSaves} saves and ${failedDeletes} deletes could not reach the database. Check your connection and run the import again.`);
+      }
 
       setConfirmModal({
         isOpen: true,
-        title: 'Import Successful',
-        message: message,
-        type: 'success',
+        title: failedSaves > 0 || failedDeletes > 0 ? 'Import Finished With Warnings' : 'Import Successful',
+        message: lines.join('\n'),
+        type: failedSaves > 0 || failedDeletes > 0 ? 'warning' : 'success',
         confirmText: 'OK',
         showCancel: false,
         onConfirm: () => {

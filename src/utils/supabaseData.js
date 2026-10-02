@@ -87,8 +87,10 @@ export const supabaseData = {
   },
 
   async deleteTimeEntry({ id, userId, date }) {
-    if (!id) {
-      console.warn('[Delete] Entry id missing locally, resolving from server for date:', date);
+    // An entry that never got a database id (e.g. just imported) can still be
+    // removed by its owner + date; RLS limits this to the signed-in user's rows.
+    if (!id && !(userId && date)) {
+      console.warn('[Delete] Need an entry id or a user id and date');
       return { success: false, deletedFrom: 'none', reason: 'missing_id' };
     }
 
@@ -96,10 +98,10 @@ export const supabaseData = {
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
-      const { error } = await supabaseClient
-        .from('time_entries')
-        .delete()
-        .eq('id', id)
+      const deleteQuery = supabaseClient.from('time_entries').delete();
+      const { error } = await (id
+        ? deleteQuery.eq('id', id)
+        : deleteQuery.eq('user_id', userId).eq('date', date))
         .abortSignal(controller.signal);
 
       clearTimeout(timeoutId);

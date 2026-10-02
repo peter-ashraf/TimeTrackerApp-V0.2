@@ -779,50 +779,7 @@ export const TimeTrackerProvider = ({ children }) => {
                   try {
                     let entryId = entryToDelete?.id ?? null;
 
-                    if (!entryId && currentUser?.id && date) {
-                      console.warn(
-                        "[Delete] Entry id missing locally, resolving from server for date:",
-                        date,
-                      );
-
-                      try {
-                        let resolveToken = null;
-                        for (let i = 0; i < localStorage.length; i++) {
-                          const k = localStorage.key(i);
-                          if (k && k.includes("auth-token")) {
-                            const raw = localStorage.getItem(k);
-                            const parsed = raw ? JSON.parse(raw) : null;
-                            if (parsed?.access_token) {
-                              resolveToken = parsed.access_token;
-                              break;
-                            }
-                          }
-                        }
-
-                        if (resolveToken) {
-                          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-                          const supabaseKey = import.meta.env
-                            .VITE_SUPABASE_PUBLISHABLE_KEY;
-                          const resolveRes = await fetch(
-                            `${supabaseUrl}/rest/v1/time_entries?user_id=eq.${currentUser.id}&date=eq.${date}&select=id`,
-                            {
-                              headers: {
-                                apikey: supabaseKey,
-                                Authorization: `Bearer ${resolveToken}`,
-                              },
-                            },
-                          );
-                          const resolveData = await resolveRes.json();
-                          entryId = resolveData?.[0]?.id ?? null;
-                        }
-                      } catch (resolveError) {
-                        console.error(
-                          "[Delete] Failed to resolve entry id before delete:",
-                          resolveError,
-                        );
-                      }
-                    }
-
+                    // No id needed: deleteTimeEntry falls back to user id + date.
                     const result = await supabaseData.deleteTimeEntry({
                       id: entryId,
                       userId: currentUser.id,
