@@ -421,6 +421,10 @@ export const createLocalDevClient = () => {
       const taken = loadDb().profiles.some((p) => p.username === args.username_to_check);
       return { data: !taken, error: null };
     }
+    if (fn === 'get_login_email') {
+      const profile = loadDb().profiles.find((p) => p.username === args.username_in);
+      return { data: profile?.email ?? null, error: null };
+    }
     return { data: null, error: makeError(`RPC "${fn}" is not available in local dev mode`, 'PGRST202') };
   };
 

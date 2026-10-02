@@ -103,6 +103,34 @@ const verifyPasswordWithEmail = async (email, password) => {
   }
 };
 
+// Look up the sign-in email for a username BEFORE the user is authenticated.
+// Prefers the narrow get_login_email() RPC so the profiles table can be locked
+// down with owner-only RLS; falls back to a direct query while the RPC has not
+// been deployed yet. Returns { email, id } or null.
+const lookupLoginProfile = async (username) => {
+  const trimmed = String(username || "").trim();
+  if (!trimmed) return null;
+
+  try {
+    const { data, error } = await supabase.rpc("get_login_email", {
+      username_in: trimmed,
+    });
+    if (!error) {
+      return data ? { email: data, id: null } : null;
+    }
+  } catch (rpcError) {
+    // RPC unavailable, fall back below
+  }
+
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("email, id")
+    .eq("username", trimmed)
+    .single();
+
+  return error || !profile ? null : profile;
+};
+
 export const useSupabaseAuth = () => {
   const context = useContext(SupabaseAuthContext);
   if (!context) {
@@ -993,14 +1021,10 @@ export const SupabaseAuthProvider = ({ children }) => {
       }
 
       // Find user by username to get email
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("email, id")
-        .eq("username", username.trim())
-        .single();
+      const profile = await lookupLoginProfile(username);
 
       // ✅ FAIL-SAFE: If profile lookup fails, try direct auth with username as email
-      if (profileError || !profile) {
+      if (!profile) {
         // Increment failed attempt counter
         localStorage.setItem(rateLimitKey, parseInt(attempts) + 1);
 
@@ -1560,13 +1584,9 @@ export const SupabaseAuthProvider = ({ children }) => {
 
       if (!isEmail) {
         // Input is username, find the associated email
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("email")
-          .eq("username", emailOrUsername.trim())
-          .single();
+        const profile = await lookupLoginProfile(emailOrUsername);
 
-        if (profileError || !profile) {
+        if (!profile) {
           // Don't reveal if username exists or not - security measure
           throw new Error(
             "If this username exists, a password reset link will be sent to the associated email.",

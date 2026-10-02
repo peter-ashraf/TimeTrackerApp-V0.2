@@ -2,7 +2,7 @@
 --
 -- REVIEW BEFORE RUNNING. Nothing here has been executed. Run section by section
 -- in the Supabase SQL Editor, ideally against a branch/staging project first.
--- Sections 1 and 2 are safe for the current app. Section 3 needs an app change.
+-- Sections 1, 2 and 3a are safe now. Section 3b must wait for this app version to be deployed.
 -- Section 4 needs you to inspect the remote objects first.
 
 -- ---------------------------------------------------------------------------
@@ -50,11 +50,35 @@ BEGIN
 END $$;
 
 -- ---------------------------------------------------------------------------
--- 3. profiles: owner-only, plus a narrow function for login-by-username.
---    DO NOT RUN until the app calls get_login_email() instead of querying
---    profiles directly. Today, login reads profiles.email by username BEFORE the
---    user is signed in (SupabaseAuthContext.jsx ~L992, ~L1516), so owner-only
---    RLS would break login and password reset.
+-- 3a. Pre-login lookup functions (additive and safe to run now).
+--     The app (SupabaseAuthContext.jsx: lookupLoginProfile) calls
+--     get_login_email() and falls back to a direct profiles query if it is
+--     missing, so create these BEFORE locking down profiles in 3b.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.get_login_email(username_in text)
+RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $fn$
+  SELECT email FROM public.profiles WHERE username = username_in LIMIT 1;
+$fn$;
+REVOKE ALL ON FUNCTION public.get_login_email(text) FROM public;
+GRANT EXECUTE ON FUNCTION public.get_login_email(text) TO anon, authenticated;
+
+-- Used by the sign-up form (returns true when the username is free).
+CREATE OR REPLACE FUNCTION public.check_username_availability(username_to_check text)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $fn$
+  SELECT NOT EXISTS (SELECT 1 FROM public.profiles WHERE username = username_to_check);
+$fn$;
+REVOKE ALL ON FUNCTION public.check_username_availability(text) FROM public;
+GRANT EXECUTE ON FUNCTION public.check_username_availability(text) TO anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 3b. profiles: owner-only access. RUN ONLY AFTER 3a AND after this app version
+--     is deployed. Older deployed builds read profiles.email by username before
+--     sign-in, so locking profiles earlier would break their login.
+--     Also confirm the profile row is created by a DB trigger or by an
+--     authenticated insert (sign-up must still work), and that the Edge Function
+--     (checkin-reminders) uses the service role, which bypasses RLS.
+--     Known limit: get_login_email() still lets anyone map username -> email.
+--     Removing that needs a product decision (e.g. email-only sign-in).
 -- ---------------------------------------------------------------------------
 -- ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 -- DROP POLICY IF EXISTS "owner_select" ON public.profiles;
@@ -66,15 +90,6 @@ END $$;
 --   USING ((select auth.uid()) = id) WITH CHECK ((select auth.uid()) = id);
 -- CREATE POLICY "owner_insert" ON public.profiles FOR INSERT TO authenticated
 --   WITH CHECK ((select auth.uid()) = id);
---
--- CREATE OR REPLACE FUNCTION public.get_login_email(username_in text)
--- RETURNS text LANGUAGE sql SECURITY DEFINER SET search_path = public AS $fn$
---   SELECT email FROM public.profiles WHERE username = username_in LIMIT 1;
--- $fn$;
--- REVOKE ALL ON FUNCTION public.get_login_email(text) FROM public;
--- GRANT EXECUTE ON FUNCTION public.get_login_email(text) TO anon, authenticated;
--- Note: this still lets anyone map a username to an email. Tightening that
--- (e.g. sign in with email only, or rate limiting) is a separate decision.
 
 -- ---------------------------------------------------------------------------
 -- 4. Unused legacy objects flagged by the Advisor (not referenced in the repo).
