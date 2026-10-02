@@ -89,7 +89,9 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed, onRefresh }) {
         <div className="bento-header-left">
           <div className="bento-logo">
             <i className="fa-regular fa-clock"></i>
-            <span style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.02em', marginLeft: '4px' }}>{getPageTitle()}</span>
+          </div>
+          <div style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.02em', marginLeft: '4px', color: 'var(--text-primary)' }}>
+            {getPageTitle()}
           </div>
         </div>
 

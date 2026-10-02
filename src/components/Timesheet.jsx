@@ -382,7 +382,7 @@ function Timesheet({ setCurrentView }) {
                 
                 {periodEntries.length > 0 && (
                   <div className="glass-table-footer" style={{ padding: '16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' , width: '100%' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <i className="fa-solid fa-chart-pie" style={{ color: 'var(--accent-cyan)', fontSize: '20px' }}></i>
                         <span style={{ fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '14px' }}>Total</span>
@@ -393,7 +393,7 @@ function Timesheet({ setCurrentView }) {
                     </div>
                     
                     {detailedView && (
-                      <div style={{ display: 'flex', gap: '8px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                      <div style={{ display: 'flex', gap: '8px', color: 'var(--text-secondary)', fontSize: '0.85rem' , width: '100%' }}>
                         <span>Extra: {(overtimeDetails.totalExtraHours > 0 ? '+' : '')}{overtimeDetails.totalExtraHours.toFixed(2)}h</span>
                         <span style={{ color: 'rgba(255, 255, 255, 0.2)' }}>|</span>
                         <span>Factor: {(overtimeDetails.totalExtraHoursWithFactor > 0 ? '+' : '')}{overtimeDetails.totalExtraHoursWithFactor.toFixed(2)}h</span>
