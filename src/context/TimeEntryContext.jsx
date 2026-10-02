@@ -13,6 +13,7 @@ import { syncTimeEntryToCloud } from '../utils/timeEntrySyncManager';
 import {
   buildTimeEntrySyncPlan,
   normalizeDateKey as normalizeSyncDateKey,
+  splitForeignEntries,
 } from '../utils/timeEntrySyncPlanner';
 
 const TimeEntryContext = createContext();
@@ -367,6 +368,15 @@ export const TimeEntryProvider = ({ children }) => {
         }
 
         setEntries(sortEntries(localEntries));
+      }
+
+      // Safety net: drop (never upload) entries that belong to another account.
+      const { own: ownEntries, foreign: foreignEntries } = splitForeignEntries(localEntries, currentUser.id);
+      if (foreignEntries.length > 0) {
+        console.warn(`[Sync] Ignoring ${foreignEntries.length} local entries that belong to another account`);
+        localEntries = ownEntries;
+        setEntries(sortEntries(localEntries));
+        persistEntriesSnapshot(localEntries);
       }
 
       syncResult.localCount = localEntries.length;

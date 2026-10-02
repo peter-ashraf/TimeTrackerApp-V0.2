@@ -15,6 +15,10 @@
 export const isLocalDevMode =
   import.meta.env.DEV && import.meta.env.MODE === 'localdev';
 
+// `npm run dev:real`: dev server on purpose connected to the real database.
+export const isRealDevMode =
+  import.meta.env.DEV && import.meta.env.MODE === 'realdev';
+
 export const LOCAL_DEV_USER = {
   id: '00000000-0000-4000-8000-000000000001',
   username: 'devuser',

@@ -5,8 +5,9 @@
   "type": "module",
   "homepage": "https://peter-ashraf.github.io/TimeTrackerApp-V0.2",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --mode localdev",
     "dev:local": "vite --mode localdev",
+    "dev:real": "vite --mode realdev",
     "build": "vite build",
     "test": "node --test tests/*.test.mjs",
     "lint": "eslint src",

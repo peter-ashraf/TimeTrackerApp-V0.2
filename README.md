@@ -107,6 +107,26 @@ npm run build
 npm run deploy
 ```
 
+## 🛡️ Safe Development (read before running the app)
+
+The live database is the same one your real timesheet uses, so day-to-day development never touches it.
+
+| Command | Data | Use it for |
+|---|---|---|
+| `npm run dev` | **Fake local data** in the browser (port 5199). No request ever reaches Supabase. Log in as `devuser`. | Everything: building, testing, trying imports and deletes |
+| `npm run dev:real` | **Your real Supabase data.** Asks for confirmation each tab and shows a red banner. | Only when you must check something against real data |
+
+Rules the app enforces for you:
+- A bare `vite` (no named mode) refuses to start, so you cannot reach the real database by accident.
+- The two modes remember which one used a browser address and refuse to start in the other, because browser storage is shared per address.
+- The local cache is stored per user, and entries owned by another account are never loaded or uploaded.
+- Saving an entry that belongs to a different account is blocked at the lowest layer.
+- Import never writes outside the period you pick and never creates two entries for one date. Prefer **Merge**; **Replace** deletes the period's entries from the database.
+
+If you ever need to reset the fake data: run `__resetLocalDev()` in the browser console on the `npm run dev` tab and reload.
+
+Backups: turn on Supabase daily backups (Dashboard, Database, Backups) and export your data regularly from Settings, Data, Export.
+
 ## 🔐 Security Features
 
 ### Authentication Flow

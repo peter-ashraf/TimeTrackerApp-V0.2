@@ -127,3 +127,22 @@ export const buildTimeEntrySyncPlan = ({ localEntries = [], remoteEntries = [] }
     pulledCount,
   };
 };
+
+/**
+ * Entries that came from the database carry the owner's `user_id`. Anything
+ * stamped with a different account's id must never be loaded or uploaded for
+ * the current user (this is how one account's data once overwrote another's).
+ * Entries with no `user_id` (created locally) cannot be checked and are kept.
+ */
+export const splitForeignEntries = (entries = [], userId) => {
+  const own = [];
+  const foreign = [];
+  for (const entry of entries) {
+    if (entry?.user_id && userId && String(entry.user_id) !== String(userId)) {
+      foreign.push(entry);
+    } else {
+      own.push(entry);
+    }
+  }
+  return { own, foreign };
+};

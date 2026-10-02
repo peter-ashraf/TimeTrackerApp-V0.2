@@ -12,7 +12,7 @@ import LoadingScreen from './components/LoadingScreen.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import './styles/loading-screen.css';
 import './styles/design-system.css';
-import { checkDevOriginMode } from './utils/devOriginGuard';
+import { checkDevOriginMode, confirmRealDatabase } from './utils/devOriginGuard';
 
 const notifyAppUpdateAvailable = (registration) => {
   window.dispatchEvent(
@@ -120,11 +120,11 @@ if (import.meta.env.DEV && window.__TIMETRACKER_REACT_ROOT__) {
   rootElement.replaceChildren();
 }
 
-const originConflict = checkDevOriginMode();
+const originConflict = checkDevOriginMode() || confirmRealDatabase();
 if (originConflict) {
   rootElement.innerHTML =
     '<div style="font-family:system-ui;max-width:560px;margin:15vh auto;padding:24px;color:#fff">' +
-    '<h2>Dev data conflict - app not started</h2>' +
+    '<h2>Dev safety check - app not started</h2>' +
     '<p>' + originConflict + '</p></div>';
   throw new Error('[DevGuard] ' + originConflict);
 }

@@ -35,6 +35,14 @@ export const supabaseData = {
   },
 
   async saveTimeEntry(userId, entry) {
+    // Hard stop: never write an entry that belongs to a different account.
+    if (entry?.user_id && String(entry.user_id) !== String(userId)) {
+      const error = new Error('Refusing to save an entry that belongs to another account');
+      error.code = 'FOREIGN_ENTRY';
+      console.error('[Save] Blocked foreign entry for', entry.date);
+      throw error;
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
