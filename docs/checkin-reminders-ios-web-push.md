@@ -86,12 +86,12 @@ from reminder_preferences
 where enabled = true;
 ```
 
-Invoke the function manually with a service-role bearer token:
+Invoke the function manually with the CRON_SECRET bearer token:
 
 ```bash
 curl -i \
   -X POST "https://<project-ref>.supabase.co/functions/v1/checkin-reminders" \
-  -H "Authorization: Bearer <service-role-key>" \
+  -H "Authorization: Bearer <cron-secret>" \
   -H "Content-Type: application/json"
 ```
 

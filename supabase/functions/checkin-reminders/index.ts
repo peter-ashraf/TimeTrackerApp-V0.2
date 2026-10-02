@@ -86,13 +86,35 @@ const hasCheckIn = (
     intervals.some((interval) => Boolean(interval?.in));
 };
 
-serve(async () => {
+// Constant-time string comparison for the shared cron secret.
+const safeEqual = (a: string, b: string) => {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+};
+
+serve(async (req) => {
+  // This function is deployed with --no-verify-jwt, so authenticate the caller
+  // here: the pg_cron job sends "Authorization: Bearer <CRON_SECRET>".
+  const cronSecret = Deno.env.get("CRON_SECRET") || "";
+  if (!cronSecret) {
+    return jsonResponse({ error: "CRON_SECRET is not configured" }, 500);
+  }
+  const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  if (!safeEqual(bearer, cronSecret)) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
+  }
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    // Prefer the new secret API key (sb_secret_...) stored as SB_SECRET_KEY;
+    // fall back to the legacy service role key until it is revoked.
+    const supabaseServiceKey = Deno.env.get("SB_SECRET_KEY") ||
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+      throw new Error("Missing SUPABASE_URL or SB_SECRET_KEY");
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
