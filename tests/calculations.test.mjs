@@ -15,13 +15,33 @@ test('timeToSeconds parses HH:mm and HH:mm:ss values', () => {
   assert.equal(timeToSeconds(''), 0);
 });
 
-test('calculateHoursWorkedFromIntervals subtracts break intervals from the main work interval', () => {
+test('calculateHoursWorkedFromIntervals does not deduct the paid break inside the break window', () => {
+  // The 30 min break at 13:00 is paid and part of the 9-hour day, so 09:00-18:30 is 9.5h worked.
   const intervals = [
     { in: '09:00:00', out: '18:30:00' },
     { in: '13:00:00', out: '13:30:00' }
   ];
 
+  assert.equal(calculateHoursWorkedFromIntervals(intervals), 9.5);
+});
+
+test('calculateHoursWorkedFromIntervals deducts a break taken outside the paid break window', () => {
+  const intervals = [
+    { in: '09:00:00', out: '18:30:00' },
+    { in: '15:00:00', out: '15:30:00' }
+  ];
+
   assert.equal(calculateHoursWorkedFromIntervals(intervals), 9);
+});
+
+test('calculateHoursWorkedFromIntervals honors a custom break start time', () => {
+  const intervals = [
+    { in: '09:00:00', out: '18:30:00' },
+    { in: '14:00:00', out: '14:30:00' }
+  ];
+
+  assert.equal(calculateHoursWorkedFromIntervals(intervals, '14:00'), 9.5);
+  assert.equal(calculateHoursWorkedFromIntervals(intervals, '13:00'), 9);
 });
 
 test('calculateHoursWorkedFromIntervals returns zero for incomplete entries', () => {
