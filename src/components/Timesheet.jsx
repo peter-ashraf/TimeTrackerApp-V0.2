@@ -381,7 +381,7 @@ function Timesheet({ setCurrentView }) {
                 </div>
                 
                 {periodEntries.length > 0 && (
-                  <div className="glass-table-footer" style={{ padding: '16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div className="glass-table-footer" style={{ padding: '16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', display: 'flex', flexDirection: 'column', gap: '8px' , minHeight: '84px'}}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' , width: '100%' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <i className="fa-solid fa-chart-pie" style={{ color: 'var(--accent-cyan)', fontSize: '20px' }}></i>

@@ -4,8 +4,7 @@ import '../styles/dashboard-skeleton.css';
 function DashboardSkeleton() {
   return (
     <main className="bento-main">
-      <div className="bento-header-section" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <div className="skeleton-shimmer" style={{ width: '250px', height: '42px', borderRadius: '4px' }}></div>
+      <div className="bento-header-section" style={{ paddingTop: 0, paddingBottom: '16px' }}>
         <div className="skeleton-shimmer" style={{ width: '150px', height: '16px', borderRadius: '4px' }}></div>
       </div>
 
