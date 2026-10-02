@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { createInTabLock } from "./inTabLock";
 import {
   isLocalDevMode,
   createLocalDevClient,
@@ -33,8 +34,10 @@ function buildClient() {
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true,
-      // Disable lock to prevent Navigator LockManager timeout issues
-      lock: null,
+      // `lock: null` does not disable locking: supabase-js then uses the
+      // browser-wide Web Locks API, where one hung tab can freeze auth (and so
+      // every query) in all other tabs. Serialise within this tab only.
+      lock: createInTabLock(),
       // Increase timeout for session operations
       storage: window.localStorage,
     },
