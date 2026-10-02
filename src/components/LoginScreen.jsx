@@ -3,6 +3,7 @@ import { useSupabaseAuth } from '../context/SupabaseAuthContext';
 import { useUsernameValidation } from '../hooks/useUsernameValidation';
 import '../styles/login-screen.css';
 import ModalShell from './ModalShell';
+import { isLocalDevMode, LOCAL_DEV_USER } from '../utils/localDevBackend';
 
 // Lazy load modal components for better code splitting
 const RecoveryModal = React.lazy(() => import('./RecoveryModal'));
@@ -403,6 +404,23 @@ const LoginScreen = () => {
               isLoginMode ? '🔓 Login' : '👤 Create Account'
             )}
           </button>
+
+          {isLocalDevMode && isLoginMode && (
+            <button
+              type="button"
+              className="login-secondary-btn"
+              onClick={() =>
+                setFormData(prev => ({
+                  ...prev,
+                  username: LOCAL_DEV_USER.username,
+                  password: LOCAL_DEV_USER.password,
+                }))
+              }
+              disabled={isSubmitting}
+            >
+              🧪 Fill local dev credentials (no Supabase)
+            </button>
+          )}
 
           {isLoginMode && (
             <button

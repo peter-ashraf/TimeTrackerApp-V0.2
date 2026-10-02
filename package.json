@@ -6,6 +6,7 @@
   "homepage": "https://peter-ashraf.github.io/TimeTrackerApp-V0.2",
   "scripts": {
     "dev": "vite",
+    "dev:local": "vite --mode localdev",
     "build": "vite build",
     "test": "node --test tests/*.test.mjs",
     "preview": "vite preview",
