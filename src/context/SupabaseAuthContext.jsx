@@ -47,7 +47,11 @@ const verifyPasswordWithEmail = async (email, password) => {
         method: "POST",
         headers: {
           apikey: SUPABASE_PUBLISHABLE_KEY,
-          Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+          // Legacy anon keys are JWTs and may be sent as a bearer token; the
+          // newer sb_publishable_ keys are not JWTs and go in `apikey` only.
+          ...(SUPABASE_PUBLISHABLE_KEY.startsWith("eyJ")
+            ? { Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}` }
+            : {}),
           "Content-Type": "application/json",
           "X-Client-Info": "timetracker-password-verifier",
         },
