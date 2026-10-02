@@ -8,6 +8,8 @@ import ViewHoursModal from './ViewHoursModal';
 import VacationDetailsModal from './VacationDetailsModal';
 import LeaveCalculator from './LeaveCalculator';
 import DashboardSkeleton from './DashboardSkeleton';
+import { usePayPeriod } from '../context/PayPeriodContext';
+import OvertimeHistoryModal from './OvertimeHistoryModal';
 import './bento-dashboard.css';
 
 const toFiniteNumber = (value, fallback = 0) => {
@@ -28,6 +30,8 @@ function Dashboard() {
     calculateOvertimeDetails
   } = useTimeTracker();
 
+  const { periods, currentPeriodId } = usePayPeriod();
+
   const [showManualIn, setShowManualIn] = useState(false);
   const [showManualOut, setShowManualOut] = useState(false);
   const [showAddBreak, setShowAddBreak] = useState(false);
@@ -37,6 +41,33 @@ function Dashboard() {
   const [calculatorDate, setCalculatorDate] = useState(null);
   const [vacationModalType, setVacationModalType] = useState(null);
   const [showOvertimeInHoursMinutes, setShowOvertimeInHoursMinutes] = useState(false);
+  const [showOvertimeHistory, setShowOvertimeHistory] = useState(false);
+
+  const overtimeTimeoutRef = React.useRef(null);
+
+  const handleOvertimePointerDown = () => {
+    overtimeTimeoutRef.current = setTimeout(() => {
+      hapticFeedback.lightTap && hapticFeedback.lightTap();
+      setShowOvertimeHistory(true);
+      overtimeTimeoutRef.current = null;
+    }, 500);
+  };
+
+  const handleOvertimePointerUp = () => {
+    if (overtimeTimeoutRef.current) {
+      clearTimeout(overtimeTimeoutRef.current);
+      hapticFeedback.buttonClick();
+      setShowOvertimeInHoursMinutes(!showOvertimeInHoursMinutes);
+      overtimeTimeoutRef.current = null;
+    }
+  };
+
+  const handleOvertimePointerLeave = () => {
+    if (overtimeTimeoutRef.current) {
+      clearTimeout(overtimeTimeoutRef.current);
+      overtimeTimeoutRef.current = null;
+    }
+  };
 
   const [isLoading, setIsLoading] = useState(true);
   
@@ -150,10 +181,10 @@ function Dashboard() {
         {/* Overtime Tile */}
         <div 
           className="bento-tile col-span-2 row-span-1 mobile-square"
-          onClick={() => {
-            hapticFeedback.buttonClick();
-            setShowOvertimeInHoursMinutes(!showOvertimeInHoursMinutes);
-          }}
+          onPointerDown={handleOvertimePointerDown}
+          onPointerUp={handleOvertimePointerUp}
+          onPointerLeave={handleOvertimePointerLeave}
+          style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
         >
           <span className="bento-label">Overtime</span>
           <span className={`bento-value ${overtime >= 0 ? 'text-green' : 'text-pink'}`}>
@@ -260,6 +291,15 @@ function Dashboard() {
       </div>
 
       {/* Modals */}
+      <OvertimeHistoryModal
+        isOpen={showOvertimeHistory}
+        onClose={() => setShowOvertimeHistory(false)}
+        periods={periods}
+        entries={entries}
+        calculateOvertimeDetails={calculateOvertimeDetails}
+        currentPeriodId={currentPeriodId}
+      />
+      
       {showManualIn && <ManualTimeModal mode="checkIn" onClose={() => setShowManualIn(false)} />}
       {showManualOut && <ManualTimeModal mode="checkOut" onClose={() => setShowManualOut(false)} />}
       {showAddBreak && <AddBreakModal onClose={() => setShowAddBreak(false)} />}
