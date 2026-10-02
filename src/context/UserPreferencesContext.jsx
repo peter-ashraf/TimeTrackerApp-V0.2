@@ -560,10 +560,10 @@ export const UserPreferencesProvider = ({ children }) => {
       document.getElementsByTagName("head")[0].appendChild(meta);
     }
 
-    // Exact colors from public/css/styles.css
-    // Light: var(--color-background) -> #fcfcf9 (Cream 50)
-    // Dark: var(--color-background) -> #1f2121 (Charcoal 700)
-    const color = currentActiveTheme === "dark" ? "#1f2121" : "#fcfcf9";
+    // Dynamic colors for the Bento design system
+    // Light: var(--bg-primary) -> #F8FAFC
+    // Dark: var(--bg-primary) -> #050507
+    const color = currentActiveTheme === "dark" ? "#050507" : "#F8FAFC";
     meta.setAttribute("content", color);
   }, []);
 

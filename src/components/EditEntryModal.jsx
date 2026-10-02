@@ -271,7 +271,7 @@ function EditEntryModal({ entry, onClose }) {
                 const secondLabel = isFirst ? 'Check Out (or Break Start)' : 'Check Out';
 
                 return (
-                  <div key={index} style={{ background: 'rgba(0,0,0,0.15)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', position: 'relative' }}>
+                  <div key={index} className="bento-modal-card" style={{ padding: '16px', position: 'relative' }}>
                     
                     <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
                       {/* Check In */}
@@ -342,7 +342,7 @@ function EditEntryModal({ entry, onClose }) {
                     {editedEntry.intervals.length > 1 && (
                       <button
                         onClick={() => removeInterval(index)}
-                        style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: 'none', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '12px' }}
+                        style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '12px' }}
                         title="Remove interval"
                       >✕</button>
                     )}
@@ -351,7 +351,7 @@ function EditEntryModal({ entry, onClose }) {
               })}
             </div>
             
-            <button className="btn-secondary" onClick={addInterval} style={{ marginTop: '16px', background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px dashed rgba(255,255,255,0.2)', padding: '12px', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s', width: '100%', fontWeight: 600 }}>
+            <button className="add-break-btn" onClick={addInterval} style={{ marginTop: '16px' }}>
               + Add Break Interval
             </button>
           </div>
