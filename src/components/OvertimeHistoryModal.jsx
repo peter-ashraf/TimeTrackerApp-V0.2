@@ -2,8 +2,6 @@ import React, { useMemo } from 'react';
 import ModalShell from './ModalShell';
 
 function OvertimeHistoryModal({ isOpen, onClose, periods, entries, calculateOvertimeDetails, currentPeriodId }) {
-  if (!isOpen) return null;
-
   const periodOvertimes = useMemo(() => {
     if (!periods || !entries || !calculateOvertimeDetails) return [];
     
@@ -20,6 +18,8 @@ function OvertimeHistoryModal({ isOpen, onClose, periods, entries, calculateOver
       };
     });
   }, [periods, entries, calculateOvertimeDetails, currentPeriodId]);
+
+  if (!isOpen) return null;
 
   return (
     <ModalShell onClose={onClose} contentClassName="overtime-history-modal" showCloseButton={false}>

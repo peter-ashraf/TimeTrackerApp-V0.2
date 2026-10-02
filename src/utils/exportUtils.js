@@ -251,9 +251,9 @@ export const sendEmailReport = async (recipient, subject, attachmentData, option
   const { default: emailjs } = await import('emailjs-com');
   
   const {
-    emailServiceId = process.env.REACT_APP_EMAILJS_SERVICE_ID,
-    emailTemplateId = process.env.REACT_APP_EMAILJS_TEMPLATE_ID,
-    emailUserId = process.env.REACT_APP_EMAILJS_USER_ID
+    emailServiceId = import.meta.env.VITE_EMAILJS_SERVICE_ID,
+    emailTemplateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+    emailUserId = import.meta.env.VITE_EMAILJS_USER_ID
   } = options;
 
   if (!emailServiceId || !emailTemplateId || !emailUserId) {

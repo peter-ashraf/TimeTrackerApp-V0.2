@@ -97,7 +97,7 @@ class AuthErrorBoundary extends Component {
               Something went wrong with the authentication process. This could be due to a network issue or a temporary system error.
             </p>
 
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {import.meta.env.DEV && this.state.error && (
               <details style={{
                 marginBottom: '1.5rem',
                 padding: '1rem',

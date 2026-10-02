@@ -8,6 +8,7 @@ import { offlineQueue } from './offlineQueue.js';
 import { saveToStorage, loadFromStorage } from './storage.js';
 import { setSimpleEncryptedItem, getSimpleEncryptedItem } from './simple-encryption.js';
 import { multiTabSync } from './multiTabSync.js';
+import { supabaseData } from './supabaseData.js';
 
 class BackgroundSync {
   constructor() {
