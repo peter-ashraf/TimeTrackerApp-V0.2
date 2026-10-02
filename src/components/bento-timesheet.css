@@ -625,9 +625,6 @@
     margin-bottom: 4px !important;
   }
 
-  .stacked-row{
-    min-height: 151px !important;
-  }
   .stacked-row .status-badge {
     grid-row: 2 !important;
     grid-column: 1 !important;

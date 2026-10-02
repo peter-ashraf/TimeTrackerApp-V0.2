@@ -80,9 +80,10 @@ const TimesheetRow = React.memo(({
           </div>
         </div>
         <div className="stacked-metrics">
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
             
-            <div style={{ visibility: detailedView ? 'visible' : 'hidden', display: detailedView ? 'block' : 'none' }}>
+            {/* Always rendered (just hidden in simple view) so the row height is the same in both views, with or without breaks */}
+            <div style={{ visibility: detailedView ? 'visible' : 'hidden' }} aria-hidden={!detailedView}>
               <span>
                 Extra: {extraHours > 0 ? '+' : ''}{extraHours.toFixed(2)}h | Factor: {extraHoursWithFactor > 0 ? '+' : ''}{extraHoursWithFactor.toFixed(2)}h
               </span>

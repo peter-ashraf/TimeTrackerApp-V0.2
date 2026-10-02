@@ -64,15 +64,18 @@ const buildSeed = () => {
   for (let back = 1; back <= 10; back += 1) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - back);
     const dow = d.getDay();
-    if (dow === 5 || dow === 6 || d < start) continue; // Fri/Sat weekend (EGP locale default)
+    if (dow === 0 || dow === 6 || d < start) continue; // Sat/Sun weekend, matching Timesheet.jsx
     entries.push({
       id: uuid(),
       user_id: uid,
       date: isoDate(d),
       type: 'Regular',
+      // App model: first interval = whole working day, later intervals = breaks.
+      // Every other day also has a short break outside the paid window (13:00-13:30).
       intervals: [
-        { in: '09:00:00', out: '13:00:00' },
-        { in: '13:30:00', out: back % 3 === 0 ? '18:30:00' : '17:30:00' },
+        { in: '08:30:00', out: back % 3 === 0 ? '18:30:00' : '17:30:00' },
+        { in: '13:00:00', out: '13:30:00' },
+        ...(back % 2 === 0 ? [{ in: '15:30:00', out: '15:50:00' }] : []),
       ],
       duration: null,
       double_hours: false,
