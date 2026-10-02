@@ -7,6 +7,10 @@ class CacheManager {
   constructor() {
     this.cacheVersion = '2.0.0';
     this.cachePrefix = 'tt_cache_';
+    // Cache entries are scoped per user (tt_cache_u_<userId>_<key>) so one
+    // account's data can never be loaded - and synced to the cloud - by another
+    // account that signs in on the same browser. No scope = no caching.
+    this.userScope = null;
     this.isOnline = navigator.onLine;
     this.refreshQueue = new Map();
     this.lastCacheUpdate = null;
@@ -26,11 +30,26 @@ class CacheManager {
   }
 
   /**
+   * Set the signed-in user whose cache is read and written (null = signed out).
+   */
+  setUserScope(userId) {
+    this.userScope = userId ? String(userId) : null;
+  }
+
+  /**
+   * Storage key for the current user, or null when nobody is signed in.
+   */
+  keyFor(key) {
+    return this.userScope ? `${this.cachePrefix}u_${this.userScope}_${key}` : null;
+  }
+
+  /**
    * Get cached data with instant fallback
    */
   async getCachedData(key, fallbackData = null) {
     try {
-      const cacheKey = `${this.cachePrefix}${key}`;
+      const cacheKey = this.keyFor(key);
+      if (!cacheKey) return fallbackData;
       const cached = localStorage.getItem(cacheKey);
       
       if (!cached) {
@@ -67,7 +86,8 @@ class CacheManager {
    */
   setCachedData(key, data) {
     try {
-      const cacheKey = `${this.cachePrefix}${key}`;
+      const cacheKey = this.keyFor(key);
+      if (!cacheKey) return;
       const cacheData = {
         data,
         timestamp: Date.now(),
@@ -189,6 +209,12 @@ class CacheManager {
     const keys = Object.keys(localStorage);
     keys.forEach(key => {
       if (key.startsWith(this.cachePrefix)) {
+        // Legacy unscoped entries (tt_cache_<key>) have an unknown owner and
+        // were shared between accounts; drop them rather than trust them.
+        if (!key.startsWith(`${this.cachePrefix}u_`)) {
+          localStorage.removeItem(key);
+          return;
+        }
         try {
           const cached = localStorage.getItem(key);
           if (cached) {
@@ -213,7 +239,6 @@ class CacheManager {
     const { forceUpdate = false, mergeStrategy = 'smart' } = options;
     
     try {
-      const cacheKey = `${this.cachePrefix}${key}`;
       const existing = this.getCachedData(key);
       
       if (!forceUpdate && existing && this.shouldSkipSync(key, existing, newData)) {

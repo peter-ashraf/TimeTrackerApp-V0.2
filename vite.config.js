@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // vite.config.js
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   base: '/TimeTrackerApp-V0.2/',
   publicDir: 'public',
   
@@ -83,6 +83,9 @@ export default defineConfig({
     })
   ],
   server: {
+    // `npm run dev:local` (fake backend) gets its own fixed port. localStorage is
+    // per-origin, so this keeps its test data away from `npm run dev` (real Supabase).
+    ...(mode === 'localdev' ? { port: 5199, strictPort: true } : {}),
     hmr: {
       overlay: false  // Disable HMR overlay to prevent React hook order issues
     }
@@ -117,4 +120,4 @@ export default defineConfig({
     },
     chunkSizeWarningLimit: 1000 // Increase threshold temporarily
   }
-})
+}))

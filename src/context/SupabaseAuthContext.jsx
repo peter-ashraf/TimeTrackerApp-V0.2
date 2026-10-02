@@ -12,6 +12,7 @@ import {
   getSimpleEncryptedItem,
 } from "../utils/simple-encryption";
 import { failsafeAuth } from "../utils/failsafeAuth.js";
+import { cacheManager } from "../utils/cacheManager";
 
 const SupabaseAuthContext = createContext();
 
@@ -160,6 +161,10 @@ export const SupabaseAuthProvider = ({ children }) => {
   const [isFailsafeMode, setIsFailsafeMode] = useState(false);
   const [networkStatus, setNetworkStatus] = useState({ isOnline: navigator.onLine, supabaseAvailable: true });
   const lastActivityRef = useRef(lastActivity);
+
+  // Scope the shared cache to the signed-in user *during render*, so it is set
+  // before any child effect reads the cache (child effects run before parents').
+  cacheManager.setUserScope(currentUser?.id ?? null);
 
   // Session management constants
   const REMEMBERED_SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
