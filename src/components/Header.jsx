@@ -76,13 +76,20 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed, onRefresh }) {
     setShowSessionWarning(false);
   };
 
+  const getPageTitle = () => {
+    if (currentView === 'dashboard') return employee?.name ? `Hi, ${employee.name.split(' ')[0]}` : 'Dashboard';
+    if (currentView === 'timesheet') return 'Timesheet';
+    if (currentView === 'settings') return 'Settings';
+    return 'TimeTracker';
+  };
+
   return (
     <>
       <header className={`bento-header ${isHeaderCollapsed ? "collapsed" : ""}`}>
         <div className="bento-header-left">
           <div className="bento-logo">
             <i className="fa-regular fa-clock"></i>
-            <span>TimeTracker</span>
+            <span style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.02em', marginLeft: '4px' }}>{getPageTitle()}</span>
           </div>
         </div>
 

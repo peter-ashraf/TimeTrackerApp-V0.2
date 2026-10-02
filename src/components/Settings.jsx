@@ -1934,8 +1934,7 @@ function Settings() {
   return (
     <main className="settings-page main-content">
       {/* ── Page Header ── */}
-      <div style={{ padding: '24px 20px 12px' }}>
-        <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: 800 }}>Settings</h1>
+      <div style={{ padding: '0px 20px 12px' }}>
         <p style={{ margin: '6px 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Manage your preferences, data &amp; account</p>
       </div>
 

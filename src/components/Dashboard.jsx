@@ -126,9 +126,8 @@ function Dashboard() {
 
   return (
     <main className="bento-main main-content">
-      <div className="bento-header-section">
-        <h1>{employee.name ? `Hi, ${employee.name.split(' ')[0]}` : 'Dashboard'}</h1>
-        <p>{currentPeriod?.label || 'No Period'}</p>
+      <div className="bento-header-section" style={{ paddingTop: 0, paddingBottom: '16px' }}>
+        <p style={{ margin: 0, fontWeight: 500, color: 'var(--text-secondary)' }}>{currentPeriod?.label || 'No Period'}</p>
       </div>
 
       <div className="bento-grid dashboard-grid">

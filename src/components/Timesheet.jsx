@@ -291,11 +291,6 @@ function Timesheet({ setCurrentView }) {
         </div>
       ) : (
         <>
-          <div className="bento-timesheet-header">
-            <div className="bento-title-row">
-              <h1>Timesheet</h1>
-            </div>
-          </div>
 
           {/* Period and Hero Action */}
           <div className="bento-grid" style={{ marginBottom: '24px' }}>
@@ -386,22 +381,24 @@ function Timesheet({ setCurrentView }) {
                 </div>
                 
                 {periodEntries.length > 0 && (
-                  <div className="glass-table-footer" style={{ minHeight: '76px', padding: '8px 8px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                      <i className="fa-solid fa-chart-pie" style={{ color: 'var(--accent-cyan)', fontSize: '20px' }}></i>
-                      <span style={{ fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '14px' }}>Total</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '56%', gap: '12px', flexShrink: 0 }}>
-                      <div style={{ fontSize: '1.25rem', fontWeight: '800', whiteSpace: 'nowrap' }}>
-                        {overtimeDetails.totalHoursWorked.toFixed(2)} <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: '400' }}>hrs</span>
+                  <div className="glass-table-footer" style={{ padding: '16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <i className="fa-solid fa-chart-pie" style={{ color: 'var(--accent-cyan)', fontSize: '20px' }}></i>
+                        <span style={{ fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '14px' }}>Total</span>
                       </div>
-                      {detailedView && (
-                        <div style={{ display: 'flex', gap: '12px', color: 'var(--text-secondary)', fontSize: '0.85rem', borderRight: '1px solid var(--border-light)', paddingRight: '12px', whiteSpace: 'nowrap' }}>
-                          <span>Extra: {(overtimeDetails.totalExtraHours > 0 ? '+' : '')}{overtimeDetails.totalExtraHours.toFixed(2)}h</span>
-                          <span>Factor: {(overtimeDetails.totalExtraHoursWithFactor > 0 ? '+' : '')}{overtimeDetails.totalExtraHoursWithFactor.toFixed(2)}h</span>
-                        </div>
-                      )}
+                      <div style={{ fontSize: '1.25rem', fontWeight: '800', whiteSpace: 'nowrap' }}>
+                        {overtimeDetails.totalHoursWorked.toFixed(2)}<span style={{ fontSize: '1rem', color: 'var(--text-secondary)', fontWeight: '800', marginLeft: '2px' }}>h</span>
+                      </div>
                     </div>
+                    
+                    {detailedView && (
+                      <div style={{ display: 'flex', gap: '8px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                        <span>Extra: {(overtimeDetails.totalExtraHours > 0 ? '+' : '')}{overtimeDetails.totalExtraHours.toFixed(2)}h</span>
+                        <span style={{ color: 'rgba(255, 255, 255, 0.2)' }}>|</span>
+                        <span>Factor: {(overtimeDetails.totalExtraHoursWithFactor > 0 ? '+' : '')}{overtimeDetails.totalExtraHoursWithFactor.toFixed(2)}h</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
