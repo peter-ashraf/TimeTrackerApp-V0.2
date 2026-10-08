@@ -17,6 +17,7 @@ import { setSimpleEncryptedItem } from "../utils/simple-encryption";
 import { useUserPreferences } from "../context/UserPreferencesContext";
 import { notificationManager } from "../utils/notificationManager";
 import CustomSelect from "./CustomSelect";
+import { APP_ICONS, getAppIcon, setAppIcon } from "../utils/appIcon";
 import {
   clearPendingTimeEntrySync,
   getPendingTimeEntrySyncStatus,
@@ -383,7 +384,8 @@ function Settings() {
   } = useTimeTracker();
 
   const { setPeriods, markPeriodDirty } = usePayPeriod();
-  const { reminderSettings, setReminderSettings, userPreferences, updatePreferences } = useUserPreferences();
+  const { reminderSettings, setReminderSettings, userPreferences, updatePreferences, theme, setTheme } = useUserPreferences();
+  const [appIcon, setAppIconState] = useState(getAppIcon);
 
   // ✅ ADDED: Get auth functions
   const { currentUser, deleteUser, verifyPassword } = useSupabaseAuth();
@@ -1976,6 +1978,52 @@ function Settings() {
             <SpokeDoneBtn />
           </div>
           <div className="spoke-content">
+            <div className="spoke-section">
+              <div className="spoke-section-label">Theme</div>
+              <div className="spoke-card">
+                <div className="spoke-row">
+                  <div className="spoke-row-left">
+                    <span className="spoke-row-label">Appearance</span>
+                    <span className="spoke-row-hint">System follows your phone's light or dark mode</span>
+                  </div>
+                </div>
+                <div className="spoke-row" style={{ flexWrap: 'wrap', gap: 8, justifyContent: 'flex-start' }}>
+                    <button type="button" aria-pressed={theme === 'light'} onClick={() => setTheme('light')}
+                      style={{ padding: '6px 14px', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700, background: theme === 'light' ? 'var(--accent-cyan)' : 'var(--bg-tertiary)', color: theme === 'light' ? '#000' : 'var(--text-secondary)', border: 'none', cursor: 'pointer' }}>
+                      <i className="fa-solid fa-sun" style={{ marginRight: 6 }} />Light
+                    </button>
+                    <button type="button" aria-pressed={theme === 'dark'} onClick={() => setTheme('dark')}
+                      style={{ padding: '6px 14px', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700, background: theme === 'dark' ? 'var(--accent-cyan)' : 'var(--bg-tertiary)', color: theme === 'dark' ? '#000' : 'var(--text-secondary)', border: 'none', cursor: 'pointer' }}>
+                      <i className="fa-solid fa-moon" style={{ marginRight: 6 }} />Dark
+                    </button>
+                    <button type="button" aria-pressed={theme === 'system'} onClick={() => setTheme('system')}
+                      style={{ padding: '6px 14px', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700, background: theme === 'system' ? 'var(--accent-cyan)' : 'var(--bg-tertiary)', color: theme === 'system' ? '#000' : 'var(--text-secondary)', border: 'none', cursor: 'pointer' }}>
+                      <i className="fa-solid fa-desktop" style={{ marginRight: 6 }} />System
+                    </button>
+                </div>
+              </div>
+            </div>
+            <div className="spoke-section">
+              <div className="spoke-section-label">App Icon</div>
+              <div className="spoke-card">
+                <div className="spoke-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 1fr))', gap: 12 }}>
+                  {APP_ICONS.map((icon) => (
+                    <button key={icon.id} type="button" aria-pressed={appIcon === icon.id}
+                      onClick={() => { setAppIcon(icon.id); setAppIconState(icon.id); }}
+                      style={{ display: 'grid', justifyItems: 'center', gap: 6, padding: 8, borderRadius: 14, background: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, border: appIcon === icon.id ? '2px solid var(--accent-cyan)' : '2px solid transparent' }}>
+                      <span style={{ display: 'flex', gap: 4 }}>
+                        <img src={icon.light} alt="" width="32" height="32" style={{ borderRadius: 8 }} />
+                        <img src={icon.dark} alt="" width="32" height="32" style={{ borderRadius: 8 }} />
+                      </span>
+                      {icon.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="spoke-row">
+                  <span className="spoke-row-hint">On iPhone, remove the app from your home screen and add it again for a new icon to show there.</span>
+                </div>
+              </div>
+            </div>
             <div className="spoke-section">
               <div className="spoke-section-label">UI Version</div>
               <div className="spoke-card">

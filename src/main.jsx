@@ -12,6 +12,9 @@ import LoadingScreen from './components/LoadingScreen.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import './styles/loading-screen.css';
 import './styles/design-system.css';
+import { applyAppIcon } from './utils/appIcon';
+
+applyAppIcon();
 
 const notifyAppUpdateAvailable = (registration) => {
   window.dispatchEvent(
