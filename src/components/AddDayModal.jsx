@@ -17,9 +17,19 @@ function AddDayModal({ onClose }) {
   const [isSaving, setIsSaving] = useState(false);
   const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', type: 'info' });
 
+  // A day is locked only if it has check-in/out times or is already a special day.
+  // Empty placeholder entries (e.g. a past Regular day with no times) stay open.
+  const isLockingEntry = (entry) => {
+    if (!entry?.date) return false;
+    if (entry.type && entry.type !== 'Regular') return true;
+    return Array.isArray(entry.intervals) && entry.intervals.some(i => i?.in || i?.out);
+  };
+
   const existingDates = useMemo(() => {
-    return new Set(entries.filter(entry => entry?.date).map(entry => entry.date));
+    return new Set(entries.filter(isLockingEntry).map(entry => entry.date));
   }, [entries]);
+
+  const isWeekendDate = (date) => date.getDay() === 0 || date.getDay() === 6;
 
   const parseSpecialDayLabel = (label) => {
     if (label.includes('Half')) {
@@ -50,6 +60,8 @@ function AddDayModal({ onClose }) {
       return;
     }
 
+    if (isWeekendDate(date)) return;
+
     setSelectedDates((currentDates) => {
       if (currentDates.includes(dateString)) {
         return currentDates.filter((selectedDate) => selectedDate !== dateString);
@@ -69,7 +81,7 @@ function AddDayModal({ onClose }) {
       classes.push('add-day-calendar-selected');
     }
 
-    if (existingDates.has(dateString)) {
+    if (existingDates.has(dateString) || isWeekendDate(date)) {
       classes.push('add-day-calendar-existing');
     }
 
@@ -78,7 +90,7 @@ function AddDayModal({ onClose }) {
 
   const tileDisabled = ({ date, view }) => {
     if (view !== 'month') return false;
-    return existingDates.has(formatLocalDate(date));
+    return existingDates.has(formatLocalDate(date)) || isWeekendDate(date);
   };
 
   const handleSave = async () => {
@@ -95,7 +107,7 @@ function AddDayModal({ onClose }) {
 
     // Check for duplicates again in case entries changed while the modal was open.
     const duplicateDates = targetDates.filter(date =>
-      entries.some(e => e.date === date)
+      entries.some(e => e.date === date && isLockingEntry(e))
     );
 
     if (duplicateDates.length > 0) {
