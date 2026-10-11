@@ -1,6 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { execSync } from 'node:child_process'
+import pkg from './package.json' with { type: 'json' }
+
+// Version updates on every build: major.minor from package.json, patch = git commit count.
+const git = (cmd) => {
+  try { return execSync(`git ${cmd}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { return '' }
+}
+const [major = '0', minor = '1'] = pkg.version.split('.')
+const commitCount = git('rev-list --count HEAD')
+const shortSha = (process.env.GITHUB_SHA || git('rev-parse --short HEAD') || 'local').slice(0, 7)
+const appVersion = commitCount ? `${major}.${minor}.${commitCount}` : pkg.version
 
 // vite.config.js
 export default defineConfig({
@@ -8,9 +19,9 @@ export default defineConfig({
   publicDir: 'public',
   
   define: {
-    __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '0.1.0'),
+    __APP_VERSION__: JSON.stringify(appVersion),
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
-    __GIT_COMMIT__: JSON.stringify(process.env.GITHUB_SHA || 'local'),
+    __GIT_COMMIT__: JSON.stringify(shortSha),
   },
   
   plugins: [

@@ -2491,7 +2491,7 @@ function Settings() {
                 <div className="spoke-row">
                   <div className="spoke-row-left">
                     <span className="spoke-row-label">Current Version</span>
-                    <span className="spoke-row-hint">v{appVersion} · {import.meta.env.PROD ? 'Installed' : 'Dev preview'}</span>
+                    <span className="spoke-row-hint">v{appVersion}{typeof __GIT_COMMIT__ !== 'undefined' ? ` (${__GIT_COMMIT__})` : ''} · {import.meta.env.PROD ? 'Installed' : 'Dev preview'}</span>
                   </div>
                   <button type="button" onClick={handleCheckForAppUpdate} disabled={isCheckingVersion} style={{ padding: '6px 14px', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', cursor: 'pointer', opacity: isCheckingVersion ? 0.5 : 1 }}>{isCheckingVersion ? 'Checking…' : 'Check'}</button>
                 </div>
