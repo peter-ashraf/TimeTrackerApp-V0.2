@@ -20,6 +20,21 @@ export const APP_ICONS = [
 const STORAGE_KEY = 'appIcon';
 const DEFAULT_ICON = 'classic';
 
+// The installed iPhone app and Safari keep separate storage, so the choice is handed to
+// Safari through ?icon=<id> before the app is added to the home screen again.
+export const appIconHandoffUrl = (id) => `${window.location.origin}${BASE}?icon=${encodeURIComponent(id)}`;
+
+const readIconFromUrl = () => {
+  try {
+    const id = new URLSearchParams(window.location.search).get('icon');
+    if (!APP_ICONS.some((icon) => icon.id === id)) return null;
+    localStorage.setItem(STORAGE_KEY, id);
+    return id;
+  } catch {
+    return null;
+  }
+};
+
 export const getAppIcon = () => {
   try {
     const id = localStorage.getItem(STORAGE_KEY);
@@ -47,7 +62,7 @@ const darkQuery = typeof window !== 'undefined' && window.matchMedia
   : null;
 darkQuery?.addEventListener?.('change', () => applyAppIcon());
 
-export const applyAppIcon = (id = getAppIcon()) => {
+export const applyAppIcon = (id = readIconFromUrl() ?? getAppIcon()) => {
   const icon = APP_ICONS.find((i) => i.id === id) ?? APP_ICONS[0];
   // Safari ignores `media` on apple-touch-icon, so expose one link that matches the current
   // appearance; iOS snapshots it when the app is added to the home screen.
