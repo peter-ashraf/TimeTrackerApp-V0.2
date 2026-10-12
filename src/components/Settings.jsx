@@ -17,7 +17,7 @@ import { setSimpleEncryptedItem } from "../utils/simple-encryption";
 import { useUserPreferences } from "../context/UserPreferencesContext";
 import { notificationManager } from "../utils/notificationManager";
 import CustomSelect from "./CustomSelect";
-import { APP_ICONS, getAppIcon, setAppIcon } from "../utils/appIcon";
+import { APP_ICONS, appIconHandoffUrl, getAppIcon, setAppIcon } from "../utils/appIcon";
 import {
   clearPendingTimeEntrySync,
   getPendingTimeEntrySyncStatus,
@@ -2020,7 +2020,7 @@ function Settings() {
                   ))}
                 </div>
                 <div className="spoke-row">
-                  <span className="spoke-row-hint">On iPhone, remove the app from your home screen and add it again for a new icon to show there.</span>
+                  <span className="spoke-row-hint">On iPhone, remove the app from your home screen, then <a href={appIconHandoffUrl(appIcon)} target="_blank" rel="noopener" style={{ color: 'var(--accent-cyan)' }}>open it in Safari</a> and use Share › Add to Home Screen. The new icon shows there.</span>
                 </div>
               </div>
             </div>

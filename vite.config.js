@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { execSync } from 'node:child_process'
@@ -14,7 +14,12 @@ const shortSha = (process.env.GITHUB_SHA || git('rev-parse --short HEAD') || 'lo
 const appVersion = commitCount ? `${major}.${minor}.${commitCount}` : pkg.version
 
 // vite.config.js
-export default defineConfig({
+export default defineConfig(({ command, mode }) => {
+  // A production build without Supabase settings starts but cannot load, so stop it here.
+  if (command === 'build' && !loadEnv(mode, process.cwd(), 'VITE_').VITE_SUPABASE_URL) {
+    throw new Error('VITE_SUPABASE_URL is missing. Add it to .env before building or deploying.')
+  }
+  return {
   base: '/TimeTrackerApp-V0.2/',
   publicDir: 'public',
   
@@ -128,4 +133,4 @@ export default defineConfig({
     },
     chunkSizeWarningLimit: 1000 // Increase threshold temporarily
   }
-})
+}})
