@@ -11,6 +11,7 @@ import {
   parseHrTimesheetText
 } from '../utils/hrTimesheetCompare';
 import '../styles/timesheet-compare-modal.css';
+import { isWorkedDay } from '../utils/entryType';
 
 const STEP_LABELS = {
   source: 'Source',
@@ -87,10 +88,10 @@ function TimesheetCompareModal({ onClose, onEditEntry }) {
     }
 
     const interval = entry.intervals?.[0] || {};
-    const isComplete = entry.type === 'Regular' && interval.in && interval.out;
+    const isComplete = isWorkedDay(entry) && interval.in && interval.out;
     const hours = isComplete
       ? `${calculateHoursWorked(entry.intervals, entry.date).toFixed(2)}h`
-      : entry.type === 'Regular'
+      : isWorkedDay(entry)
         ? '0.00h'
         : entry.type;
 

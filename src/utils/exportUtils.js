@@ -1,3 +1,4 @@
+import { isWorkedDay } from './entryType';
 // Enhanced Excel export with formatting
 export const exportToExcel = async (data, options = {}) => {
   const XLSX = await import('xlsx');
@@ -352,20 +353,20 @@ export const formatEntriesForExport = (entries, detailedView = true) => {
         new Date(entry.date).toLocaleDateString(),
         firstIn,
         lastOut,
-        entry.type === 'Regular' ? `${hoursWorked.toFixed(2)}h` : entry.type,
-        entry.type === 'Regular' ? `${extraHours.toFixed(2)}h` : '-',
-        entry.type === 'Regular' ? `${extraHoursWithFactor.toFixed(2)}h` : '-',
+        isWorkedDay(entry) ? `${hoursWorked.toFixed(2)}h` : entry.type,
+        isWorkedDay(entry) ? `${extraHours.toFixed(2)}h` : '-',
+        isWorkedDay(entry) ? `${extraHoursWithFactor.toFixed(2)}h` : '-',
         entry.type,
         breakOutTimes,
         breakInTimes,
-        entry.type === 'Regular' ? `${hoursSpentOutside.toFixed(2)}h` : '-'
+        isWorkedDay(entry) ? `${hoursSpentOutside.toFixed(2)}h` : '-'
       ];
     } else {
       return [
         new Date(entry.date).toLocaleDateString(),
         firstIn,
         lastOut,
-        entry.type === 'Regular' ? `${hoursWorked.toFixed(2)}h` : entry.type,
+        isWorkedDay(entry) ? `${hoursWorked.toFixed(2)}h` : entry.type,
         entry.type
       ];
     }
@@ -456,10 +457,10 @@ export const generateReportFromTemplate = (entries, templateName, options = {}) 
 // Generate summary data for summary template
 const generateSummaryData = (entries) => {
   const totalHours = entries.reduce((sum, e) => sum + (e.hoursWorked || 0), 0);
-  const regularHours = entries.filter(e => e.type === 'Regular')
+  const regularHours = entries.filter(e => isWorkedDay(e))
     .reduce((sum, e) => sum + (e.hoursWorked || 0), 0);
   const overtimeHours = entries.reduce((sum, e) => sum + (e.extraHoursWithFactor || 0), 0);
-  const leaveDays = entries.filter(e => e.type !== 'Regular').length;
+  const leaveDays = entries.filter(e => !isWorkedDay(e)).length;
 
   return [
     ['Metric', 'Value'],
@@ -467,14 +468,14 @@ const generateSummaryData = (entries) => {
     ['Regular Hours', `${regularHours.toFixed(2)}h`],
     ['Overtime Hours', `${overtimeHours.toFixed(2)}h`],
     ['Leave Days', leaveDays.toString()],
-    ['Working Days', entries.filter(e => e.type === 'Regular').length.toString()]
+    ['Working Days', entries.filter(e => isWorkedDay(e)).length.toString()]
   ];
 };
 
 // Generate analytics data for analytics template
 const generateAnalyticsData = (entries) => {
   const totalHours = entries.reduce((sum, e) => sum + (e.hoursWorked || 0), 0);
-  const regularDays = entries.filter(e => e.type === 'Regular').length;
+  const regularDays = entries.filter(e => isWorkedDay(e)).length;
   const avgHoursPerDay = regularDays > 0 ? totalHours / regularDays : 0;
   const overtimeHours = entries.reduce((sum, e) => sum + (e.extraHoursWithFactor || 0), 0);
   const overtimePercentage = totalHours > 0 ? (overtimeHours / totalHours * 100) : 0;

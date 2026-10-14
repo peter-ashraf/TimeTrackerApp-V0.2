@@ -11,6 +11,7 @@ import CustomSelect from './CustomSelect';
 import CalendarView from './CalendarView';
 import '../styles/performance-optimizations.css';
 import './bento-timesheet.css';
+import { isWorkedDay } from '../utils/entryType';
 
 // Memoized individual row component to prevent unnecessary re-renders
 const TimesheetRow = React.memo(({
@@ -27,7 +28,7 @@ const TimesheetRow = React.memo(({
     entry.intervals.length > 0 &&
     entry.intervals.every(interval => interval.in && interval.out);
 
-  const hoursWorked = entry.type === 'Regular' && entry.intervals && isComplete
+  const hoursWorked = isWorkedDay(entry) && entry.intervals && isComplete
     ? calculateHoursWorked(entry.intervals, entry.date)
     : 0;
 
@@ -76,7 +77,7 @@ const TimesheetRow = React.memo(({
             {formatTime(firstIn)} &rarr; {formatTime(lastOut)}
           </div>
           <div style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-primary)', alignSelf: 'flex-end'}}>
-              {entry.type === 'Regular' ? `${hoursWorked.toFixed(2)}h` : '-'}
+              {isWorkedDay(entry) ? `${hoursWorked.toFixed(2)}h` : '-'}
           </div>
         </div>
         <div className="stacked-metrics">

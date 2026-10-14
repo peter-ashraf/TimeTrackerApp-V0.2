@@ -22,6 +22,7 @@ import {
   setSimpleEncryptedItem,
   getSimpleEncryptedItem,
 } from "../utils/simple-encryption";
+import { hasWorkedTimes, isWorkedDay } from "../utils/entryType";
 
 const BackupReminderModal = React.lazy(
   () => import("../components/BackupReminderModal"),
@@ -234,13 +235,13 @@ export const TimeTrackerProvider = ({ children }) => {
         entry.duration === 0.5 &&
         (entry.type === "Vacation" ||
           entry.type === "Sick Leave" ||
-          entry.type === "To Be Added");
+          (entry.type === "To Be Added" && !hasWorkedTimes(entry)));
 
       const isFullDaySpecial =
         entry.duration === 1 &&
         (entry.type === "Vacation" ||
           entry.type === "Sick Leave" ||
-          entry.type === "To Be Added");
+          (entry.type === "To Be Added" && !hasWorkedTimes(entry)));
 
       let extraHours = 0;
       let extraHoursWithFactor = 0;
@@ -255,7 +256,7 @@ export const TimeTrackerProvider = ({ children }) => {
       } else if (entry.doubleHours) {
         extraHours = hoursWorked;
         extraHoursWithFactor = hoursWorked * 2;
-      } else if (useDoubleFactor && entry.type !== "Regular") {
+      } else if (useDoubleFactor && !isWorkedDay(entry)) {
         extraHours = hoursWorked;
         extraHoursWithFactor = hoursWorked * 2;
       } else {
@@ -448,13 +449,13 @@ export const TimeTrackerProvider = ({ children }) => {
           entry.duration === 0.5 &&
           (entry.type === "Vacation" ||
             entry.type === "Sick Leave" ||
-            entry.type === "To Be Added");
+            (entry.type === "To Be Added" && !hasWorkedTimes(entry)));
 
         const isFullDaySpecial =
           entry.duration === 1 &&
           (entry.type === "Vacation" ||
             entry.type === "Sick Leave" ||
-            entry.type === "To Be Added");
+            (entry.type === "To Be Added" && !hasWorkedTimes(entry)));
 
         if (isFullDaySpecial) {
           extraHours = 0;
@@ -466,7 +467,7 @@ export const TimeTrackerProvider = ({ children }) => {
         } else if (entry.doubleHours) {
           extraHours = actualHours;
           extraHoursWithFactor = actualHours * 2;
-        } else if (useDoubleFactor && entry.type !== "Regular") {
+        } else if (useDoubleFactor && !isWorkedDay(entry)) {
           extraHours = actualHours;
           extraHoursWithFactor = actualHours * 2;
         } else {
@@ -588,13 +589,13 @@ export const TimeTrackerProvider = ({ children }) => {
             entry.duration === 0.5 &&
             (entry.type === "Vacation" ||
               entry.type === "Sick Leave" ||
-              entry.type === "To Be Added");
+              (entry.type === "To Be Added" && !hasWorkedTimes(entry)));
 
           const isFullDaySpecial =
             entry.duration === 1 &&
             (entry.type === "Vacation" ||
               entry.type === "Sick Leave" ||
-              entry.type === "To Be Added");
+              (entry.type === "To Be Added" && !hasWorkedTimes(entry)));
 
           let extraHours = 0;
           let extraHoursWithFactor = 0;
@@ -610,7 +611,7 @@ export const TimeTrackerProvider = ({ children }) => {
           } else if (entry.doubleHours) {
             extraHours = hoursWorked;
             extraHoursWithFactor = hoursWorked * 2;
-          } else if (useDoubleFactor && entry.type !== "Regular") {
+          } else if (useDoubleFactor && !isWorkedDay(entry)) {
             extraHours = hoursWorked;
             extraHoursWithFactor = hoursWorked * 2;
           } else {
