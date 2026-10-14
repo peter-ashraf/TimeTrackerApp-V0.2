@@ -157,7 +157,7 @@ function Dashboard() {
 
   return (
     <main className="bento-main main-content">
-      <div className="bento-header-section" style={{ paddingTop: 0, paddingBottom: '16px' }}>
+      <div className="bento-header-section" style={{ paddingTop: 0, paddingBottom: 0 }}>
         <p style={{ margin: 0, fontWeight: 500, color: 'var(--text-secondary)' }}>{currentPeriod?.label || 'No Period'}</p>
       </div>
 
