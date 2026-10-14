@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import './bento-calendar.css';
-import { isWorkedDay } from '../utils/entryType';
+import { isWorkedDay, typeColor } from '../utils/entryType';
 
 function CalendarView({ entries, onDateClick, onEntryClick }) {
   const [value, onChange] = useState(new Date());
@@ -23,17 +23,12 @@ function CalendarView({ entries, onDateClick, onEntryClick }) {
     if (!entry) return null;
     switch (entry.type) {
       case 'Regular':
-        return 'var(--accent-green)';
       case 'Vacation':
-        return 'var(--accent-violet)';
       case 'Sick Leave':
-        return 'var(--accent-rose)';
       case 'Holiday':
-        return '#F59E0B'; // Amber
       case 'Leave':
-        return 'var(--text-tertiary)';
       case 'To Be Added':
-        return 'var(--text-secondary)';
+        return typeColor(entry.type).color;
       default:
         return 'var(--text-primary)';
     }

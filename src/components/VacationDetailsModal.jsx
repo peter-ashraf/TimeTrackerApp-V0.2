@@ -2,6 +2,7 @@ import React from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 import '../styles/vacation-details-modal.css';
+import { typeTagStyle } from '../utils/entryType';
 
 function VacationDetailsModal({ type, onClose }) {
   const { entries, getCurrentPeriod, leaveSettings } = useTimeTracker();
@@ -84,7 +85,7 @@ function VacationDetailsModal({ type, onClose }) {
                       <i className="fa-regular fa-calendar"></i>
                       <strong>{entry.date}</strong>
                     </div>
-                    <div className="status-badge status-other">
+                    <div className="status-badge" style={typeTagStyle(entry.type)}>
                       {entry.type}
                     </div>
                     <div className="stacked-actions">

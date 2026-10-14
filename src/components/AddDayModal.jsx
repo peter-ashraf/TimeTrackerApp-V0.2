@@ -9,6 +9,8 @@ import CustomSelect from './CustomSelect';
 import '../styles/add-day-modal.css';
 import { hasWorkedTimes } from '../utils/entryType';
 
+const SAVE_UI_TIMEOUT_MS = 4000;
+
 function AddDayModal({ onClose }) {
   const { entries, showAlert, updateEntry } = useTimeTracker();
   const timeEntryContext = useTimeEntry();
@@ -140,21 +142,26 @@ function AddDayModal({ onClose }) {
       hoursSpentOutside: 0
     }));
 
-    // Save using unified save mechanism
-    try {
-      setIsSaving(true);
-      for (const entry of newEntries) {
-        await timeEntryContext.saveTimeEntriesData(entry, showAlert);
-      }
-      for (const date of workedDates) {
+    // Save using unified save mechanism. Entries are written to this device first; the cloud
+    // sync can keep retrying in the background, so the modal stops waiting after a few seconds
+    // (as Edit Entry does) instead of sitting on "Adding...".
+    // All saves start together so every day is written to the device right away, before any
+    // cloud request is awaited; only then is it safe to stop waiting on the uploads.
+    const saveAll = () => Promise.all([
+      ...newEntries.map(entry => timeEntryContext.saveTimeEntriesData(entry, showAlert)),
+      ...workedDates.map(date => {
         const existing = entries.find(e => e.date === date);
-        await updateEntry(date, {
+        return updateEntry(date, {
           type,
           duration,
           intervals: existing.intervals,
           notes: dayNotes || existing.notes,
         });
-      }
+      }),
+    ]);
+    try {
+      setIsSaving(true);
+      await Promise.race([saveAll(), new Promise(resolve => setTimeout(resolve, SAVE_UI_TIMEOUT_MS))]);
     } catch (saveError) {
       console.error('[Save] Failed to save special day:', saveError);
       showAlert('Some special days may have been saved locally only. Please refresh when online.', 'warning');
