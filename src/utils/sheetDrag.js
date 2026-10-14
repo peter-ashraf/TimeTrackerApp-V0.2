@@ -7,7 +7,7 @@ const DISMISS_RATIO = 0.25; // fraction of the sheet height
 const FLICK_VELOCITY = 0.5; // px per ms, downward
 const SPRING = 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)';
 
-export function attachSheetDrag({ sheet, handles, backdrop, backdropColor = 'rgba(0, 0, 0, 0.6)', onDismiss }) {
+export function attachSheetDrag({ sheet, handles, backdrop, onDismiss }) {
   let pointerId = null;
   let startY = 0;
   let dy = 0;
@@ -17,10 +17,16 @@ export function attachSheetDrag({ sheet, handles, backdrop, backdropColor = 'rgb
   let moved = false;
 
   const setStyle = (el, prop, value) => el && el.style.setProperty(prop, value, 'important');
-  const setBackdrop = (p) => {
-    if (!backdrop) return;
-    const alpha = Number((backdropColor.match(/[\d.]+\)$/) || ['0.6'])[0].replace(')', ''));
-    setStyle(backdrop, 'background-color', backdropColor.replace(/[\d.]+\)$/, `${(alpha * p).toFixed(3)})`));
+  // The backdrop's dim layer reads --sheet-dim (0..1) as its opacity.
+  const setBackdrop = (p) => backdrop && backdrop.style.setProperty('--sheet-dim', p.toFixed(3));
+
+  // Pointer events can fire faster than the screen refreshes; apply at most one position per frame.
+  let frame = 0;
+  let pendingY = 0;
+  const paint = () => {
+    frame = 0;
+    setStyle(sheet, 'transform', `translateY(${pendingY}px)`);
+    setBackdrop(1 - Math.max(0, pendingY) / (sheet.offsetHeight || 1));
   };
 
   const onDown = (e) => {
@@ -35,7 +41,8 @@ export function attachSheetDrag({ sheet, handles, backdrop, backdropColor = 'rgb
     // The CSS slide-in animation holds the transform; drop it so inline transforms apply.
     setStyle(sheet, 'animation', 'none');
     setStyle(sheet, 'transition', 'none');
-    if (backdrop) setStyle(backdrop, 'transition', 'none');
+    setStyle(sheet, 'will-change', 'transform');
+    if (backdrop) backdrop.classList.add('sheet-dragging'); // dim follows the finger with no easing
   };
 
   const onMove = (e) => {
@@ -46,17 +53,19 @@ export function attachSheetDrag({ sheet, handles, backdrop, backdropColor = 'rgb
     lastY = e.clientY;
     lastT = now;
     if (Math.abs(dy) > 4) moved = true;
-    const ty = dy >= 0 ? dy : -Math.sqrt(-dy) * 3; // rubber-band when pulled upward
-    setStyle(sheet, 'transform', `translateY(${ty}px)`);
-    setBackdrop(1 - Math.max(0, dy) / (sheet.offsetHeight || 1));
+    pendingY = dy >= 0 ? dy : -Math.sqrt(-dy) * 3; // rubber-band when pulled upward
+    if (!frame) frame = requestAnimationFrame(paint);
   };
 
   const onUp = (e) => {
     if (e.pointerId !== pointerId) return;
     pointerId = null;
+    if (frame) { cancelAnimationFrame(frame); frame = 0; }
+    if (backdrop) backdrop.classList.remove('sheet-dragging');
+    if (performance.now() - lastT > 80) vel = 0; // the finger paused before lifting: not a flick
     const height = sheet.offsetHeight || 1;
     setStyle(sheet, 'transition', SPRING);
-    if (backdrop) setStyle(backdrop, 'transition', 'background-color 0.35s linear');
+    sheet.addEventListener('transitionend', () => sheet.style.removeProperty('will-change'), { once: true });
     if (moved && (dy > height * DISMISS_RATIO || vel > FLICK_VELOCITY)) {
       setStyle(sheet, 'transform', 'translateY(100%)');
       setBackdrop(0);
