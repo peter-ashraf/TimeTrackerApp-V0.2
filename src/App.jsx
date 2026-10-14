@@ -751,7 +751,7 @@ function App() {
                   className="main-content"
                   data-scrollable
                   style={{
-                    paddingTop: "80px",
+                    paddingTop: "64px",
                     paddingBottom: "100px",
                     flex: 1,
                     minWidth: 0,

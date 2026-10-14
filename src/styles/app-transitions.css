@@ -224,3 +224,9 @@
   transform: translateY(-2px);
   box-shadow: 0 8px 16px rgba(102, 126, 234, 0.15);
 }
+
+/* The fixed header is already cleared by the outer .main-content; pages only need a small top gap. */
+.view-container > .bento-main,
+.view-container > .settings-page {
+  padding-top: 8px !important;
+}

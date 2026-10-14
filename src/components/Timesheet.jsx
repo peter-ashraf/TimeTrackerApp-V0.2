@@ -263,7 +263,7 @@ function Timesheet({ setCurrentView }) {
   };
 
   return (
-    <main className="main-content" style={{ minWidth: 0, maxWidth: '100%', padding: '0 20px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <main className="main-content" style={{ minWidth: 0, maxWidth: '100%', padding: '8px 20px 0', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       {hasNoPeriods ? (
         <div style={{ textAlign: 'center', padding: '40px' }}>
           <h2>⚠️ No Periods Found</h2>
