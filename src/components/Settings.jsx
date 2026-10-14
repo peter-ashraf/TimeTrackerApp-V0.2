@@ -1936,13 +1936,13 @@ function Settings() {
   return (
     <main className="settings-page main-content">
       {/* ── Page Header ── */}
-      <div style={{ padding: '0px 20px 12px' }}>
+      <div style={{ padding: '0 0 12px' }}>
         <p style={{ margin: '6px 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Manage your preferences, data &amp; account</p>
       </div>
 
       {/* ── Hub Menu ── */}
       {activeModal === null && (
-        <div style={{ padding: '0 16px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ padding: '0 0 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <button type="button" className="settings-menu-item" onClick={() => setActiveModal('theme')}>
             <div className="settings-menu-left"><i className="fa-solid fa-palette" /><span>Theme &amp; Design</span></div>
             <i className="fa-solid fa-chevron-right chevron-icon" />

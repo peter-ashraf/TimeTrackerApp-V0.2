@@ -69,7 +69,7 @@
 /* Global Mobile Responsiveness Adjustments */
 @media (max-width: 768px) {
   :root {
-    --screen-padding: 12px;
+    --screen-padding: 16px;
     --grid-gap: 12px;
     --radius-md: 16px;
     --radius-lg: 20px;
