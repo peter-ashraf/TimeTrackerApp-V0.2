@@ -92,8 +92,15 @@ html body .bento-modal-overlay .bento-sheet-content.closing {
   padding: 16px 0 8px 0;
   display: flex;
   justify-content: center;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+body .bento-modal-overlay .modal-header {
+  touch-action: none;
 }
 
 .sheet-handle {
