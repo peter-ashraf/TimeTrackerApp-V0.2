@@ -230,3 +230,15 @@
 .view-container > .settings-page {
   padding-top: 8px !important;
 }
+
+/* Legacy styles.css adds a 20px margin-top to both the outer and the page .main-content. */
+.app > .main-content,
+.view-container > .main-content {
+  margin-top: 0 !important;
+}
+
+/* Settings cards already carry their own inset; match the Dashboard's side margins. */
+.view-container > .settings-page {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
