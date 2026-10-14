@@ -7,7 +7,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 var(--screen-padding);
+  /* Align header content with the centered 1200px page column; respect notches. */
+  padding: 0 max(var(--screen-padding), env(safe-area-inset-right, 0px), calc((100% - 1200px) / 2 + var(--screen-padding)))
+    0 max(var(--screen-padding), env(safe-area-inset-left, 0px), calc((100% - 1200px) / 2 + var(--screen-padding)));
   background-color: var(--bg-primary);
   z-index: var(--z-nav);
   transition: transform 0.3s ease;

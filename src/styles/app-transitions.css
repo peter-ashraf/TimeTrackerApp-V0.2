@@ -237,8 +237,19 @@
   margin-top: 0 !important;
 }
 
-/* Settings cards already carry their own inset; match the Dashboard's side margins. */
-.view-container > .settings-page {
+/* The outer scroller has no side padding; each page owns one shared gutter
+   (--screen-padding: 16px on phones, 24px above) and a centered max-width. */
+.app > .main-content {
   padding-left: 0 !important;
   padding-right: 0 !important;
+}
+
+.view-container > .main-content {
+  width: 100%;
+  max-width: 1200px;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: max(var(--screen-padding), env(safe-area-inset-left, 0px)) !important;
+  padding-right: max(var(--screen-padding), env(safe-area-inset-right, 0px)) !important;
+  box-sizing: border-box;
 }

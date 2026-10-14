@@ -752,7 +752,7 @@ function App() {
                   data-scrollable
                   style={{
                     paddingTop: "64px",
-                    paddingBottom: "100px",
+                    paddingBottom: "calc(100px + env(safe-area-inset-bottom, 0px))",
                     flex: 1,
                     minWidth: 0,
                     maxWidth: "100%",
