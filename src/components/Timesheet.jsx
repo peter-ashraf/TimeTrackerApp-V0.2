@@ -11,7 +11,7 @@ import CustomSelect from './CustomSelect';
 import CalendarView from './CalendarView';
 import '../styles/performance-optimizations.css';
 import './bento-timesheet.css';
-import { isWorkedDay } from '../utils/entryType';
+import { isWorkedDay, typeTagStyle } from '../utils/entryType';
 
 // Memoized individual row component to prevent unnecessary re-renders
 const TimesheetRow = React.memo(({
@@ -58,7 +58,7 @@ const TimesheetRow = React.memo(({
           <i className="fa-regular fa-calendar"></i>
           <strong>{dayOfWeekDisplay}, {entry.date}</strong>
         </div>
-        <div className={`status-badge ${entry.type === 'Regular' ? 'status-normal' : entry.type === 'Vacation' ? 'status-vacation' : 'status-other'}`}>
+        <div className="status-badge" style={typeTagStyle(entry.type)}>
           {entry.type}
         </div>
         <div className="stacked-actions">
