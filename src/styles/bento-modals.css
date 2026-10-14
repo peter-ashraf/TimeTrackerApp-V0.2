@@ -10,9 +10,7 @@ body .bento-modal-overlay {
   right: 0 !important;
   bottom: 0 !important;
   z-index: 999999 !important;
-  background-color: rgba(0, 0, 0, 0.6) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
+  background-color: transparent !important;
   display: flex !important;
   align-items: flex-end !important; /* Dock to bottom securely */
   justify-content: center !important;
@@ -21,13 +19,27 @@ body .bento-modal-overlay {
   overflow: hidden !important; /* No scrolling on the overlay itself */
 }
 
-body .bento-modal-overlay.closing {
-  animation: fadeOutOverlay 0.35s linear forwards !important;
+/* The dim + blur lives on its own layer so dragging the sheet only changes its opacity
+   (a cheap compositor change) instead of repainting a blurred full-screen background. */
+body .bento-modal-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: var(--sheet-dim, 1);
+  pointer-events: none;
+  will-change: opacity;
+  transition: opacity 0.35s linear;
 }
 
-@keyframes fadeOutOverlay {
-  0% { background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); }
-  100% { background-color: rgba(0, 0, 0, 0); backdrop-filter: blur(0px); }
+body .bento-modal-overlay.sheet-dragging::before {
+  transition: none;
+}
+
+body .bento-modal-overlay.closing::before {
+  animation: fadeOut 0.35s linear forwards !important;
 }
 
 /* The Base Bottom Sheet */

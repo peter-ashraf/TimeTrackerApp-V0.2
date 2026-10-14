@@ -57,16 +57,12 @@ const setLink = (id, rel, href, media) => {
   else link.removeAttribute('media');
 };
 
-const darkQuery = typeof window !== 'undefined' && window.matchMedia
-  ? window.matchMedia('(prefers-color-scheme: dark)')
-  : null;
-darkQuery?.addEventListener?.('change', () => applyAppIcon());
-
 export const applyAppIcon = (id = readIconFromUrl() ?? getAppIcon()) => {
   const icon = APP_ICONS.find((i) => i.id === id) ?? APP_ICONS[0];
-  // Safari ignores `media` on apple-touch-icon, so expose one link that matches the current
-  // appearance; iOS snapshots it when the app is added to the home screen.
-  setLink('apple-touch-icon', 'apple-touch-icon', darkQuery?.matches ? icon.dark : icon.light);
+  // iOS 18+ keeps both versions when the app is added to the home screen and swaps them with the
+  // system appearance: the plain link is the light icon, the (prefers-color-scheme: dark) one the dark.
+  setLink('apple-touch-icon', 'apple-touch-icon', icon.light);
+  setLink('apple-touch-icon-dark', 'apple-touch-icon', icon.dark, '(prefers-color-scheme: dark)');
   if (icon.id !== 'classic') {
     setLink('favicon-light', 'icon', icon.light, '(prefers-color-scheme: light)');
     setLink('favicon-dark', 'icon', icon.dark, '(prefers-color-scheme: dark)');

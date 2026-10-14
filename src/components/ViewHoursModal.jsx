@@ -2,6 +2,7 @@ import React from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 import '../styles/view-hours-modal.css';
+import { isWorkedDay } from '../utils/entryType';
 
 function ViewHoursModal({ onClose }) {
   const { entries, getCurrentPeriod, employee } = useTimeTracker();
@@ -37,7 +38,7 @@ function ViewHoursModal({ onClose }) {
 
   // Calculate totals
   const totalHours = periodEntries.reduce((sum, entry) => {
-    if (entry.type === 'Regular') {
+    if (isWorkedDay(entry)) {
       return sum + calculateHours(entry.intervals);
     } else if (entry.type === 'Sick Leave' || entry.type === 'Holiday' || entry.type === 'Vacation') {
       // Each sick day, holiday, or vacation day counts as 8.5 hours (normal working day without half hour break)
@@ -98,7 +99,7 @@ function ViewHoursModal({ onClose }) {
                       <td>{entry.date}</td>
                       <td>{entry.type}</td>
                       <td>
-                        {entry.type === 'Regular' 
+                        {isWorkedDay(entry) 
                           ? calculateHours(entry.intervals).toFixed(2) + 'h' 
                           : (entry.type === 'Sick Leave' || entry.type === 'Holiday' || entry.type === 'Vacation')
                             ? (8.5 * (entry.duration || 1)).toFixed(2) + 'h'

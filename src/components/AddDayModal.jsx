@@ -7,9 +7,10 @@ import ModalShell from './ModalShell';
 import AlertModal from './AlertModal';
 import CustomSelect from './CustomSelect';
 import '../styles/add-day-modal.css';
+import { hasWorkedTimes } from '../utils/entryType';
 
 function AddDayModal({ onClose }) {
-  const { entries, showAlert } = useTimeTracker();
+  const { entries, showAlert, updateEntry } = useTimeTracker();
   const timeEntryContext = useTimeEntry();
   const [dayType, setDayType] = useState('Vacation Full Day');
   const [selectedDates, setSelectedDates] = useState([]);
@@ -25,9 +26,15 @@ function AddDayModal({ onClose }) {
     return Array.isArray(entry.intervals) && entry.intervals.some(i => i?.in || i?.out);
   };
 
+  // "To Be Added" marks a holiday that was worked anyway, so a plain working day with
+  // check-in/out times can still take it; the times are kept and count as normal hours.
+  const isToBeAdded = dayType.startsWith('To Be Added');
+  const canMarkToBeAdded = (entry) => isToBeAdded && (entry.type || 'Regular') === 'Regular' && hasWorkedTimes(entry);
+
   const existingDates = useMemo(() => {
-    return new Set(entries.filter(isLockingEntry).map(entry => entry.date));
-  }, [entries]);
+    return new Set(entries.filter(e => isLockingEntry(e) && !canMarkToBeAdded(e)).map(entry => entry.date));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, isToBeAdded]);
 
   const isWeekendDate = (date) => date.getDay() === 0 || date.getDay() === 6;
 
@@ -107,7 +114,7 @@ function AddDayModal({ onClose }) {
 
     // Check for duplicates again in case entries changed while the modal was open.
     const duplicateDates = targetDates.filter(date =>
-      entries.some(e => e.date === date && isLockingEntry(e))
+      entries.some(e => e.date === date && isLockingEntry(e) && !canMarkToBeAdded(e))
     );
 
     if (duplicateDates.length > 0) {
@@ -115,8 +122,12 @@ function AddDayModal({ onClose }) {
       return;
     }
 
+    // Worked days keep their times and only gain the "To Be Added" tag.
+    const workedDates = targetDates.filter(date => entries.some(e => e.date === date && canMarkToBeAdded(e)));
+    const blankDates = targetDates.filter(date => !workedDates.includes(date));
+
     const timestamp = new Date().toISOString();
-    const newEntries = targetDates.map(date => ({
+    const newEntries = blankDates.map(date => ({
       date,
       type: type,
       duration: duration,
@@ -134,6 +145,15 @@ function AddDayModal({ onClose }) {
       setIsSaving(true);
       for (const entry of newEntries) {
         await timeEntryContext.saveTimeEntriesData(entry, showAlert);
+      }
+      for (const date of workedDates) {
+        const existing = entries.find(e => e.date === date);
+        await updateEntry(date, {
+          type,
+          duration,
+          intervals: existing.intervals,
+          notes: dayNotes || existing.notes,
+        });
       }
     } catch (saveError) {
       console.error('[Save] Failed to save special day:', saveError);

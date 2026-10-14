@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { isWorkedDay } from '../utils/entryType.js';
 
 export const timeToSeconds = (timeStr) => {
   if (!timeStr || timeStr.trim() === '') return 0;
@@ -132,7 +133,7 @@ export function calculateOvertimeDetailsForEntries(entries, periodStart, periodE
   let totalExtraHoursWithFactor = 0;
 
   periodEntries.forEach(entry => {
-    if (entry.type === 'Regular' && entry.intervals) {
+    if (isWorkedDay(entry) && entry.intervals) {
       const isComplete = entry.intervals.every(interval => interval.in && interval.out);
       if (!isComplete) return;
 

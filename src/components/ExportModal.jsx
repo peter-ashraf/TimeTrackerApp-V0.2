@@ -19,6 +19,7 @@ import {
 import hapticFeedback from '../utils/hapticFeedback';
 
 import '../styles/export-modal-enhanced.css';
+import { isWorkedDay } from '../utils/entryType';
 
 
 
@@ -260,11 +261,11 @@ function ExportModal({ onClose }) {
 
           formatTime(lastOut),
 
-          entry.type === 'Regular' ? `${hoursWorked.toFixed(2)}h` : entry.type,
+          isWorkedDay(entry) ? `${hoursWorked.toFixed(2)}h` : entry.type,
 
-          entry.type === 'Regular' ? `${extraHours.toFixed(2)}h` : '-',
+          isWorkedDay(entry) ? `${extraHours.toFixed(2)}h` : '-',
 
-          entry.type === 'Regular' ? `${extraHoursWithFactor.toFixed(2)}h` : '-',
+          isWorkedDay(entry) ? `${extraHoursWithFactor.toFixed(2)}h` : '-',
 
           entry.type,
 
@@ -272,7 +273,7 @@ function ExportModal({ onClose }) {
 
           breakInTimes,
 
-          entry.type === 'Regular' ? `${hoursSpentOutside.toFixed(2)}h` : '-'
+          isWorkedDay(entry) ? `${hoursSpentOutside.toFixed(2)}h` : '-'
 
         ];
 
@@ -286,7 +287,7 @@ function ExportModal({ onClose }) {
 
           formatTime(lastOut),
 
-          entry.type === 'Regular' ? `${hoursWorked.toFixed(2)}h` : entry.type,
+          isWorkedDay(entry) ? `${hoursWorked.toFixed(2)}h` : entry.type,
 
           entry.type
 

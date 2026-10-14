@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import './bento-calendar.css';
+import { isWorkedDay } from '../utils/entryType';
 
 function CalendarView({ entries, onDateClick, onEntryClick }) {
   const [value, onChange] = useState(new Date());
@@ -49,7 +50,7 @@ function CalendarView({ entries, onDateClick, onEntryClick }) {
     const entry = entriesByDate[dateStr];
     if (!entry) return null;
 
-    if (entry.type === 'Regular' && entry.intervals) {
+    if (isWorkedDay(entry) && entry.intervals) {
       const hours = entry.intervals.reduce((total, interval) => {
         if (interval.in && interval.out) {
           const inTime = new Date(`2000-01-01T${interval.in}`);

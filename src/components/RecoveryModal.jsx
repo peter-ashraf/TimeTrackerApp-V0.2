@@ -6,6 +6,7 @@ import { exportToExcel, generatePDFReport } from '../utils/exportUtils';
 import hapticFeedback from '../utils/hapticFeedback';
 import CustomSelect from './CustomSelect';
 import '../styles/export-modal-enhanced.css';
+import { isWorkedDay } from '../utils/entryType';
 
 const RecoveryModal = ({ onClose }) => {
   const [isScanning, setIsScanning] = useState(false);
@@ -302,13 +303,13 @@ const RecoveryModal = ({ onClose }) => {
         formatDate(entry.date),
         formatTime(firstIn),
         formatTime(lastOut),
-        entry.type === 'Regular' ? `${hoursWorked.toFixed(2)}h` : entry.type,
-        entry.type === 'Regular' ? `${extraHours.toFixed(2)}h` : '-',
-        entry.type === 'Regular' ? `${extraHoursWithFactor.toFixed(2)}h` : '-',
+        isWorkedDay(entry) ? `${hoursWorked.toFixed(2)}h` : entry.type,
+        isWorkedDay(entry) ? `${extraHours.toFixed(2)}h` : '-',
+        isWorkedDay(entry) ? `${extraHoursWithFactor.toFixed(2)}h` : '-',
         entry.type,
         breakOutTimes,
         breakInTimes,
-        entry.type === 'Regular' ? `${hoursSpentOutside.toFixed(2)}h` : '-',
+        isWorkedDay(entry) ? `${hoursSpentOutside.toFixed(2)}h` : '-',
         entry.notes || ''
       ];
     });
@@ -559,13 +560,13 @@ const RecoveryModal = ({ onClose }) => {
                 formatDate(entry.date),
                 formatTime(firstIn),
                 formatTime(lastOut),
-                entry.type === 'Regular' ? `${hoursWorked.toFixed(2)}h` : entry.type,
-                entry.type === 'Regular' ? `${extraHours.toFixed(2)}h` : '-',
-                entry.type === 'Regular' ? `${extraHoursWithFactor.toFixed(2)}h` : '-',
+                isWorkedDay(entry) ? `${hoursWorked.toFixed(2)}h` : entry.type,
+                isWorkedDay(entry) ? `${extraHours.toFixed(2)}h` : '-',
+                isWorkedDay(entry) ? `${extraHoursWithFactor.toFixed(2)}h` : '-',
                 entry.type,
                 breakOutTimes,
                 breakInTimes,
-                entry.type === 'Regular' ? `${hoursSpentOutside.toFixed(2)}h` : '-',
+                isWorkedDay(entry) ? `${hoursSpentOutside.toFixed(2)}h` : '-',
                 notes
               ]);
             });

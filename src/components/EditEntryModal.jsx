@@ -261,7 +261,7 @@ function EditEntryModal({ entry, onClose }) {
           />
         </div>
 
-        {editedEntry.type === 'Regular' && (
+        {(editedEntry.type === 'Regular' || editedEntry.type === 'To Be Added') && (
           <div className="bento-modal-card full-width">
             <div className="bento-modal-card-label">⏱️ Time Intervals</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
