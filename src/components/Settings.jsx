@@ -1236,24 +1236,18 @@ function Settings() {
         // Also save full_name to database when user explicitly changes it in Settings
         if (currentUser) {
           try {
-            // Use direct Supabase client to bypass any potential wrapper issues
-            const { error } = await supabase
-              .from("profiles")
-              .update({
-                full_name: name.trim(),
-                employee_type: employeeType,
-                daily_hours: parsedDailyHours,
-                monthly_hours: parsedMonthlyHours,
-                work_days_per_week: parsedWorkDaysPerWeek,
-                break_start_time: breakStartTime,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", currentUser.id);
+            const savedProfile = await supabaseData.saveUserProfile(currentUser.id, {
+              full_name: name.trim(),
+              employee_type: employeeType,
+              daily_hours: parsedDailyHours,
+              monthly_hours: parsedMonthlyHours,
+              work_days_per_week: parsedWorkDaysPerWeek,
+              break_start_time: breakStartTime,
+            });
 
-            if (error) {
+            if (!savedProfile) {
               console.error(
-                "[Settings] Failed to save display name to database:",
-                error.message,
+                "[Settings] Failed to save display name to database",
               );
             } else {
               setEmployee((prev) => ({ ...prev, name: name.trim() }));

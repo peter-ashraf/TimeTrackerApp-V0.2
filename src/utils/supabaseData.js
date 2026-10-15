@@ -181,17 +181,31 @@ export const supabaseData = {
         }
       }
 
-      const { data, error } = await supabaseClient
+      const runUpdate = (fields) => supabaseClient
         .from('profiles')
         .update({
           username,
           email,
-          ...profileData,
+          ...fields,
           updated_at: new Date().toISOString()
         })
         .eq('id', userId)
         .select()
         .single();
+
+      let { data, error } = await runUpdate(profileData);
+
+      // A column missing from the profiles table (PGRST204) fails the whole
+      // update, which used to drop the display name too. Retry without it so
+      // the remaining fields still save; run database/add-break-start-time.sql
+      // to add the column.
+      const missingColumn = error?.code === 'PGRST204' &&
+        error.message?.match(/'([^']+)' column/)?.[1];
+      if (missingColumn && missingColumn in profileData) {
+        console.warn(`[supabaseData] profiles.${missingColumn} missing; saving without it`);
+        const { [missingColumn]: _omit, ...rest } = profileData;
+        ({ data, error } = await runUpdate(rest));
+      }
 
       if (error) throw error;
       return data;
