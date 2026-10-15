@@ -1935,8 +1935,9 @@ function Settings() {
       </div>
 
       {/* ── Hub Menu ── */}
-      {activeModal === null && (
-        <div style={{ padding: '0 0 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {/* Stays mounted while a sheet is open so the page shows behind the backdrop. */}
+      {(
+        <div style={{ padding: '0 0 24px', display: 'flex', flexDirection: 'column', gap: '10px' }} aria-hidden={activeModal !== null || undefined}>
           <button type="button" className="settings-menu-item" onClick={() => setActiveModal('theme')}>
             <div className="settings-menu-left"><i className="fa-solid fa-palette" /><span>Theme &amp; Design</span></div>
             <i className="fa-solid fa-chevron-right chevron-icon" />
