@@ -22,7 +22,9 @@ const DEFAULT_ICON = 'classic';
 
 // The installed iPhone app and Safari keep separate storage, so the choice is handed to
 // Safari through ?icon=<id> before the app is added to the home screen again.
-export const appIconHandoffUrl = (id) => `${window.location.origin}${BASE}?icon=${encodeURIComponent(id)}`;
+// Every icon but classic has its own page with its tags in the HTML (see icon-pages in vite.config.js).
+export const appIconHandoffUrl = (id) =>
+  id === 'classic' ? `${window.location.origin}${BASE}?icon=classic` : `${window.location.origin}${BASE}icon/${encodeURIComponent(id)}/`;
 
 const readIconFromUrl = () => {
   try {

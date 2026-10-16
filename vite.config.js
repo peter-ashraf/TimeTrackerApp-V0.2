@@ -62,6 +62,25 @@ export default defineConfig(({ command, mode }) => {
         });
       }
     },
+    {
+      // One page per home screen icon with that icon's light and dark apple-touch-icon tags written
+      // into the HTML. iOS keeps the dark version only when it is in the page as served, not when
+      // the app swaps the tags at run time, so the picker sends Safari to /icon/<id>/ to add the app.
+      name: 'icon-pages',
+      enforce: 'post',
+      generateBundle(_, bundle) {
+        const index = bundle['index.html']
+        if (!index) return
+        const html = String(index.source)
+        for (const id of ['shift-bar', 'month-log', 'bento', 'check-in', 'timecard']) {
+          const page = html
+            .replace(/(id="apple-touch-icon" rel="apple-touch-icon" href=")[^"]*/, `$1/TimeTrackerApp-V0.2/icons/app/${id}-light-180.png`)
+            .replace(/(id="apple-touch-icon-dark" rel="apple-touch-icon" href=")[^"]*/, `$1/TimeTrackerApp-V0.2/icons/app/${id}-dark-180.png`)
+            .replace('<head>', `<head>\n    <script>history.replaceState(null, '', '/TimeTrackerApp-V0.2/?icon=${id}')</script>`)
+          this.emitFile({ type: 'asset', fileName: `icon/${id}/index.html`, source: page })
+        }
+      }
+    },
     VitePWA({
       registerType: 'autoUpdate',
       strategies: 'injectManifest',
