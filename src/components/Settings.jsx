@@ -377,6 +377,7 @@ function Settings() {
     confirmModal,
     setConfirmModal,
     setCurrentPeriod,
+    deleteEntry,
     setEntries,
     setLastRefreshed,
     validateEmployeeType,
@@ -1662,7 +1663,14 @@ function Settings() {
 
           // If deleting current period, switch to first available
           if (String(currentPeriodId) === String(periodId)) {
-            setCurrentPeriodId(newPeriods[0]?.id || null);
+            const nextId = newPeriods[0]?.id || null;
+            setCurrentPeriodId(nextId);
+            if (nextId) {
+              setPeriods(newPeriods.map((p) => ({ ...p, is_current: p.id === nextId })));
+              if (currentUser && !currentUser.isLocalOnly && !String(nextId).startsWith("period-")) {
+                await supabaseData.setCurrentPayPeriod(currentUser.id, nextId);
+              }
+            }
           }
 
           // Show success
@@ -1719,32 +1727,8 @@ function Settings() {
       return;
     }
 
-    setConfirmModal({
-      isOpen: true,
-      title: "Clear Today's Data?",
-      message:
-        `Are you sure you want to clear all data for today?\n\n` +
-        `• ${today}\n` +
-        `• ${todayEntry.type}\n\n` +
-        `⛔ This action cannot be undone.\n\n` +
-        `💡 Tip: Consider exporting your data first.`,
-      type: "danger",
-      confirmText: "Clear Today",
-      cancelText: "Cancel",
-      showCancel: true,
-      onConfirm: () => {
-        setEntries((prev) => prev.filter((e) => e.date !== today));
-        setConfirmModal({
-          isOpen: true,
-          title: "✓ Data Cleared",
-          message: "Today's data has been cleared.",
-          type: "success",
-          confirmText: "OK",
-          showCancel: false,
-          onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
-        });
-      },
-    });
+    // deleteEntry confirms, then removes the entry locally and from the cloud
+    deleteEntry(today);
   };
 
   const handleClearCurrentPeriod = () => {
