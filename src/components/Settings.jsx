@@ -383,7 +383,7 @@ function Settings() {
     calculateMonthlyHours,
   } = useTimeTracker();
 
-  const { setPeriods, markPeriodDirty } = usePayPeriod();
+  const { setPeriods, markPeriodDirty, setCurrentPeriodId } = usePayPeriod();
   const { reminderSettings, setReminderSettings, userPreferences, updatePreferences, theme, setTheme } = useUserPreferences();
   const [appIcon, setAppIconState] = useState(getAppIcon);
 
@@ -1733,7 +1733,7 @@ function Settings() {
       cancelText: "Cancel",
       showCancel: true,
       onConfirm: () => {
-        clearCurrentDay();
+        setEntries((prev) => prev.filter((e) => e.date !== today));
         setConfirmModal({
           isOpen: true,
           title: "✓ Data Cleared",
@@ -2412,7 +2412,7 @@ function Settings() {
             <ModalShell onClose={() => setShowAddPeriod(false)}>
               <div style={{ padding: '24px 20px' }}>
                 <h2 style={{ margin: '0 0 20px', fontSize: '1.3rem', fontWeight: 800 }}>{editingPeriodId ? 'Edit Period' : 'Add Pay Period'}</h2>
-                <form onSubmit={handleSavePeriod} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <form onSubmit={handleAddPeriod} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div>
                     <label className="spoke-row-label" style={{ display: 'block', marginBottom: '8px' }}>Start Date</label>
                     <input type="date" className="bento-input" value={newPeriodStart} onChange={(e) => setNewPeriodStart(e.target.value)} required />
@@ -2421,7 +2421,6 @@ function Settings() {
                     <label className="spoke-row-label" style={{ display: 'block', marginBottom: '8px' }}>End Date</label>
                     <input type="date" className="bento-input" value={newPeriodEnd} onChange={(e) => setNewPeriodEnd(e.target.value)} required />
                   </div>
-                  {periodError && <p style={{ color: '#ef4444', fontSize: '0.85rem', margin: 0 }}>{periodError}</p>}
                   <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
                     <button type="button" className="spoke-btn-outline" style={{ flex: 1 }} onClick={() => { setShowAddPeriod(false); setEditingPeriodId(null); setNewPeriodStart(''); setNewPeriodEnd(''); }}>Cancel</button>
                     <button type="submit" className="spoke-btn-primary" style={{ flex: 2 }}>{editingPeriodId ? 'Update' : 'Add Period'}</button>
