@@ -15,13 +15,13 @@ test('timeToSeconds parses HH:mm and HH:mm:ss values', () => {
   assert.equal(timeToSeconds(''), 0);
 });
 
-test('calculateHoursWorkedFromIntervals subtracts break intervals from the main work interval', () => {
+test('calculateHoursWorkedFromIntervals keeps the allowed break inside the paid day', () => {
   const intervals = [
     { in: '09:00:00', out: '18:30:00' },
     { in: '13:00:00', out: '13:30:00' }
   ];
 
-  assert.equal(calculateHoursWorkedFromIntervals(intervals), 9);
+  assert.equal(calculateHoursWorkedFromIntervals(intervals), 9.5);
 });
 
 test('calculateHoursWorkedFromIntervals returns zero for incomplete entries', () => {

@@ -377,13 +377,14 @@ function Settings() {
     confirmModal,
     setConfirmModal,
     setCurrentPeriod,
+    deleteEntry,
     setEntries,
     setLastRefreshed,
     validateEmployeeType,
     calculateMonthlyHours,
   } = useTimeTracker();
 
-  const { setPeriods, markPeriodDirty } = usePayPeriod();
+  const { setPeriods, markPeriodDirty, setCurrentPeriodId } = usePayPeriod();
   const { reminderSettings, setReminderSettings, userPreferences, updatePreferences, theme, setTheme } = useUserPreferences();
   const [appIcon, setAppIconState] = useState(getAppIcon);
 
@@ -1662,7 +1663,14 @@ function Settings() {
 
           // If deleting current period, switch to first available
           if (String(currentPeriodId) === String(periodId)) {
-            setCurrentPeriodId(newPeriods[0]?.id || null);
+            const nextId = newPeriods[0]?.id || null;
+            setCurrentPeriodId(nextId);
+            if (nextId) {
+              setPeriods(newPeriods.map((p) => ({ ...p, is_current: p.id === nextId })));
+              if (currentUser && !currentUser.isLocalOnly && !String(nextId).startsWith("period-")) {
+                await supabaseData.setCurrentPayPeriod(currentUser.id, nextId);
+              }
+            }
           }
 
           // Show success
@@ -1719,32 +1727,8 @@ function Settings() {
       return;
     }
 
-    setConfirmModal({
-      isOpen: true,
-      title: "Clear Today's Data?",
-      message:
-        `Are you sure you want to clear all data for today?\n\n` +
-        `• ${today}\n` +
-        `• ${todayEntry.type}\n\n` +
-        `⛔ This action cannot be undone.\n\n` +
-        `💡 Tip: Consider exporting your data first.`,
-      type: "danger",
-      confirmText: "Clear Today",
-      cancelText: "Cancel",
-      showCancel: true,
-      onConfirm: () => {
-        clearCurrentDay();
-        setConfirmModal({
-          isOpen: true,
-          title: "✓ Data Cleared",
-          message: "Today's data has been cleared.",
-          type: "success",
-          confirmText: "OK",
-          showCancel: false,
-          onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
-        });
-      },
-    });
+    // deleteEntry confirms, then removes the entry locally and from the cloud
+    deleteEntry(today);
   };
 
   const handleClearCurrentPeriod = () => {
@@ -2412,7 +2396,7 @@ function Settings() {
             <ModalShell onClose={() => setShowAddPeriod(false)}>
               <div style={{ padding: '24px 20px' }}>
                 <h2 style={{ margin: '0 0 20px', fontSize: '1.3rem', fontWeight: 800 }}>{editingPeriodId ? 'Edit Period' : 'Add Pay Period'}</h2>
-                <form onSubmit={handleSavePeriod} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <form onSubmit={handleAddPeriod} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div>
                     <label className="spoke-row-label" style={{ display: 'block', marginBottom: '8px' }}>Start Date</label>
                     <input type="date" className="bento-input" value={newPeriodStart} onChange={(e) => setNewPeriodStart(e.target.value)} required />
@@ -2421,7 +2405,6 @@ function Settings() {
                     <label className="spoke-row-label" style={{ display: 'block', marginBottom: '8px' }}>End Date</label>
                     <input type="date" className="bento-input" value={newPeriodEnd} onChange={(e) => setNewPeriodEnd(e.target.value)} required />
                   </div>
-                  {periodError && <p style={{ color: '#ef4444', fontSize: '0.85rem', margin: 0 }}>{periodError}</p>}
                   <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
                     <button type="button" className="spoke-btn-outline" style={{ flex: 1 }} onClick={() => { setShowAddPeriod(false); setEditingPeriodId(null); setNewPeriodStart(''); setNewPeriodEnd(''); }}>Cancel</button>
                     <button type="submit" className="spoke-btn-primary" style={{ flex: 2 }}>{editingPeriodId ? 'Update' : 'Add Period'}</button>
