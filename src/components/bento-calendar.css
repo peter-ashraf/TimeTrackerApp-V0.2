@@ -3,44 +3,48 @@
 .calendar-view-container {
   background: var(--bg-secondary);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 16px 20px;
   border: 1px solid var(--border-light);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  margin-bottom: 24px;
+  margin: 0 auto 24px;
+  max-width: 640px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .bento-calendar-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border-light);
 }
 
 .calendar-legend {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: 6px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
 }
 
 .legend-color {
-  width: 12px;
-  height: 12px;
-  border-radius: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
 }
 
 .calendar-wrapper {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 /* Override react-calendar styles */
@@ -53,20 +57,20 @@
 
 .react-calendar__navigation {
   display: flex;
-  height: 48px;
-  margin-bottom: 16px;
+  height: 40px;
+  margin-bottom: 12px;
 }
 
 .react-calendar__navigation button {
-  min-width: 44px;
+  min-width: 38px;
   background: var(--bg-tertiary);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
   transition: all 0.2s ease;
-  margin: 0 4px;
+  margin: 0 3px;
 }
 
 .react-calendar__navigation button:enabled:hover,
@@ -80,50 +84,92 @@
   opacity: 0.5;
 }
 
-.react-calendar__month-view__weekdays {
+/* Enforce 7-column grid layout on weekday headers to match day tiles */
+.calendar-view-container .react-calendar__month-view__weekdays {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  gap: 6px;
   text-transform: uppercase;
   font-size: 11px;
   font-weight: 700;
   color: var(--text-tertiary);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  text-align: center;
 }
 
-.react-calendar__month-view__weekdays__weekday abbr {
+.calendar-view-container .react-calendar__month-view__weekdays__weekday {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 4px 0;
+  width: auto !important;
+  flex: none !important;
+}
+
+.calendar-view-container .react-calendar__month-view__weekdays__weekday abbr {
   text-decoration: none;
 }
 
-/* Let react-calendar handle the grid layout natively */
-.react-calendar__month-view__days {
-  gap: 8px;
+/* Enforce 7-column grid layout for days to prevent flex-wrap overflow */
+.calendar-view-container .react-calendar__month-view__days {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  gap: 6px;
 }
 
-.react-calendar__tile {
-  min-height: 80px;
+.calendar-view-container .react-calendar__tile {
+  width: auto !important;
+  max-width: none !important;
+  flex: none !important;
+  margin: 0 !important;
+  min-height: 46px;
   background: var(--bg-primary);
   border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   position: relative;
   cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: center;
-  padding: 8px;
+  text-align: center;
+  padding: 6px 4px;
   color: var(--text-primary);
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1;
 }
 
-.react-calendar__tile:hover {
+.calendar-view-container .react-calendar__tile abbr {
+  text-align: center;
+  display: inline-block;
+  line-height: 1;
+}
+
+.calendar-view-container .react-calendar__tile:hover {
   border-color: var(--accent-cyan);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-.react-calendar__month-view__days__day--neighboringMonth {
-  background: rgba(255, 255, 255, 0.02);
-  color: var(--text-tertiary);
+/* Neighboring month days: muted, disabled, unclickable */
+.calendar-view-container .react-calendar__month-view__days__day--neighboringMonth {
+  opacity: 0.22 !important;
+  pointer-events: none !important;
+  cursor: default !important;
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+.calendar-view-container .react-calendar__month-view__days__day--neighboringMonth:hover {
+  border-color: rgba(255, 255, 255, 0.04) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.calendar-view-container .react-calendar__month-view__days__day--neighboringMonth .calendar-entry-indicator {
+  display: none !important;
 }
 
 .react-calendar__month-view__days__day--weekend {
@@ -141,24 +187,28 @@
   border-color: var(--accent-green);
 }
 
-/* Entry indicator styles */
-.calendar-entry-indicator {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  right: 8px;
-  padding: 4px;
-  background: rgba(0, 0, 0, 0.4);
+/* Entry indicator styles: compact in-flow pill beneath the date number */
+.calendar-view-container .calendar-entry-indicator {
+  position: static;
+  margin-top: 3px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 1px 3px;
+  background: rgba(0, 0, 0, 0.45);
   border: 1px solid;
   border-radius: var(--radius-sm);
-  font-size: 11px;
+  font-size: 10px;
+  line-height: 1.2;
   text-align: center;
   font-weight: 700;
   backdrop-filter: blur(4px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.calendar-entry-summary {
-  font-size: 11px;
+.calendar-view-container .calendar-entry-summary {
+  font-size: 10px;
 }
 
 /* Background tints for specific entry types */
@@ -180,39 +230,41 @@
 }
 
 .calendar-info {
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid var(--border-light);
 }
 
 .calendar-help-text {
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-tertiary);
   text-align: center;
 }
 
 @media (max-width: 768px) {
   .calendar-view-container {
-    padding: 16px;
+    padding: 12px;
   }
   .bento-calendar-header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
   }
-  .react-calendar__tile {
-    min-height: 60px;
-    padding: 4px;
+  .calendar-view-container .react-calendar__month-view__weekdays,
+  .calendar-view-container .react-calendar__month-view__days {
+    gap: 4px;
+  }
+  .calendar-view-container .react-calendar__tile {
+    min-height: 38px;
+    padding: 4px 2px;
     font-size: 12px;
   }
-  .calendar-entry-indicator {
-    padding: 2px;
-    font-size: 9px;
-    bottom: 4px;
-    left: 4px;
-    right: 4px;
+  .calendar-view-container .calendar-entry-indicator {
+    padding: 1px 2px;
+    font-size: 8px;
+    margin-top: 2px;
   }
-  .calendar-entry-summary {
-    font-size: 9px;
+  .calendar-view-container .calendar-entry-summary {
+    font-size: 8px;
   }
 }

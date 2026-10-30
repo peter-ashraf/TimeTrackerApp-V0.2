@@ -126,24 +126,28 @@ function CalendarView({ entries, onDateClick, onEntryClick }) {
       <div className="bento-calendar-header">
         <div className="calendar-legend">
           <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: 'var(--accent-green)' }}></span>
+            <span className="legend-color" style={{ backgroundColor: typeColor('Regular').color }}></span>
             <span className="legend-label">Regular</span>
           </div>
           <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: 'var(--accent-violet)' }}></span>
+            <span className="legend-color" style={{ backgroundColor: typeColor('Vacation').color }}></span>
             <span className="legend-label">Vacation</span>
           </div>
           <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: 'var(--accent-rose)' }}></span>
+            <span className="legend-color" style={{ backgroundColor: typeColor('Sick Leave').color }}></span>
             <span className="legend-label">Sick Leave</span>
           </div>
           <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: '#F59E0B' }}></span>
+            <span className="legend-color" style={{ backgroundColor: typeColor('Holiday').color }}></span>
             <span className="legend-label">Holiday</span>
           </div>
           <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: 'var(--text-tertiary)' }}></span>
+            <span className="legend-color" style={{ backgroundColor: typeColor('Leave').color }}></span>
             <span className="legend-label">Leave</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-color" style={{ backgroundColor: typeColor('To Be Added').color }}></span>
+            <span className="legend-label">To Be Added</span>
           </div>
         </div>
       </div>
@@ -152,6 +156,7 @@ function CalendarView({ entries, onDateClick, onEntryClick }) {
         <Calendar
           onChange={onChange}
           value={value}
+          showFixedNumberOfWeeks={true}
           tileContent={tileContent}
           tileClassName={tileClassName}
           onClickDay={handleDateClick}
