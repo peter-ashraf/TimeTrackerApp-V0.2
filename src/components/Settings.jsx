@@ -694,6 +694,24 @@ function Settings() {
     }
   }, [pendingUpdateRegistration]);
 
+  const handleShareApp = useCallback(async () => {
+    const url = window.location.origin + import.meta.env.BASE_URL;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Time Tracker", text: "Track your work hours with Time Tracker", url });
+        return;
+      } catch (error) {
+        if (error?.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setVersionCheckStatus("Link copied");
+    } catch {
+      setVersionCheckStatus(`Share this link: ${url}`);
+    }
+  }, []);
+
   const handleOpenExport = () => {
     setShowExportModal(true);
     // Mark that user is attempting to backup
@@ -2472,6 +2490,13 @@ function Settings() {
                     <span className="spoke-row-hint">v{appVersion}{typeof __GIT_COMMIT__ !== 'undefined' ? ` (${__GIT_COMMIT__})` : ''} · {import.meta.env.PROD ? 'Installed' : 'Dev preview'}</span>
                   </div>
                   <button type="button" onClick={handleCheckForAppUpdate} disabled={isCheckingVersion} style={{ padding: '6px 14px', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', cursor: 'pointer', opacity: isCheckingVersion ? 0.5 : 1 }}>{isCheckingVersion ? 'Checking…' : 'Check'}</button>
+                </div>
+                <div className="spoke-row">
+                  <div className="spoke-row-left">
+                    <span className="spoke-row-label">Share App</span>
+                    <span className="spoke-row-hint">Send the app link to a friend</span>
+                  </div>
+                  <button type="button" onClick={handleShareApp} style={{ padding: '6px 14px', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', cursor: 'pointer' }}><i className="fa-solid fa-share-nodes" style={{ marginRight: 6 }} />Share</button>
                 </div>
                 {pendingUpdateRegistration && (
                   <div className="spoke-row">
