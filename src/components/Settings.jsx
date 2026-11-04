@@ -2339,7 +2339,7 @@ function Settings() {
 
       {/* ═══ SPOKE: Pay Period Management ═══ */}
       {activeModal === 'periods' && (
-        <ModalShell onClose={() => setActiveModal(null)} closeOnOverlay={true} contentClassName="settings-spoke-modal" showCloseButton={false}>
+        <ModalShell onClose={() => { setActiveModal(null); setShowAddPeriod(false); setEditingPeriodId(null); }} closeOnOverlay={true} contentClassName="settings-spoke-modal" showCloseButton={false}>
           <div className="spoke-header">
             <h2 className="spoke-header-title"><i className="fa-solid fa-calendar-days" />Pay Periods</h2>
             <SpokeDoneBtn />
@@ -2410,27 +2410,29 @@ function Settings() {
               </button>
             </div>
           </div>
-          {showAddPeriod && (
-            <ModalShell onClose={() => setShowAddPeriod(false)}>
-              <div style={{ padding: '24px 20px' }}>
-                <h2 style={{ margin: '0 0 20px', fontSize: '1.3rem', fontWeight: 800 }}>{editingPeriodId ? 'Edit Period' : 'Add Pay Period'}</h2>
-                <form onSubmit={handleAddPeriod} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div>
-                    <label className="spoke-row-label" style={{ display: 'block', marginBottom: '8px' }}>Start Date</label>
-                    <input type="date" className="bento-input" value={newPeriodStart} onChange={(e) => setNewPeriodStart(e.target.value)} required />
-                  </div>
-                  <div>
-                    <label className="spoke-row-label" style={{ display: 'block', marginBottom: '8px' }}>End Date</label>
-                    <input type="date" className="bento-input" value={newPeriodEnd} onChange={(e) => setNewPeriodEnd(e.target.value)} required />
-                  </div>
-                  <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-                    <button type="button" className="spoke-btn-outline" style={{ flex: 1 }} onClick={() => { setShowAddPeriod(false); setEditingPeriodId(null); setNewPeriodStart(''); setNewPeriodEnd(''); }}>Cancel</button>
-                    <button type="submit" className="spoke-btn-primary" style={{ flex: 2 }}>{editingPeriodId ? 'Update' : 'Add Period'}</button>
-                  </div>
-                </form>
+        </ModalShell>
+      )}
+
+      {/* ═══ Add/Edit Pay Period form: rendered as a sibling sheet so it stacks ABOVE the Pay Periods spoke ═══ */}
+      {showAddPeriod && (
+        <ModalShell onClose={() => { setShowAddPeriod(false); setEditingPeriodId(null); }}>
+          <div style={{ padding: '24px 20px' }}>
+            <h2 style={{ margin: '0 0 20px', fontSize: '1.3rem', fontWeight: 800 }}>{editingPeriodId ? 'Edit Period' : 'Add Pay Period'}</h2>
+            <form onSubmit={handleAddPeriod} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label className="spoke-row-label" style={{ display: 'block', marginBottom: '8px' }}>Start Date</label>
+                <input type="date" className="bento-input" value={newPeriodStart} onChange={(e) => setNewPeriodStart(e.target.value)} required />
               </div>
-            </ModalShell>
-          )}
+              <div>
+                <label className="spoke-row-label" style={{ display: 'block', marginBottom: '8px' }}>End Date</label>
+                <input type="date" className="bento-input" value={newPeriodEnd} onChange={(e) => setNewPeriodEnd(e.target.value)} required />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                <button type="button" className="spoke-btn-outline" style={{ flex: 1 }} onClick={() => { setShowAddPeriod(false); setEditingPeriodId(null); setNewPeriodStart(''); setNewPeriodEnd(''); }}>Cancel</button>
+                <button type="submit" className="spoke-btn-primary" style={{ flex: 2 }}>{editingPeriodId ? 'Update' : 'Add Period'}</button>
+              </div>
+            </form>
+          </div>
         </ModalShell>
       )}
 
