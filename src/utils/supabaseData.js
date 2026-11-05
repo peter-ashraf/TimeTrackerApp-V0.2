@@ -397,7 +397,8 @@ export const supabaseData = {
 
   async savePayPeriod(userId, period) {
     try {
-      if (period.id && !period.id.startsWith('period-')) {
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (period.id && UUID_RE.test(String(period.id))) {
         const { data: updateData, error: updateError } = await supabaseClient
           .from('pay_periods')
           .update({
@@ -409,6 +410,7 @@ export const supabaseData = {
             updated_at: new Date().toISOString()
           })
           .eq('id', period.id)
+          .eq('user_id', userId)
           .select()
           .single();
 
@@ -468,10 +470,8 @@ export const supabaseData = {
 
       throw insertError;
     } catch (error) {
+      // Never swallow: callers keep the period queued and retry, so the error must surface.
       console.error('Error saving pay period:', error);
-      if (error.code === 'PGRST205' || error.code === '23502' || error.code === 'PGRST204' || error.code === '21000' || error.code === '23505') {
-        return null;
-      }
       throw error;
     }
   },
@@ -506,6 +506,19 @@ export const supabaseData = {
     } finally {
       clearTimeout(timeoutId);
     }
+  },
+
+  async deletePayPeriod(userId, periodId) {
+    const { error } = await supabaseClient
+      .from('pay_periods')
+      .delete()
+      .eq('user_id', userId)
+      .eq('id', periodId);
+    if (error) {
+      console.error('Error deleting pay period:', error);
+      throw error;
+    }
+    return true;
   },
 
   async setCurrentPayPeriod(userId, periodId) {

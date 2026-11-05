@@ -7,6 +7,10 @@ import { cacheManager } from '../utils/cacheManager';
 
 const PayPeriodContext = createContext();
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// A period exists in the cloud only once it has a real UUID (temp ids are 'period-…' / legacy 'local-…')
+const isCloudId = (id) => !!id && UUID_RE.test(String(id));
+
 export const usePayPeriod = () => {
   const context = useContext(PayPeriodContext);
   if (!context) {
@@ -28,6 +32,8 @@ export const PayPeriodProvider = ({ children }) => {
   const refreshKeyRef = useRef(0);
   // Tracks real-ID periods that were modified and need to be synced to Supabase
   const dirtyPeriodIdsRef = useRef(new Set());
+  // Cloud ids deleted locally that still need deleting in Supabase
+  const pendingDeletesRef = useRef(new Set());
 
   const normalizeCurrentFlags = useCallback((periodList, selectedId) => {
     if (!Array.isArray(periodList)) return [];
@@ -104,7 +110,7 @@ export const PayPeriodProvider = ({ children }) => {
       setTimeout(async () => {
         if (navigator.onLine && currentUser && !currentUser.isLocalOnly) {
           try {
-            const [periodsData, currentPeriodData] = await Promise.all([
+            let [periodsData, currentPeriodData] = await Promise.all([
               supabaseData.getPayPeriods(currentUser.id).catch(err => {
                 if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
                   console.warn('Session expired during pay periods fetch in PayPeriodContext');
@@ -120,6 +126,18 @@ export const PayPeriodProvider = ({ children }) => {
                 throw err;
               })
             ]);
+
+            // Merge instead of replace: keep local periods not yet in the cloud, honour
+            // pending deletes, and keep local versions of edited-but-unsynced periods.
+            const cloudList = (periodsData || []).filter(p => !pendingDeletesRef.current.has(String(p.id)));
+            const unsyncedLocal = (localPeriods || []).filter(p => !isCloudId(p.id));
+            periodsData = cloudList.map(cp => {
+              if (dirtyPeriodIdsRef.current.has(String(cp.id))) {
+                const lp = (localPeriods || []).find(p => String(p.id) === String(cp.id));
+                return lp ? { ...cp, ...lp } : cp;
+              }
+              return cp;
+            }).concat(unsyncedLocal);
 
             if (periodsData && periodsData.length > 0) {
               let selectedId = localCurrentPeriodId;
@@ -149,25 +167,153 @@ export const PayPeriodProvider = ({ children }) => {
     }
   }, [currentUser, isAuthenticated, normalizeCurrentFlags, persistCurrentPeriodId]);
 
-  // Mark a real-ID period as dirty (modified) so the save effect will sync it
-  const markPeriodDirty = useCallback((periodId) => {
-    if (periodId && !String(periodId).startsWith('period-')) {
-      dirtyPeriodIdsRef.current.add(String(periodId));
-    }
-  }, []);
+  // Persist dirty ids + pending deletes so a reload/crash doesn't lose queued cloud work
+  const pendingKey = currentUser ? `payPeriodsPending_${currentUser.id}` : null;
+  const persistPending = useCallback(() => {
+    if (!pendingKey) return;
+    try {
+      localStorage.setItem(pendingKey, JSON.stringify({
+        dirty: [...dirtyPeriodIdsRef.current],
+        deletes: [...pendingDeletesRef.current]
+      }));
+    } catch (_) { /* ignore */ }
+  }, [pendingKey]);
 
-  // Save pay periods data.
-  // Syncs: (1) new periods with temp 'period-' IDs, (2) existing periods explicitly marked dirty.
-  // Previously re-saved ALL periods on every state change — caused slow sequential awaits
-  // and a stuck "Saving..." state if any call hung or errored.
+  useEffect(() => {
+    dirtyPeriodIdsRef.current = new Set();
+    pendingDeletesRef.current = new Set();
+    if (!pendingKey) return;
+    try {
+      const raw = JSON.parse(localStorage.getItem(pendingKey) || 'null');
+      if (raw) {
+        (raw.dirty || []).forEach(id => dirtyPeriodIdsRef.current.add(String(id)));
+        (raw.deletes || []).forEach(id => pendingDeletesRef.current.add(String(id)));
+      }
+    } catch (_) { /* ignore */ }
+  }, [pendingKey]);
+
+  // Mark a real-ID period as dirty (modified) so the sync will push it
+  const markPeriodDirty = useCallback((periodId) => {
+    if (periodId && isCloudId(periodId)) {
+      dirtyPeriodIdsRef.current.add(String(periodId));
+      persistPending();
+    }
+  }, [persistPending]);
+
+  const periodsRef = useRef(periods);
+  periodsRef.current = periods;
+  const retryTimerRef = useRef(null);
+  const retryAttemptRef = useRef(0);
+  const rerunRequestedRef = useRef(false);
+  const syncFnRef = useRef(null);
+
+  // Push all unsynced period changes (creates, edits, deletes) to Supabase immediately.
+  // On failure the work stays queued (temp id / dirty set / pending deletes, persisted in
+  // localStorage) and is retried with exponential backoff, on 'online', and on next load.
+  // Previously a failed insert renamed the period to 'local-…', which was never retried again.
+  const syncPeriodsToCloud = useCallback(async () => {
+    if (!currentUser || currentUser.isLocalOnly) return;
+    if (isSavingPeriodsRef.current) { rerunRequestedRef.current = true; return; }
+    if (!navigator.onLine) return;
+
+    const periodsKey = `payPeriods_${currentUser.id}`;
+    isSavingPeriodsRef.current = true;
+    rerunRequestedRef.current = false;
+    let hadFailure = false;
+    try {
+      // 1) Deletes
+      for (const id of [...pendingDeletesRef.current]) {
+        try {
+          await supabaseData.deletePayPeriod(currentUser.id, id);
+          pendingDeletesRef.current.delete(id);
+        } catch (err) {
+          hadFailure = true;
+          console.error(`Failed to delete pay period ${id} from cloud (will retry):`, err);
+        }
+      }
+
+      // 2) Creates (non-UUID ids) and edits (dirty real ids)
+      const snapshot = periodsRef.current || [];
+      const needSync = snapshot.filter(p =>
+        !isCloudId(p.id) || dirtyPeriodIdsRef.current.has(String(p.id))
+      );
+      const savedMap = new Map();
+      for (const period of needSync) {
+        const key = String(period.id);
+        try {
+          const saved = await supabaseData.savePayPeriod(currentUser.id, period);
+          if (!saved || !saved.id) throw new Error('savePayPeriod returned no row');
+          dirtyPeriodIdsRef.current.delete(key);
+          savedMap.set(key, saved);
+        } catch (err) {
+          hadFailure = true;
+          console.error(`Failed to sync pay period ${period.id} (will retry):`, err);
+        }
+      }
+      persistPending();
+
+      if (savedMap.size > 0) {
+        setPeriods(prev => {
+          const next = prev.map(p => {
+            const saved = savedMap.get(String(p.id));
+            if (!saved) return p;
+            // Adopt cloud id/timestamps, keep any local edits made during the save
+            return { ...p, id: saved.id, user_id: saved.user_id, created_at: saved.created_at, updated_at: saved.updated_at };
+          });
+          setSimpleEncryptedItem(periodsKey, next, currentUser.username);
+          try { cacheManager.setCachedData('payPeriods', next); } catch (_) { /* ignore */ }
+          return next;
+        });
+        // If the selected period just received its real id, persist it and mark it current in the cloud
+        const currentKey = `currentPeriodId_${currentUser.id}`;
+        const storedCurrent = localStorage.getItem(currentKey);
+        const savedCurrent = storedCurrent ? savedMap.get(String(storedCurrent)) : null;
+        setCurrentPeriodId(prevId => {
+          const s = prevId ? savedMap.get(String(prevId)) : null;
+          return s ? s.id : prevId;
+        });
+        if (savedCurrent) {
+          localStorage.setItem(currentKey, savedCurrent.id);
+          try { cacheManager.setCachedData('currentPeriod', savedCurrent.id); } catch (_) { /* ignore */ }
+          supabaseData.setCurrentPayPeriod(currentUser.id, savedCurrent.id)
+            .catch(err => console.warn('Failed to mark synced period current in cloud:', err));
+        }
+      }
+    } finally {
+      isSavingPeriodsRef.current = false;
+    }
+
+    clearTimeout(retryTimerRef.current);
+    if (hadFailure) {
+      retryAttemptRef.current += 1;
+      const delay = Math.min(60000, 2000 * 2 ** (retryAttemptRef.current - 1));
+      retryTimerRef.current = setTimeout(() => { syncFnRef.current?.(); }, delay);
+    } else {
+      retryAttemptRef.current = 0;
+    }
+    if (rerunRequestedRef.current) {
+      rerunRequestedRef.current = false;
+      setTimeout(() => { syncFnRef.current?.(); }, 0);
+    }
+  }, [currentUser, persistPending]);
+  syncFnRef.current = syncPeriodsToCloud;
+
+  // Delete a period locally and queue the cloud delete (retried until it succeeds)
+  const deletePeriod = useCallback((periodId) => {
+    if (periodId && isCloudId(periodId)) {
+      pendingDeletesRef.current.add(String(periodId));
+      dirtyPeriodIdsRef.current.delete(String(periodId));
+      persistPending();
+    }
+    setPeriods(prev => prev.filter(p => String(p.id) !== String(periodId)));
+  }, [persistPending]);
+
+  // Persist locally on every change, then push pending work to the cloud immediately
   useEffect(() => {
     if (!currentUser || !periods) return;
-    if (isSavingPeriodsRef.current) return;
     if (isSettingCurrentRef.current) return;
 
     const periodsKey = `payPeriods_${currentUser.id}`;
-
-    // Always persist locally immediately
     setSimpleEncryptedItem(periodsKey, periods, currentUser.username);
     if (periods.length > 0) {
       try {
@@ -179,71 +325,13 @@ export const PayPeriodProvider = ({ children }) => {
     }
     multiTabSync.notifyDataChange('payPeriods', periods, currentUser.username);
 
-    // Sync new (temp-ID) periods + explicitly dirty (modified) real-ID periods
-    const periodsNeedingSync = periods.filter(p =>
-      !p.id ||
-      String(p.id).startsWith('period-') ||
-      dirtyPeriodIdsRef.current.has(String(p.id))
+    const hasWork = pendingDeletesRef.current.size > 0 || periods.some(p =>
+      !isCloudId(p.id) || dirtyPeriodIdsRef.current.has(String(p.id))
     );
-    if (!navigator.onLine || currentUser.isLocalOnly || periodsNeedingSync.length === 0) return;
+    if (hasWork) syncPeriodsToCloud();
+  }, [periods, currentUser, currentPeriodId, syncPeriodsToCloud]);
 
-    const savePeriods = async () => {
-      isSavingPeriodsRef.current = true;
-      // Snapshot dirty IDs to clear after save (new mutations during save stay dirty)
-      const savedDirtyIds = new Set(dirtyPeriodIdsRef.current);
-      try {
-        let changed = false;
-        const updatedPeriods = [...periods];
-
-        for (const period of periodsNeedingSync) {
-          try {
-            const saved = await supabaseData.savePayPeriod(currentUser.id, period);
-            if (saved && saved.id) {
-              const idx = updatedPeriods.findIndex(p => String(p.id) === String(period.id));
-              if (idx >= 0) {
-                updatedPeriods[idx] = { ...updatedPeriods[idx], ...saved };
-                changed = true;
-              }
-              savedDirtyIds.delete(String(saved.id));
-            } else {
-              // It returned null without throwing (e.g. swallowed constraint error)
-              console.error(`savePayPeriod returned null for period ${period.id}`);
-              if (String(period.id).startsWith('period-')) {
-                const idx = updatedPeriods.findIndex(p => String(p.id) === String(period.id));
-                if (idx >= 0) {
-                  updatedPeriods[idx] = { ...updatedPeriods[idx], id: period.id.replace('period-', 'local-') };
-                  changed = true;
-                }
-              }
-            }
-          } catch (periodError) {
-            console.error(`Failed to save period ${period.id}:`, periodError);
-            if (String(period.id).startsWith('period-')) {
-              // Fallback to local-only ID to prevent permanent "Saving..." state
-              const idx = updatedPeriods.findIndex(p => String(p.id) === String(period.id));
-              if (idx >= 0) {
-                updatedPeriods[idx] = { ...updatedPeriods[idx], id: period.id.replace('period-', 'local-') };
-                changed = true;
-              }
-            }
-          }
-        }
-
-        // Remove successfully saved IDs from the dirty set
-        savedDirtyIds.forEach(id => dirtyPeriodIdsRef.current.delete(id));
-
-        if (changed) {
-          setPeriods(updatedPeriods);
-          setSimpleEncryptedItem(periodsKey, updatedPeriods, currentUser.username);
-          try { cacheManager.setCachedData('payPeriods', updatedPeriods); } catch (_) {}
-        }
-      } finally {
-        isSavingPeriodsRef.current = false;
-      }
-    };
-
-    savePeriods();
-  }, [periods, currentUser, currentPeriodId]);
+  useEffect(() => () => clearTimeout(retryTimerRef.current), []);
 
   // Get current period
   const getCurrentPeriod = useCallback(() => {
@@ -335,6 +423,7 @@ export const PayPeriodProvider = ({ children }) => {
       if (currentUser && isAuthenticated) {
         // Small delay to let connection stabilize
         setTimeout(() => {
+          syncPeriodsToCloud();
           loadPayPeriodsData();
         }, 2000);
       }
@@ -342,7 +431,7 @@ export const PayPeriodProvider = ({ children }) => {
 
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
-  }, [currentUser, isAuthenticated, loadPayPeriodsData]);
+  }, [currentUser, isAuthenticated, loadPayPeriodsData, syncPeriodsToCloud]);
 
   const contextValue = {
     // State
@@ -355,7 +444,9 @@ export const PayPeriodProvider = ({ children }) => {
     getCurrentPeriod,
     setCurrentPeriod,
     markPeriodDirty,
-    
+    deletePeriod,
+    syncPeriodsToCloud,
+
     // Refresh key for component updates
     refreshKey: refreshKeyRef.current
   };

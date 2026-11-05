@@ -384,7 +384,7 @@ function Settings() {
     calculateMonthlyHours,
   } = useTimeTracker();
 
-  const { setPeriods, markPeriodDirty, setCurrentPeriodId } = usePayPeriod();
+  const { setPeriods, markPeriodDirty, setCurrentPeriodId, deletePeriod } = usePayPeriod();
   const { reminderSettings, setReminderSettings, userPreferences, updatePreferences, theme, setTheme } = useUserPreferences();
   const [appIcon, setAppIconState] = useState(getAppIcon);
 
@@ -1669,61 +1669,34 @@ function Settings() {
       cancelText: "Cancel",
       showCancel: true,
       onConfirm: async () => {
-        try {
-          // Delete from Supabase first
-          if (currentUser) {
-            await supabaseData.deletePayPeriod(currentUser.id, periodId);
-          }
+        // Remove locally and queue the cloud delete; PayPeriodContext pushes it
+        // immediately and retries until Supabase confirms.
+        const newPeriods = periods.filter((p) => p.id !== periodId);
+        deletePeriod(periodId);
 
-          // Update local state
-          const newPeriods = periods.filter((p) => p.id !== periodId);
-          setPeriods(newPeriods);
-
-          // If deleting current period, switch to first available
-          if (String(currentPeriodId) === String(periodId)) {
-            const nextId = newPeriods[0]?.id || null;
-            setCurrentPeriodId(nextId);
-            if (nextId) {
-              setPeriods(newPeriods.map((p) => ({ ...p, is_current: p.id === nextId })));
-              if (currentUser && !currentUser.isLocalOnly && !String(nextId).startsWith("period-")) {
-                await supabaseData.setCurrentPayPeriod(currentUser.id, nextId);
-              }
+        // If deleting current period, switch to first available
+        if (String(currentPeriodId) === String(periodId)) {
+          const nextId = newPeriods[0]?.id || null;
+          setCurrentPeriodId(nextId);
+          if (nextId) {
+            setPeriods(newPeriods.map((p) => ({ ...p, is_current: p.id === nextId })));
+            if (currentUser && !currentUser.isLocalOnly && navigator.onLine && !String(nextId).startsWith("period-")) {
+              supabaseData.setCurrentPayPeriod(currentUser.id, nextId)
+                .catch((err) => console.warn("Failed to set next current period in cloud:", err));
             }
           }
-
-          // Show success
-          setConfirmModal({
-            isOpen: true,
-            title: "✓ Period Deleted",
-            message: `Period "${periodToDelete.label}" has been deleted.`,
-            type: "success",
-            confirmText: "OK",
-            showCancel: false,
-            onConfirm: () =>
-              setConfirmModal(prev => ({ ...prev, isOpen: false })),
-          });
-        } catch (error) {
-          // Still delete from local state even if Supabase fails
-          const newPeriods = periods.filter((p) => p.id !== periodId);
-          setPeriods(newPeriods);
-
-          // If deleting current period, switch to first available
-          if (String(currentPeriodId) === String(periodId)) {
-            setCurrentPeriodId(newPeriods[0]?.id || null);
-          }
-
-          // Show warning
-          setConfirmModal({
-            isOpen: true,
-            title: "⚠️ Period Deleted (Local Only)",
-            message: `Period "${periodToDelete.label}" deleted locally but there was an error deleting from the cloud. Your local data is safe.`,
-            type: "warning",
-            confirmText: "OK",
-            showCancel: false,
-            onConfirm: () =>
-              setConfirmModal(prev => ({ ...prev, isOpen: false })),
-          });
         }
+
+        setConfirmModal({
+          isOpen: true,
+          title: "✓ Period Deleted",
+          message: `Period "${periodToDelete.label}" has been deleted.`,
+          type: "success",
+          confirmText: "OK",
+          showCancel: false,
+          onConfirm: () =>
+            setConfirmModal(prev => ({ ...prev, isOpen: false })),
+        });
       },
     });
   };
