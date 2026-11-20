@@ -243,9 +243,14 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     const factor = useDoubleFactor ? 2 : 1.5;
 
     let oldDayContributionMinutes = 0;
-    const validIntervals = (existingEntry?.intervals || []).filter(i => i?.in && i?.out);
-    if (existingEntry && validIntervals.length > 0) {
-      const existingWorkMinutes = Math.round(calculateHoursWorkedFromIntervals(validIntervals, employee?.breakStartTime || '13:00') * 60);
+    // An entry only contributed to currentTotalOvertimeMinutes if ALL its intervals are complete
+    const isComplete = Boolean(
+      existingEntry?.intervals &&
+      existingEntry.intervals.length > 0 &&
+      existingEntry.intervals.every(i => i?.in && i?.out)
+    );
+    if (isComplete) {
+      const existingWorkMinutes = Math.round(calculateHoursWorkedFromIntervals(existingEntry.intervals, employee?.breakStartTime || '13:00') * 60);
       const rawOldDayContribution = existingWorkMinutes - requiredDailyMinutes;
       oldDayContributionMinutes = rawOldDayContribution > 0 ? rawOldDayContribution * factor : rawOldDayContribution;
     }
