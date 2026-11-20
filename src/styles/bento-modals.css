@@ -164,10 +164,12 @@ body .bento-modal-overlay .modal-body {
   padding: 0 24px 24px !important;
   overflow-y: auto !important; /* SCROLL INSIDE THIS BOX */
   flex: 1 1 auto !important; /* Allow growing and shrinking */
+  min-height: 0 !important; /* CRITICAL: Enables flex child shrinking so overflow-y activates */
   height: auto !important;
   display: flex !important;
   flex-direction: column !important;
   background-color: var(--bg-primary) !important; /* Absolute guarantee */
+  -webkit-overflow-scrolling: touch !important;
 }
 
 /* Modal Footer & Actions */
@@ -175,6 +177,7 @@ body .bento-modal-overlay .modal-body {
 #bento-modal-overlay-id .modal-actions,
 body .bento-modal-overlay .modal-footer,
 body .bento-modal-overlay .modal-actions {
+  flex-shrink: 0 !important;
   padding: 20px 24px 32px !important;
   background-color: var(--bg-primary) !important;
   border-top: 1px solid var(--border-light) !important;

@@ -1,13 +1,49 @@
 /* ============================================================
-   BOTTOM SHEET LEAVE CALCULATOR (ASYMMETRIC GRID)
+   BOTTOM SHEET LEAVE CALCULATOR
    ============================================================ */
 
-.leave-calculator {
-  display: grid !important;
-  grid-template-columns: repeat(2, 1fr) !important;
+.modal-content.leave-calculator-modal {
+  max-width: 650px !important;
+}
+
+.modal-content.leave-calculator-modal .modal-header {
+  flex-shrink: 0 !important;
+}
+
+.modal-content.leave-calculator-modal .modal-body,
+.modal-body.leave-calculator {
+  display: flex !important;
+  flex-direction: column !important;
   gap: 12px !important;
-  padding: 0 0 24px 0 !important;
-  align-items: stretch !important;
+  padding: 0 24px 24px !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent !important;
+}
+
+.modal-content.leave-calculator-modal .modal-body::-webkit-scrollbar,
+.modal-body.leave-calculator::-webkit-scrollbar {
+  display: block !important;
+  width: 6px !important;
+}
+
+.modal-content.leave-calculator-modal .modal-body::-webkit-scrollbar-track,
+.modal-body.leave-calculator::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.modal-content.leave-calculator-modal .modal-body::-webkit-scrollbar-thumb,
+.modal-body.leave-calculator::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-radius: 999px !important;
+}
+
+.modal-content.leave-calculator-modal .modal-footer {
+  flex-shrink: 0 !important;
 }
 
 /* Force loading, warnings, and results to span full width */

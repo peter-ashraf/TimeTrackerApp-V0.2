@@ -304,7 +304,7 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     const validIntervals = (existingEntry?.intervals || []).filter(i => i?.in && i?.out);
     if (existingEntry && validIntervals.length > 0) {
       // Calculate the existing entry's contribution using calculateHoursWorkedFromIntervals
-      const existingWorkMinutes = Math.round(calculateHoursWorkedFromIntervals(existingEntry.intervals, employee?.breakStartTime || '13:00') * 60);
+      const existingWorkMinutes = Math.round(calculateHoursWorkedFromIntervals(validIntervals, employee?.breakStartTime || '13:00') * 60);
       const rawOldDayContribution = existingWorkMinutes - requiredDailyMinutes;
       oldDayContributionMinutes = rawOldDayContribution > 0 ? rawOldDayContribution * factor : rawOldDayContribution;
     }
@@ -368,7 +368,7 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
       
       const validIntervals = (existingEntry?.intervals || []).filter(i => i?.in && i?.out);
       if (existingEntry && validIntervals.length > 0) {
-        const existingWorkMinutes = Math.round(calculateHoursWorkedFromIntervals(existingEntry.intervals, employee?.breakStartTime || '13:00') * 60);
+        const existingWorkMinutes = Math.round(calculateHoursWorkedFromIntervals(validIntervals, employee?.breakStartTime || '13:00') * 60);
         const rawOldDayContribution = existingWorkMinutes - requiredDailyMinutes;
         oldDayContributionMinutes = rawOldDayContribution > 0 ? rawOldDayContribution * factor : rawOldDayContribution;
       }
@@ -431,12 +431,12 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
   }
 
   return (
-    <ModalShell isOpen={true} onClose={onClose} title="Leave Calculator">
+    <ModalShell isOpen={true} onClose={onClose} contentClassName="leave-calculator-modal" title="Leave Calculator">
       <div className="modal-header">
         <h2>{calcMode === 'forward' ? 'Calculate Leave Time' : 'Calculate Overtime Target'}</h2>
       </div>
       
-      <div className="modal-body leave-calculator" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div className="modal-body leave-calculator" style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: 0, overflowY: 'auto' }}>
         
         {/* ROW 1: Date & Required */}
         <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
@@ -677,7 +677,7 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
         )}
 
         {projectedWorkedMinutes > 0 && (
-          <div className="bento-modal-card" style={{ gridColumn: 'span 2' }}>
+          <div className="bento-modal-card" style={{ gridColumn: 'span 2', marginBottom: '16px' }}>
             <div className="bento-modal-card-label">📈 Calculation Results</div>
             
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
