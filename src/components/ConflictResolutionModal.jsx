@@ -132,10 +132,11 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
   const getEntryDetails = (entry) => {
     const intervals = Array.isArray(entry?.intervals) ? entry.intervals : [];
     const firstInterval = intervals[0] || null;
+    const lastInterval = intervals.length > 0 ? intervals[intervals.length - 1] : null;
 
     return {
       checkIn: firstInterval?.in || null,
-      checkOut: firstInterval?.out || null,
+      checkOut: lastInterval?.out || null,
       duration: formatDuration(entry),
       notes: entry?.notes?.trim?.() || ''
     };

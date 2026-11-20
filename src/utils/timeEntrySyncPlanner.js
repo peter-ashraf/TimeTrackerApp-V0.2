@@ -69,6 +69,52 @@ export const timeEntriesAreDifferent = (localEntry, remoteEntry) => {
   );
 };
 
+export const normalizeRemoteEntry = (remoteEntry) => {
+  if (!remoteEntry) return remoteEntry;
+  let parsedIntervals = remoteEntry.intervals;
+  if (typeof parsedIntervals === "string") {
+    try {
+      parsedIntervals = JSON.parse(parsedIntervals);
+    } catch {
+      parsedIntervals = [];
+    }
+  }
+
+  if (
+    Array.isArray(remoteEntry.intervals) &&
+    remoteEntry.hours_worked === undefined &&
+    remoteEntry.extra_hours === undefined &&
+    remoteEntry.extra_hours_with_factor === undefined &&
+    remoteEntry.hours_spent_outside === undefined &&
+    remoteEntry.double_hours === undefined
+  ) {
+    return remoteEntry;
+  }
+
+  const result = {
+    ...remoteEntry,
+    intervals: Array.isArray(parsedIntervals) ? parsedIntervals : (remoteEntry.intervals || []),
+  };
+
+  if (remoteEntry.hours_worked != null && result.hoursWorked === undefined) {
+    result.hoursWorked = parseFloat(remoteEntry.hours_worked);
+  }
+  if (remoteEntry.extra_hours != null && result.extraHours === undefined) {
+    result.extraHours = parseFloat(remoteEntry.extra_hours);
+  }
+  if (remoteEntry.extra_hours_with_factor != null && result.extraHoursWithFactor === undefined) {
+    result.extraHoursWithFactor = parseFloat(remoteEntry.extra_hours_with_factor);
+  }
+  if (remoteEntry.hours_spent_outside != null && result.hoursSpentOutside === undefined) {
+    result.hoursSpentOutside = parseFloat(remoteEntry.hours_spent_outside);
+  }
+  if (remoteEntry.double_hours != null && result.doubleHours === undefined) {
+    result.doubleHours = Boolean(remoteEntry.double_hours);
+  }
+
+  return result;
+};
+
 export const buildTimeEntrySyncPlan = ({ localEntries = [], remoteEntries = [] }) => {
   const localMap = new Map(localEntries.map((entry) => [normalizeDateKey(entry.date), entry]));
   const remoteMap = new Map(remoteEntries.map((entry) => [normalizeDateKey(entry.date), entry]));
@@ -78,7 +124,8 @@ export const buildTimeEntrySyncPlan = ({ localEntries = [], remoteEntries = [] }
   const conflicts = [];
   let pulledCount = 0;
 
-  for (const [date, remoteEntry] of remoteMap) {
+  for (const [date, rawRemoteEntry] of remoteMap) {
+    const remoteEntry = normalizeRemoteEntry(rawRemoteEntry);
     const localEntry = localMap.get(date);
 
     if (!localEntry) {
@@ -99,10 +146,10 @@ export const buildTimeEntrySyncPlan = ({ localEntries = [], remoteEntries = [] }
       } else {
         // Genuine conflict, or timestamps are missing/too close
         conflicts.push({
-          entryId: remoteEntry.id || localEntry.id,
+          entryId: rawRemoteEntry.id || localEntry.id,
           date,
           localEntry,
-          remoteEntry,
+          remoteEntry: rawRemoteEntry,
         });
       }
     } else {

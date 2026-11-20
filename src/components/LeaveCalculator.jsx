@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
+import { extractBreaksFromIntervals, calculateHoursWorkedFromIntervals } from '../hooks/useCalculations';
 import ModalShell from './ModalShell';
 import '../styles/leave-calculator.css';
 import CustomSelect from './CustomSelect';
@@ -159,12 +160,11 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     // Load break duration from existing intervals
     let breakMinutes = 0;
     if (existingEntry?.intervals && existingEntry.intervals.length > 1) {
-      // Calculate total break time from intervals after the first work interval
-      for (let i = 1; i < existingEntry.intervals.length; i++) {
-        const interval = existingEntry.intervals[i];
-        if (interval.in && interval.out) {
-          const inMins = timeToMinutes(interval.in);
-          const outMins = timeToMinutes(interval.out);
+      const extractedBreaks = extractBreaksFromIntervals(existingEntry.intervals);
+      for (const b of extractedBreaks) {
+        if (b.in && b.out) {
+          const inMins = timeToMinutes(b.in);
+          const outMins = timeToMinutes(b.out);
           const isAllowedBreak = 
             inMins >= allowedBreakStartMins &&
             inMins <= allowedBreakEndMins &&
@@ -172,7 +172,7 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
             outMins <= allowedBreakEndMins;
             
           if (!isAllowedBreak) {
-            breakMinutes += outMins - inMins;
+            breakMinutes += Math.max(0, outMins - inMins);
           }
         }
       }
@@ -301,9 +301,10 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     let oldDayContributionMinutes = 0;
     
     // Get old selected day contribution from raw storage (if complete entry exists)
-    if (existingEntry && existingEntry.intervals?.[0]?.in && existingEntry.intervals?.[0]?.out) {
-      // Calculate the existing entry's contribution using raw minute values
-      const existingWorkMinutes = timeToMinutes(existingEntry.intervals[0].out) - timeToMinutes(existingEntry.intervals[0].in) - loadedBreakMinutes;
+    const validIntervals = (existingEntry?.intervals || []).filter(i => i?.in && i?.out);
+    if (existingEntry && validIntervals.length > 0) {
+      // Calculate the existing entry's contribution using calculateHoursWorkedFromIntervals
+      const existingWorkMinutes = Math.round(calculateHoursWorkedFromIntervals(existingEntry.intervals, employee?.breakStartTime || '13:00') * 60);
       const rawOldDayContribution = existingWorkMinutes - requiredDailyMinutes;
       oldDayContributionMinutes = rawOldDayContribution > 0 ? rawOldDayContribution * factor : rawOldDayContribution;
     }
@@ -365,8 +366,9 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
       
       let oldDayContributionMinutes = 0;
       
-      if (existingEntry && existingEntry.intervals?.[0]?.in && existingEntry.intervals?.[0]?.out) {
-        const existingWorkMinutes = timeToMinutes(existingEntry.intervals[0].out) - timeToMinutes(existingEntry.intervals[0].in) - loadedBreakMinutes;
+      const validIntervals = (existingEntry?.intervals || []).filter(i => i?.in && i?.out);
+      if (existingEntry && validIntervals.length > 0) {
+        const existingWorkMinutes = Math.round(calculateHoursWorkedFromIntervals(existingEntry.intervals, employee?.breakStartTime || '13:00') * 60);
         const rawOldDayContribution = existingWorkMinutes - requiredDailyMinutes;
         oldDayContributionMinutes = rawOldDayContribution > 0 ? rawOldDayContribution * factor : rawOldDayContribution;
       }

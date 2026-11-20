@@ -13,7 +13,7 @@ export const exportToCSV = (entries, onAlert = null) => {
   const rows = entries.map(entry => [
     entry.date || '',
     entry.intervals?.[0]?.in || entry.checkIn || '',
-    entry.intervals?.[0]?.out || entry.checkOut || '',
+    (entry.intervals && entry.intervals.length > 0 ? entry.intervals[entry.intervals.length - 1]?.out : entry.checkOut) || '',
     entry.type || 'Regular',
     entry.duration || '1',
     entry.hours || ''

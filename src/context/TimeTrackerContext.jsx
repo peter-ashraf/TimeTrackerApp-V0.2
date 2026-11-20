@@ -23,6 +23,12 @@ import {
   getSimpleEncryptedItem,
 } from "../utils/simple-encryption";
 import { hasWorkedTimes, isWorkedDay } from "../utils/entryType";
+import {
+  calculateHoursWorkedFromIntervals,
+  calculateHoursSpentOutsideFromIntervals,
+  extractBreaksFromIntervals,
+  applyBreakToIntervals,
+} from "../hooks/useCalculations";
 
 const BackupReminderModal = React.lazy(
   () => import("../components/BackupReminderModal"),
@@ -117,81 +123,18 @@ export const TimeTrackerProvider = ({ children }) => {
 
   const calculateHoursWorked = useCallback(
     (intervals, date) => {
-      if (!intervals || intervals.length === 0) {
-        return 0;
-      }
-
-      const validIntervals = intervals.filter(
-        (interval) => interval.in && interval.out,
-      );
-      if (validIntervals.length === 0) return 0;
-
-      const mainInterval = validIntervals[0];
-      const firstInSeconds = timeToSeconds(mainInterval.in);
-      const lastOutSeconds = timeToSeconds(mainInterval.out);
-
-      const grossSeconds = lastOutSeconds - firstInSeconds;
-
       const breakStartTimeStr = userPreferencesContext?.employee?.breakStartTime || "13:00";
-      const ALLOWED_START = timeToSeconds(breakStartTimeStr);
-      const ALLOWED_END = ALLOWED_START + 30 * 60;
-
-      let deductedBreakSeconds = 0;
-
-      for (let i = 1; i < validIntervals.length; i++) {
-        const breakInterval = validIntervals[i];
-        const breakStartSeconds = timeToSeconds(breakInterval.in);
-        const breakEndSeconds = timeToSeconds(breakInterval.out);
-        const breakDuration = breakEndSeconds - breakStartSeconds;
-
-        const isAllowedBreak =
-          breakStartSeconds >= ALLOWED_START &&
-          breakStartSeconds <= ALLOWED_END &&
-          breakEndSeconds >= ALLOWED_START &&
-          breakEndSeconds <= ALLOWED_END;
-
-        if (!isAllowedBreak) {
-          deductedBreakSeconds += breakDuration;
-        }
-      }
-
-      const netSeconds = Math.max(0, grossSeconds - deductedBreakSeconds);
-      return secondsToHours(netSeconds);
+      return calculateHoursWorkedFromIntervals(intervals, breakStartTimeStr);
     },
-    [timeToSeconds, secondsToHours],
+    [userPreferencesContext],
   );
 
   const calculateHoursSpentOutside = useCallback(
     (intervals) => {
-      if (!intervals || intervals.length <= 1) return 0;
-
-      const breakIntervals = intervals.slice(1);
       const breakStartTimeStr = userPreferencesContext?.employee?.breakStartTime || "13:00";
-      const ALLOWED_START = timeToSeconds(breakStartTimeStr);
-      const ALLOWED_END = ALLOWED_START + 30 * 60;
-
-      let hoursSpentOutside = 0;
-      breakIntervals.forEach((interval) => {
-        if (interval.in && interval.out) {
-          const breakStartSeconds = timeToSeconds(interval.in);
-          const breakEndSeconds = timeToSeconds(interval.out);
-          const breakDuration = breakEndSeconds - breakStartSeconds;
-
-          const isAllowedBreak =
-            breakStartSeconds >= ALLOWED_START &&
-            breakStartSeconds <= ALLOWED_END &&
-            breakEndSeconds >= ALLOWED_START &&
-            breakEndSeconds <= ALLOWED_END;
-
-          if (!isAllowedBreak) {
-            hoursSpentOutside += secondsToHours(breakDuration);
-          }
-        }
-      });
-
-      return hoursSpentOutside;
+      return calculateHoursSpentOutsideFromIntervals(intervals, breakStartTimeStr);
     },
-    [timeToSeconds, secondsToHours],
+    [userPreferencesContext],
   );
 
   const recalculateEntryFields = useCallback(
@@ -1049,6 +992,8 @@ export const TimeTrackerProvider = ({ children }) => {
       calculateOvertimeDetails,
       calculateHoursWorked,
       calculateHoursSpentOutside,
+      extractBreaksFromIntervals,
+      applyBreakToIntervals,
       timeToSeconds,
       secondsToTime,
       secondsToHours,
@@ -1078,6 +1023,8 @@ export const TimeTrackerProvider = ({ children }) => {
       calculateOvertimeDetails,
       calculateHoursWorked,
       calculateHoursSpentOutside,
+      extractBreaksFromIntervals,
+      applyBreakToIntervals,
       timeToSeconds,
       secondsToTime,
       secondsToHours,

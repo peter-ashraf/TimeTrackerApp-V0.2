@@ -12,6 +12,7 @@ import CalendarView from './CalendarView';
 import '../styles/performance-optimizations.css';
 import './bento-timesheet.css';
 import { isWorkedDay, typeTagStyle } from '../utils/entryType';
+import { extractBreaksFromIntervals } from '../hooks/useCalculations';
 
 // Memoized individual row component to prevent unnecessary re-renders
 const TimesheetRow = React.memo(({
@@ -23,17 +24,17 @@ const TimesheetRow = React.memo(({
   onEdit,
   onDelete
 }) => {
-  // For incomplete entries, calculate fresh to avoid stored negative values
-  const isComplete = entry.intervals &&
-    entry.intervals.length > 0 &&
-    entry.intervals.every(interval => interval.in && interval.out);
+  const validIntervals = (entry.intervals || []).filter(i => i?.in || i?.out);
+  const isComplete = validIntervals.length > 0 &&
+    validIntervals.every(interval => interval.in && interval.out);
+  const isCurrentlyTracking = validIntervals.some(i => i.in && !i.out);
 
-  const hoursWorked = isWorkedDay(entry) && entry.intervals && isComplete
-    ? calculateHoursWorked(entry.intervals, entry.date)
+  const hoursWorked = isWorkedDay(entry) && isComplete
+    ? calculateHoursWorked(validIntervals, entry.date)
     : 0;
 
-  const hoursSpentOutside = calculateHoursSpentOutside && entry.intervals && isComplete
-    ? calculateHoursSpentOutside(entry.intervals)
+  const hoursSpentOutside = calculateHoursSpentOutside
+    ? calculateHoursSpentOutside(validIntervals)
     : 0;
 
   const dayOfWeek = new Date(entry.date).getDay();
@@ -44,9 +45,9 @@ const TimesheetRow = React.memo(({
   const factor = useDoubleFactor ? 2 : 1.5;
   const extraHoursWithFactor = extraHours > 0 ? parseFloat((extraHours * factor).toFixed(4)) : extraHours;
 
-  const firstIn = entry.intervals?.[0]?.in;
-  const lastOut = entry.intervals?.[0]?.out;
-  const breakIntervals = entry.intervals?.slice(1) || [];
+  const firstIn = validIntervals[0]?.in;
+  const lastOut = validIntervals[validIntervals.length - 1]?.out;
+  const breakIntervals = extractBreaksFromIntervals(validIntervals);
 
   // Calculate day of week display
   const dayOfWeekDisplay = new Date(entry.date).toLocaleDateString('en-US', { weekday: 'short' });
@@ -74,10 +75,10 @@ const TimesheetRow = React.memo(({
       <div className="stacked-bottom">
         <div className="stacked-timeline" style={{width: '100%', display: 'flex', flexDirection: 'row', justifyContent: 'space-between'}}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            {formatTime(firstIn)} &rarr; {formatTime(lastOut)}
+            {formatTime(firstIn)} &rarr; {lastOut ? formatTime(lastOut) : (isCurrentlyTracking ? 'Tracking…' : '-')}
           </div>
           <div style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-primary)', alignSelf: 'flex-end'}}>
-              {isWorkedDay(entry) ? `${hoursWorked.toFixed(2)}h` : '-'}
+              {isWorkedDay(entry) ? (isComplete ? `${hoursWorked.toFixed(2)}h` : (entry.hoursWorked ? `${parseFloat(entry.hoursWorked).toFixed(2)}h` : (isCurrentlyTracking ? 'Tracking…' : '-'))) : '-'}
           </div>
         </div>
         <div className="stacked-metrics">

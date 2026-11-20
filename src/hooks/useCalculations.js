@@ -42,81 +42,208 @@ export const validateIntervalStructure = (intervals) => {
   return true;
 };
 
+// Helper to extract breaks from intervals (supports both sequential work sessions and legacy nested format)
+export function extractBreaksFromIntervals(intervals) {
+  if (!Array.isArray(intervals) || intervals.length <= 1) return [];
+
+  // Check if legacy nested format where interval[1] is inside interval[0]
+  if (
+    intervals[0]?.out &&
+    intervals[1]?.in &&
+    timeToSeconds(intervals[1].in) < timeToSeconds(intervals[0].out)
+  ) {
+    return intervals.slice(1).filter((b) => b?.in && b?.out);
+  }
+
+  // Sequential work sessions: breaks are gaps between sessions
+  const breaks = [];
+  for (let i = 0; i < intervals.length - 1; i++) {
+    const prevOut = intervals[i]?.out;
+    const nextIn = intervals[i + 1]?.in;
+    if (prevOut && nextIn && timeToSeconds(nextIn) > timeToSeconds(prevOut)) {
+      breaks.push({ in: prevOut, out: nextIn });
+    }
+  }
+  return breaks;
+}
+
+// Helper to apply/insert a break into work intervals
+export function applyBreakToIntervals(intervals, breakStart, breakEnd) {
+  if (!Array.isArray(intervals) || intervals.length === 0) {
+    return [{ in: breakEnd, out: null }];
+  }
+
+  const breakStartSec = timeToSeconds(breakStart);
+  const breakEndSec = timeToSeconds(breakEnd);
+
+  const newIntervals = [];
+  let breakApplied = false;
+
+  for (const interval of intervals) {
+    const inSec = interval.in ? timeToSeconds(interval.in) : 0;
+    const outSec = interval.out ? timeToSeconds(interval.out) : Infinity;
+
+    if (!breakApplied && inSec <= breakStartSec && breakEndSec <= outSec) {
+      newIntervals.push({ ...interval, out: breakStart });
+      newIntervals.push({ ...interval, in: breakEnd, out: interval.out || null });
+      breakApplied = true;
+    } else if (!breakApplied && inSec <= breakStartSec && interval.out === null) {
+      newIntervals.push({ ...interval, out: breakStart });
+      newIntervals.push({ ...interval, in: breakEnd, out: null });
+      breakApplied = true;
+    } else {
+      newIntervals.push(interval);
+    }
+  }
+
+  if (!breakApplied) {
+    newIntervals.length = 0;
+    intervals.forEach((i) => {
+      const inSec = timeToSeconds(i.in);
+      const outSec = i.out ? timeToSeconds(i.out) : Infinity;
+      if (outSec <= breakStartSec) {
+        newIntervals.push(i);
+      } else if (inSec >= breakEndSec) {
+        newIntervals.push(i);
+      } else {
+        if (inSec < breakStartSec) newIntervals.push({ ...i, out: breakStart });
+        if (outSec > breakEndSec) newIntervals.push({ ...i, in: breakEnd, out: i.out || null });
+      }
+    });
+    if (newIntervals.length === 0) {
+      newIntervals.push({ in: breakEnd, out: null });
+    }
+  }
+
+  return newIntervals;
+}
+
 export function calculateHoursWorkedFromIntervals(intervals, breakStartTimeStr = "13:00") {
-  if (!intervals || intervals.length === 0) return 0;
+  if (!Array.isArray(intervals) || intervals.length === 0) return 0;
 
   const hasIncompleteInterval = intervals.some(interval =>
     !interval.in || !interval.out
   );
   if (hasIncompleteInterval) return 0;
 
-  const workInterval = intervals[0];
-  if (!workInterval.in || !workInterval.out) return 0;
+  const sorted = [...intervals].sort((a, b) => timeToSeconds(a.in) - timeToSeconds(b.in));
 
-  const workStartSeconds = timeToSeconds(workInterval.in);
-  const workEndSeconds = timeToSeconds(workInterval.out);
-  const workDuration = workEndSeconds - workStartSeconds;
+  // Check if legacy nested format: intervals[1].in < intervals[0].out
+  const isLegacyNested = sorted.length > 1 &&
+    sorted[0].out &&
+    sorted[1].in &&
+    timeToSeconds(sorted[1].in) < timeToSeconds(sorted[0].out);
 
-  if (workDuration <= 0 || workDuration > 24 * 3600) return 0;
+  if (isLegacyNested) {
+    const workInterval = sorted[0];
+    const workStartSeconds = timeToSeconds(workInterval.in);
+    const workEndSeconds = timeToSeconds(workInterval.out);
+    const workDuration = workEndSeconds - workStartSeconds;
 
-  let totalBreakSeconds = 0;
-  for (let i = 1; i < intervals.length; i++) {
-    const breakInterval = intervals[i];
-    if (breakInterval.in && breakInterval.out) {
-      const breakStartSeconds = timeToSeconds(breakInterval.in);
-      const breakEndSeconds = timeToSeconds(breakInterval.out);
-      const breakDuration = breakEndSeconds - breakStartSeconds;
+    if (workDuration <= 0 || workDuration > 24 * 3600) return 0;
 
-      if (breakDuration > 0 && breakDuration <= 2 * 3600) {
-        const allowedBreakStart = timeToSeconds(breakStartTimeStr);
-        const allowedBreakEnd = allowedBreakStart + 30 * 60;
+    let totalBreakSeconds = 0;
+    const allowedBreakStart = timeToSeconds(breakStartTimeStr);
+    const allowedBreakEnd = allowedBreakStart + 30 * 60;
 
-        const isAllowedBreak =
-          breakStartSeconds >= allowedBreakStart &&
-          breakStartSeconds <= allowedBreakEnd &&
-          breakEndSeconds >= allowedBreakStart &&
-          breakEndSeconds <= allowedBreakEnd;
+    for (let i = 1; i < sorted.length; i++) {
+      const breakInterval = sorted[i];
+      if (breakInterval.in && breakInterval.out) {
+        const breakStartSeconds = timeToSeconds(breakInterval.in);
+        const breakEndSeconds = timeToSeconds(breakInterval.out);
+        const breakDuration = breakEndSeconds - breakStartSeconds;
 
-        if (!isAllowedBreak) {
-          totalBreakSeconds += breakDuration;
+        if (breakDuration > 0 && breakDuration <= 2 * 3600) {
+          const isAllowedBreak =
+            breakStartSeconds >= allowedBreakStart &&
+            breakStartSeconds <= allowedBreakEnd &&
+            breakEndSeconds >= allowedBreakStart &&
+            breakEndSeconds <= allowedBreakEnd;
+
+          if (!isAllowedBreak) {
+            totalBreakSeconds += breakDuration;
+          }
         }
+      }
+    }
+
+    return secondsToHours(Math.max(0, workDuration - totalBreakSeconds));
+  }
+
+  // Standard sequential work sessions: sum of completed sessions
+  let totalWorkSeconds = 0;
+  for (const interval of sorted) {
+    const inSec = timeToSeconds(interval.in);
+    const outSec = timeToSeconds(interval.out);
+    const dur = outSec - inSec;
+    if (dur > 0 && dur <= 24 * 3600) {
+      totalWorkSeconds += dur;
+    }
+  }
+
+  return secondsToHours(totalWorkSeconds);
+}
+
+export function calculateHoursSpentOutsideFromIntervals(intervals, breakStartTimeStr = "13:00") {
+  if (!Array.isArray(intervals) || intervals.length < 2) return 0;
+
+  const allowedBreakStart = timeToSeconds(breakStartTimeStr);
+  const allowedBreakEnd = allowedBreakStart + 30 * 60;
+
+  // Check if legacy nested format
+  const isLegacyNested = intervals[0]?.out && intervals[1]?.in &&
+    timeToSeconds(intervals[1].in) < timeToSeconds(intervals[0].out);
+
+  if (isLegacyNested) {
+    const breakIntervals = intervals.slice(1);
+    let hoursSpentOutside = 0;
+
+    breakIntervals.forEach(interval => {
+      if (interval.in && interval.out) {
+        const breakStartSeconds = timeToSeconds(interval.in);
+        const breakEndSeconds = timeToSeconds(interval.out);
+        const breakDuration = breakEndSeconds - breakStartSeconds;
+
+        if (breakDuration > 0 && breakDuration <= 2 * 3600) {
+          const isAllowedBreak =
+            breakStartSeconds >= allowedBreakStart &&
+            breakStartSeconds <= allowedBreakEnd &&
+            breakEndSeconds >= allowedBreakStart &&
+            breakEndSeconds <= allowedBreakEnd;
+
+          if (!isAllowedBreak) {
+            hoursSpentOutside += secondsToHours(breakDuration);
+          }
+        }
+      }
+    });
+
+    return hoursSpentOutside;
+  }
+
+  // Sequential work sessions: check gaps between sessions
+  let totalOutsideSeconds = 0;
+  const sorted = [...intervals].filter(i => i.in && i.out).sort((a, b) => timeToSeconds(a.in) - timeToSeconds(b.in));
+
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const gapStart = timeToSeconds(sorted[i].out);
+    const gapEnd = timeToSeconds(sorted[i + 1].in);
+    const gapDuration = gapEnd - gapStart;
+
+    if (gapDuration > 0) {
+      const isAllowedBreak =
+        gapStart >= allowedBreakStart &&
+        gapStart <= allowedBreakEnd &&
+        gapEnd >= allowedBreakStart &&
+        gapEnd <= allowedBreakEnd;
+
+      if (!isAllowedBreak) {
+        totalOutsideSeconds += gapDuration;
       }
     }
   }
 
-  return secondsToHours(Math.max(0, workDuration - totalBreakSeconds));
-}
-
-export function calculateHoursSpentOutsideFromIntervals(intervals, breakStartTimeStr = "13:00") {
-  if (!intervals || intervals.length < 2) return 0;
-
-  const breakIntervals = intervals.slice(1);
-  let hoursSpentOutside = 0;
-
-  breakIntervals.forEach(interval => {
-    if (interval.in && interval.out) {
-      const breakStartSeconds = timeToSeconds(interval.in);
-      const breakEndSeconds = timeToSeconds(interval.out);
-      const breakDuration = breakEndSeconds - breakStartSeconds;
-
-      if (breakDuration > 0 && breakDuration <= 2 * 3600) {
-        const allowedBreakStart = timeToSeconds(breakStartTimeStr);
-        const allowedBreakEnd = allowedBreakStart + 30 * 60;
-
-        const isAllowedBreak =
-          breakStartSeconds >= allowedBreakStart &&
-          breakStartSeconds <= allowedBreakEnd &&
-          breakEndSeconds >= allowedBreakStart &&
-          breakEndSeconds <= allowedBreakEnd;
-
-        if (!isAllowedBreak) {
-          hoursSpentOutside += secondsToHours(breakDuration);
-        }
-      }
-    }
-  });
-
-  return hoursSpentOutside;
+  return secondsToHours(totalOutsideSeconds);
 }
 
 export function calculateOvertimeDetailsForEntries(entries, periodStart, periodEnd, breakStartTimeStr = "13:00") {

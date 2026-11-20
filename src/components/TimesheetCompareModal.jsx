@@ -87,19 +87,21 @@ function TimesheetCompareModal({ onClose, onEditEntry }) {
       };
     }
 
-    const interval = entry.intervals?.[0] || {};
-    const isComplete = isWorkedDay(entry) && interval.in && interval.out;
+    const validIntervals = (entry.intervals || []).filter(i => i?.in || i?.out);
+    const firstIn = validIntervals[0]?.in || '-';
+    const lastOut = validIntervals[validIntervals.length - 1]?.out || '-';
+    const isComplete = isWorkedDay(entry) && validIntervals.length > 0 && validIntervals.every(i => i.in && i.out);
     const hours = isComplete
-      ? `${calculateHoursWorked(entry.intervals, entry.date).toFixed(2)}h`
+      ? `${calculateHoursWorked(validIntervals, entry.date).toFixed(2)}h`
       : isWorkedDay(entry)
-        ? '0.00h'
+        ? (entry.hoursWorked ? `${parseFloat(entry.hoursWorked).toFixed(2)}h` : '0.00h')
         : entry.type;
 
     return {
       source: 'App',
       day: formatDay(entry.date),
-      checkIn: interval.in || '-',
-      checkOut: interval.out || '-',
+      checkIn: firstIn,
+      checkOut: lastOut,
       hours,
       type: entry.type || 'Regular'
     };

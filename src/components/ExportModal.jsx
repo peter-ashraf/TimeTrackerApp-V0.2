@@ -20,6 +20,7 @@ import hapticFeedback from '../utils/hapticFeedback';
 
 import '../styles/export-modal-enhanced.css';
 import { isWorkedDay } from '../utils/entryType';
+import { extractBreaksFromIntervals } from '../hooks/useCalculations';
 
 
 
@@ -239,15 +240,12 @@ function ExportModal({ onClose }) {
 
 
 
-      const firstIn = entry.intervals?.[0]?.in || '-';
-
-      const lastOut = entry.intervals?.[0]?.out || '-';
-
-      const breakIntervals = entry.intervals?.slice(1) || [];
-
-      const breakOutTimes = breakIntervals.map(b => formatTime(b.out)).join(', ') || '-';
-
-      const breakInTimes = breakIntervals.map(b => formatTime(b.in)).join(', ') || '-';
+      const validIntervals = (entry.intervals || []).filter(i => i?.in || i?.out);
+      const firstIn = validIntervals[0]?.in || '-';
+      const lastOut = validIntervals[validIntervals.length - 1]?.out || '-';
+      const breakIntervals = extractBreaksFromIntervals(validIntervals);
+      const breakOutTimes = breakIntervals.map(b => formatTime(b.in)).join(', ') || '-';
+      const breakInTimes = breakIntervals.map(b => formatTime(b.out)).join(', ') || '-';
 
 
 

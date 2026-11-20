@@ -4,6 +4,27 @@ import { supabaseClient } from './supabaseClient';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+const parseTimeEntryRecord = (record) => {
+  if (!record) return record;
+  let intervals = record.intervals;
+  if (typeof intervals === 'string') {
+    try {
+      intervals = JSON.parse(intervals);
+    } catch {
+      intervals = [];
+    }
+  }
+  return {
+    ...record,
+    intervals: Array.isArray(intervals) ? intervals : [],
+    hoursWorked: record.hoursWorked ?? (record.hours_worked != null ? parseFloat(record.hours_worked) : undefined),
+    extraHours: record.extraHours ?? (record.extra_hours != null ? parseFloat(record.extra_hours) : undefined),
+    extraHoursWithFactor: record.extraHoursWithFactor ?? (record.extra_hours_with_factor != null ? parseFloat(record.extra_hours_with_factor) : undefined),
+    hoursSpentOutside: record.hoursSpentOutside ?? (record.hours_spent_outside != null ? parseFloat(record.hours_spent_outside) : undefined),
+    doubleHours: record.doubleHours ?? (record.double_hours != null ? Boolean(record.double_hours) : undefined),
+  };
+};
+
 export const supabaseData = {
   async getTimeEntries(userId, options = {}) {
     const timeoutMs = options.timeoutMs ?? 20000;
@@ -23,7 +44,7 @@ export const supabaseData = {
         }
         throw error;
       }
-      return data || [];
+      return (data || []).map(parseTimeEntryRecord);
     } catch (error) {
       if (error.name === 'AbortError') {
         throw new Error(`Supabase fetch timed out after ${Math.round(timeoutMs / 1000)} seconds`);
@@ -73,7 +94,7 @@ export const supabaseData = {
         throw error;
       }
 
-      return data;
+      return (data || []).map(parseTimeEntryRecord);
 
     } catch (error) {
       clearTimeout(timeoutId);

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
+import { applyBreakToIntervals } from '../hooks/useCalculations';
 import ModalShell from './ModalShell';
 import AlertModal from './AlertModal';
 import '../styles/add-break-modal.css';
@@ -43,15 +44,12 @@ function AddBreakModal({ onClose }) {
     const breakStartWithSeconds = breakStart.split(':').length === 2 ? breakStart + ':00' : breakStart;
     const breakEndWithSeconds = breakEnd.split(':').length === 2 ? breakEnd + ':00' : breakEnd;
 
-    // Add break as a new interval
-    const updatedIntervals = [
-      ...entry.intervals,
-      { 
-        in: breakStartWithSeconds, 
-        out: breakEndWithSeconds,
-        notes: breakNotes || undefined
-      }
-    ];
+    // Apply break into work intervals
+    const updatedIntervals = applyBreakToIntervals(
+      entry.intervals,
+      breakStartWithSeconds,
+      breakEndWithSeconds
+    );
 
     await updateEntry(selectedDate, {
       intervals: updatedIntervals

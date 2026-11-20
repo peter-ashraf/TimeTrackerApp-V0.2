@@ -30,9 +30,22 @@ function EditEntryModal({ entry, onClose }) {
     return time + ':00';
   };
 
+  const parseRawIntervals = (raw) => {
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
   const [editedEntry, setEditedEntry] = useState({
     ...entry,
-    intervals: (entry.intervals || []).map(interval => ({
+    intervals: parseRawIntervals(entry.intervals).map(interval => ({
       in: formatTimeForDisplay(interval.in),
       out: formatTimeForDisplay(interval.out)
     }))
@@ -42,7 +55,7 @@ function EditEntryModal({ entry, onClose }) {
   React.useEffect(() => {
     const originalEntry = {
       ...entry,
-      intervals: (entry.intervals || []).map(interval => ({
+      intervals: parseRawIntervals(entry.intervals).map(interval => ({
         in: formatTimeForDisplay(interval.in),
         out: formatTimeForDisplay(interval.out)
       }))
@@ -267,87 +280,117 @@ function EditEntryModal({ entry, onClose }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {editedEntry.intervals.map((interval, index) => {
                 const isFirst = index === 0;
-                const firstLabel = isFirst ? 'Check In' : 'Break End';
-                const secondLabel = isFirst ? 'Check Out (or Break Start)' : 'Check Out';
+                const hasSubsequent = index < editedEntry.intervals.length - 1;
+                const firstLabel = isFirst ? 'Check In' : 'Resume Work (Check In)';
+                const secondLabel = hasSubsequent ? 'Check Out (Break Start)' : 'Check Out';
+                const sessionTitle = editedEntry.intervals.length > 1 ? `Work Session ${index + 1}` : 'Working Hours';
+
+                const prevInterval = index > 0 ? editedEntry.intervals[index - 1] : null;
+                const showBreakIndicator = prevInterval && (prevInterval.out || interval.in);
 
                 return (
-                  <div key={index} className="bento-modal-card" style={{ padding: '16px', position: 'relative' }}>
-                    
-                    <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
-                      {/* Check In */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{firstLabel}</div>
-                        <input
-                          type="tel"
-                          placeholder="HH:MM:SS"
-                          className="bento-modal-card-input"
-                          value={interval.in || ''}
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/\D/g, '');
-                            let res = '';
-                            if (val.length > 0) res += val.substring(0, 2);
-                            if (val.length > 2) res += ':' + val.substring(2, 4);
-                            if (val.length > 4) res += ':' + val.substring(4, 6);
-                            handleTimePickerChange(index, 'in', res);
-                          }}
-                          onBlur={(e) => {
-                            const val = e.target.value.replace(/\D/g, '');
-                            if (!val) return;
-                            let res = '';
-                            if (val.length === 1) res = `0${val}:00:00`;
-                            else if (val.length === 2) res = `${val}:00:00`;
-                            else if (val.length === 3) res = `${val.substring(0,2)}:0${val.substring(2,3)}:00`;
-                            else if (val.length === 4) res = `${val.substring(0,2)}:${val.substring(2,4)}:00`;
-                            else if (val.length === 5) res = `${val.substring(0,2)}:${val.substring(2,4)}:0${val.substring(4,5)}`;
-                            else if (val.length >= 6) res = `${val.substring(0,2)}:${val.substring(2,4)}:${val.substring(4,6)}`;
-                            handleTimePickerChange(index, 'in', res);
-                          }}
-                          style={{ margin: 0, width: '100%', boxSizing: 'border-box', textAlign: 'center' }}
-                        />
+                  <React.Fragment key={index}>
+                    {showBreakIndicator && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        fontSize: '0.8rem',
+                        color: 'var(--accent-cyan)',
+                        padding: '4px 12px',
+                        background: 'rgba(0, 240, 255, 0.05)',
+                        borderRadius: '999px',
+                        alignSelf: 'center',
+                        fontWeight: 600
+                      }}>
+                        <i className="fa-solid fa-mug-hot"></i>
+                        <span>Break: {prevInterval.out || '…'} &rarr; {interval.in || '…'}</span>
                       </div>
-
-                      {/* Check Out */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{secondLabel}</div>
-                        <input
-                          type="tel"
-                          placeholder="HH:MM:SS"
-                          className="bento-modal-card-input"
-                          value={interval.out || ''}
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/\D/g, '');
-                            let res = '';
-                            if (val.length > 0) res += val.substring(0, 2);
-                            if (val.length > 2) res += ':' + val.substring(2, 4);
-                            if (val.length > 4) res += ':' + val.substring(4, 6);
-                            handleTimePickerChange(index, 'out', res);
-                          }}
-                          onBlur={(e) => {
-                            const val = e.target.value.replace(/\D/g, '');
-                            if (!val) return;
-                            let res = '';
-                            if (val.length === 1) res = `0${val}:00:00`;
-                            else if (val.length === 2) res = `${val}:00:00`;
-                            else if (val.length === 3) res = `${val.substring(0,2)}:0${val.substring(2,3)}:00`;
-                            else if (val.length === 4) res = `${val.substring(0,2)}:${val.substring(2,4)}:00`;
-                            else if (val.length === 5) res = `${val.substring(0,2)}:${val.substring(2,4)}:0${val.substring(4,5)}`;
-                            else if (val.length >= 6) res = `${val.substring(0,2)}:${val.substring(2,4)}:${val.substring(4,6)}`;
-                            handleTimePickerChange(index, 'out', res);
-                          }}
-                          style={{ margin: 0, width: '100%', boxSizing: 'border-box', textAlign: 'center' }}
-                        />
-                      </div>
-                    </div>
-                    
-                    {editedEntry.intervals.length > 1 && (
-                      <button
-                        onClick={() => removeInterval(index)}
-                        style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '12px' }}
-                        title="Remove interval"
-                      >✕</button>
                     )}
-                  </div>
-                )
+                    <div className="bento-modal-card" style={{ padding: '16px', position: 'relative' }}>
+                      {editedEntry.intervals.length > 1 && (
+                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+                          {sessionTitle}
+                        </div>
+                      )}
+                      
+                      <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+                        {/* Check In */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{firstLabel}</div>
+                          <input
+                            type="tel"
+                            placeholder="HH:MM:SS"
+                            className="bento-modal-card-input"
+                            value={interval.in || ''}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              let res = '';
+                              if (val.length > 0) res += val.substring(0, 2);
+                              if (val.length > 2) res += ':' + val.substring(2, 4);
+                              if (val.length > 4) res += ':' + val.substring(4, 6);
+                              handleTimePickerChange(index, 'in', res);
+                            }}
+                            onBlur={(e) => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              if (!val) return;
+                              let res = '';
+                              if (val.length === 1) res = `0${val}:00:00`;
+                              else if (val.length === 2) res = `${val}:00:00`;
+                              else if (val.length === 3) res = `${val.substring(0,2)}:0${val.substring(2,3)}:00`;
+                              else if (val.length === 4) res = `${val.substring(0,2)}:${val.substring(2,4)}:00`;
+                              else if (val.length === 5) res = `${val.substring(0,2)}:${val.substring(2,4)}:0${val.substring(4,5)}`;
+                              else if (val.length >= 6) res = `${val.substring(0,2)}:${val.substring(2,4)}:${val.substring(4,6)}`;
+                              handleTimePickerChange(index, 'in', res);
+                            }}
+                            style={{ margin: 0, width: '100%', boxSizing: 'border-box', textAlign: 'center' }}
+                          />
+                        </div>
+
+                        {/* Check Out */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{secondLabel}</div>
+                          <input
+                            type="tel"
+                            placeholder="HH:MM:SS"
+                            className="bento-modal-card-input"
+                            value={interval.out || ''}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              let res = '';
+                              if (val.length > 0) res += val.substring(0, 2);
+                              if (val.length > 2) res += ':' + val.substring(2, 4);
+                              if (val.length > 4) res += ':' + val.substring(4, 6);
+                              handleTimePickerChange(index, 'out', res);
+                            }}
+                            onBlur={(e) => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              if (!val) return;
+                              let res = '';
+                              if (val.length === 1) res = `0${val}:00:00`;
+                              else if (val.length === 2) res = `${val}:00:00`;
+                              else if (val.length === 3) res = `${val.substring(0,2)}:0${val.substring(2,3)}:00`;
+                              else if (val.length === 4) res = `${val.substring(0,2)}:${val.substring(2,4)}:00`;
+                              else if (val.length === 5) res = `${val.substring(0,2)}:${val.substring(2,4)}:0${val.substring(4,5)}`;
+                              else if (val.length >= 6) res = `${val.substring(0,2)}:${val.substring(2,4)}:${val.substring(4,6)}`;
+                              handleTimePickerChange(index, 'out', res);
+                            }}
+                            style={{ margin: 0, width: '100%', boxSizing: 'border-box', textAlign: 'center' }}
+                          />
+                        </div>
+                      </div>
+                      
+                      {editedEntry.intervals.length > 1 && (
+                        <button
+                          onClick={() => removeInterval(index)}
+                          style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '12px' }}
+                          title="Remove interval"
+                        >✕</button>
+                      )}
+                    </div>
+                  </React.Fragment>
+                );
               })}
             </div>
             
