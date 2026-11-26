@@ -21,6 +21,8 @@ import { APP_ICONS, appIconHandoffUrl, getAppIcon, setAppIcon } from "../utils/a
 import {
   clearPendingTimeEntrySync,
   getPendingTimeEntrySyncStatus,
+  getPendingTimeEntryDeletesStatus,
+  markPendingTimeEntryDelete,
 } from "../utils/timeEntrySyncStatus";
 // Defined locally to avoid a cross-chunk named-export that fails in some bundler configurations.
 // Must match the string dispatched by timeEntrySyncStatus.js.
@@ -184,6 +186,8 @@ const getSyncStatusSnapshot = (currentUser, entries) => {
   const offlineStatus = offlineQueue.getStatus();
   const appSaveQueue = getStoredQueueLength("dbSaveQueue");
   const timeEntrySync = getPendingTimeEntrySyncStatus(currentUser?.id);
+  const timeEntryDeletes = getPendingTimeEntryDeletesStatus(currentUser?.id);
+  const combinedLocalPending = timeEntrySync.pending + timeEntryDeletes.pending;
 
   return {
     isOnline: navigator.onLine,
@@ -194,11 +198,14 @@ const getSyncStatusSnapshot = (currentUser, entries) => {
     backgroundQueue: Math.max(
       backgroundStatus.queueLength || 0,
       backgroundStatus.queueStatus?.pending || 0,
-      timeEntrySync.pending,
+      combinedLocalPending,
     ),
     appSaveQueue,
     offlineQueue: offlineStatus,
-    timeEntrySync,
+    timeEntrySync: {
+      ...timeEntrySync,
+      pending: combinedLocalPending,
+    },
     checkedAt: new Date(),
   };
 };
@@ -371,6 +378,8 @@ function Settings() {
     saveStatus,
     pendingConflicts,
     loadTimeEntriesData,
+    syncToCloud,
+    syncFromCloud,
     setEmployee,
     setLeaveSettings,
     clearAllData,
@@ -498,6 +507,7 @@ function Settings() {
   const [dangerUnlockError, setDangerUnlockError] = useState("");
   const [isUnlockingDanger, setIsUnlockingDanger] = useState(false);
   const [isSyncingNow, setIsSyncingNow] = useState(false);
+  const [syncDirectionBusy, setSyncDirectionBusy] = useState(null);
   const [isCheckingVersion, setIsCheckingVersion] = useState(false);
   const [versionCheckStatus, setVersionCheckStatus] = useState("");
   const [pendingUpdateRegistration, setPendingUpdateRegistration] =
@@ -559,9 +569,10 @@ function Settings() {
     }
   }, [reconcilePendingTimeEntries, refreshSyncStatus]);
 
-  const handleSyncNow = useCallback(async () => {
+  const handleSyncToCloud = useCallback(async () => {
     hapticFeedback.buttonClick();
     setIsSyncingNow(true);
+    setSyncDirectionBusy("push");
 
     try {
       if (!navigator.onLine) {
@@ -569,24 +580,74 @@ function Settings() {
         setNotifModal({
           isOpen: true,
           isError: false,
-          message: "You are offline. Pending changes will upload when the connection returns.",
+          message: "You are offline. Connect to the internet to sync to cloud.",
         });
         return;
       }
 
       const result = await withTimeout(
-        loadTimeEntriesData({
-          forceConflictCheck: true,
-          waitForCurrentSyncMs: 10000,
-        }),
+        syncToCloud({ waitForCurrentSyncMs: 10000 }),
         MANUAL_SYNC_TIMEOUT_MS,
-        "Sync took too long. Status has been refreshed; please try again.",
+        "Sync to cloud took too long. Status has been refreshed; please try again.",
       );
       if (!result?.success) {
         setNotifModal({
           isOpen: true,
           isError: result?.reason !== "already_loading",
-          message: result?.message || "Sync failed. Please try again.",
+          message: result?.message || "Sync to cloud failed. Please try again.",
+        });
+        return;
+      }
+
+      const entriesForStatus = result.mergedEntries || entries;
+      await reconcilePendingTimeEntries(entriesForStatus);
+      refreshSyncStatus(entriesForStatus);
+      if (!result.requiresResolution) {
+        setNotifModal({
+          isOpen: true,
+          isError: false,
+          message: result.message || "Synced to cloud.",
+        });
+      }
+    } catch (error) {
+      refreshSyncStatus();
+      setNotifModal({
+        isOpen: true,
+        isError: true,
+        message: error.message || "Sync to cloud failed. Please try again.",
+      });
+    } finally {
+      setIsSyncingNow(false);
+      setSyncDirectionBusy(null);
+    }
+  }, [entries, reconcilePendingTimeEntries, refreshSyncStatus, syncToCloud]);
+
+  const handleSyncFromCloud = useCallback(async () => {
+    hapticFeedback.buttonClick();
+    setIsSyncingNow(true);
+    setSyncDirectionBusy("pull");
+
+    try {
+      if (!navigator.onLine) {
+        refreshSyncStatus();
+        setNotifModal({
+          isOpen: true,
+          isError: false,
+          message: "You are offline. Connect to the internet to sync from cloud.",
+        });
+        return;
+      }
+
+      const result = await withTimeout(
+        syncFromCloud({ waitForCurrentSyncMs: 10000 }),
+        MANUAL_SYNC_TIMEOUT_MS,
+        "Sync from cloud took too long. Status has been refreshed; please try again.",
+      );
+      if (!result?.success) {
+        setNotifModal({
+          isOpen: true,
+          isError: result?.reason !== "already_loading",
+          message: result?.message || "Sync from cloud failed. Please try again.",
         });
         return;
       }
@@ -595,27 +656,25 @@ function Settings() {
       const entriesForStatus = result.mergedEntries || entries;
       await reconcilePendingTimeEntries(entriesForStatus);
       refreshSyncStatus(entriesForStatus);
-      setNotifModal({
-        isOpen: true,
-        isError: false,
-        message: result.message || "Sync completed.",
-      });
-    } catch (error) {
-      try {
-        await reconcilePendingTimeEntries();
-      } catch (reconcileError) {
-        console.warn("Pending time entry reconciliation failed:", reconcileError);
+      if (!result.requiresResolution) {
+        setNotifModal({
+          isOpen: true,
+          isError: false,
+          message: result.message || "Synced from cloud.",
+        });
       }
+    } catch (error) {
       refreshSyncStatus();
       setNotifModal({
         isOpen: true,
         isError: true,
-        message: error.message || "Sync failed. Please try again.",
+        message: error.message || "Sync from cloud failed. Please try again.",
       });
     } finally {
       setIsSyncingNow(false);
+      setSyncDirectionBusy(null);
     }
-  }, [entries, loadTimeEntriesData, reconcilePendingTimeEntries, refreshSyncStatus, setLastRefreshed]);
+  }, [entries, reconcilePendingTimeEntries, refreshSyncStatus, setLastRefreshed, syncFromCloud]);
 
   const handleCheckForAppUpdate = useCallback(async () => {
     hapticFeedback.buttonClick();
@@ -1762,9 +1821,15 @@ function Settings() {
         // Clear the data directly
         const pStart = currentPeriod.start_date || currentPeriod.start;
         const pEnd = currentPeriod.end_date || currentPeriod.end;
+        const removedEntries = entries.filter(
+          (e) => e.date >= pStart && e.date <= pEnd,
+        );
         const newEntries = entries.filter(
           (e) => e.date < pStart || e.date > pEnd,
         );
+        if (currentUser?.id && !currentUser.isLocalOnly && removedEntries.length > 0) {
+          markPendingTimeEntryDelete(currentUser.id, removedEntries);
+        }
         setEntries(newEntries);
         setConfirmModal({
           isOpen: true,
@@ -2447,11 +2512,18 @@ function Settings() {
                   <div className="bento-stat-cell"><span className="bento-stat-label">Pending Uploads</span><span className={`bento-stat-value ${syncStatus.backgroundQueue ? 'has-warning' : ''}`}>{syncStatus.backgroundQueue || 0}</span></div>
                   <div className="bento-stat-cell"><span className="bento-stat-label">Offline Changes</span><span className={`bento-stat-value ${(syncStatus.timeEntrySync?.pending || syncStatus.offlineQueue?.pending) ? 'has-warning' : ''}`}>{(syncStatus.timeEntrySync?.pending || 0) + (syncStatus.offlineQueue?.pending || 0)}</span></div>
                 </div>
-                <div className="spoke-row" style={{ borderTop: '1px solid var(--border-light)' }}>
+                <div className="spoke-row" style={{ borderTop: '1px solid var(--border-light)', flexWrap: 'wrap', gap: '10px' }}>
                   <span className="spoke-row-hint">Updated {syncStatus.checkedAt ? formatRelativeTime(new Date(syncStatus.checkedAt)) : '—'}</span>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <button type="button" onClick={handleRefreshSyncStatus} style={{ padding: '6px 12px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 600, background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-light)', cursor: 'pointer' }}>Refresh</button>
-                    <button type="button" onClick={handleSyncNow} disabled={isSyncingNow} style={{ padding: '6px 12px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 600, background: 'rgba(0,240,255,0.12)', color: 'var(--accent-cyan)', border: '1px solid rgba(0,240,255,0.25)', cursor: 'pointer', opacity: isSyncingNow ? 0.5 : 1 }}>{isSyncingNow ? 'Syncing…' : 'Sync Now'}</button>
+                    <button type="button" onClick={handleSyncToCloud} disabled={isSyncingNow} style={{ padding: '6px 12px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 600, background: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', cursor: 'pointer', opacity: isSyncingNow ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <i className="fa-solid fa-cloud-arrow-up" />
+                      {syncDirectionBusy === 'push' ? 'Uploading…' : 'Sync to Cloud'}
+                    </button>
+                    <button type="button" onClick={handleSyncFromCloud} disabled={isSyncingNow} style={{ padding: '6px 12px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 600, background: 'rgba(0,240,255,0.12)', color: 'var(--accent-cyan)', border: '1px solid rgba(0,240,255,0.25)', cursor: 'pointer', opacity: isSyncingNow ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <i className="fa-solid fa-cloud-arrow-down" />
+                      {syncDirectionBusy === 'pull' ? 'Pulling…' : 'Sync from Cloud'}
+                    </button>
                   </div>
                 </div>
               </div>

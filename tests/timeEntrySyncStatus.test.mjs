@@ -2,12 +2,17 @@ import assert from 'node:assert/strict';
 import { beforeEach, test } from 'node:test';
 
 import {
+  clearPendingTimeEntryDeletes,
   clearPendingTimeEntrySync,
   getInferredPendingTimeEntries,
+  getPendingTimeEntryDeletesKey,
+  getPendingTimeEntryDeletesStatus,
   getPendingTimeEntrySyncKey,
   getPendingTimeEntrySyncStatus,
+  markPendingTimeEntryDelete,
   markPendingTimeEntrySync,
-  mergePendingTimeEntrySync
+  mergePendingTimeEntrySync,
+  readPendingTimeEntryDeletes
 } from '../src/utils/timeEntrySyncStatus.js';
 
 class MemoryStorage {
@@ -96,4 +101,21 @@ test('marks and clears pending time entry sync dates', () => {
 
   assert.equal(getPendingTimeEntrySyncStatus('user-1').pending, 0);
   assert.equal(localStorage.getItem(getPendingTimeEntrySyncKey('user-1')), null);
+});
+
+test('marks, reads, and clears pending time entry deletes while clearing pending sync', () => {
+  markPendingTimeEntrySync('user-1', { date: '2026-06-17' }, 'offline');
+  markPendingTimeEntryDelete('user-1', { date: '2026-06-17', id: 'cloud-17' });
+
+  assert.equal(getPendingTimeEntrySyncStatus('user-1').pending, 0);
+  const status = getPendingTimeEntryDeletesStatus('user-1');
+  assert.equal(status.pending, 1);
+  assert.deepEqual(status.dates, ['2026-06-17']);
+  assert.equal(readPendingTimeEntryDeletes('user-1')[0].id, 'cloud-17');
+  assert.ok(localStorage.getItem(getPendingTimeEntryDeletesKey('user-1')));
+
+  clearPendingTimeEntryDeletes('user-1', '2026-06-17');
+
+  assert.equal(getPendingTimeEntryDeletesStatus('user-1').pending, 0);
+  assert.equal(localStorage.getItem(getPendingTimeEntryDeletesKey('user-1')), null);
 });

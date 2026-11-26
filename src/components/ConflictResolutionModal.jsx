@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useRef } from 'react';
 import ModalShell from './ModalShell';
 import '../styles/conflict-resolution-modal.css';
 
-const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
+const ConflictResolutionModal = ({ conflicts, onResolve, onClose, syncDirection = null }) => {
   const [resolutions, setResolutions] = useState({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showBulkControls, setShowBulkControls] = useState(false);
@@ -130,11 +130,34 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
   };
 
   const getEntryDetails = (entry) => {
+    if (entry?._isDeleted) {
+      return {
+        type: 'Deleted locally',
+        checkIn: null,
+        checkOut: null,
+        duration: 'Deleted',
+        notes: entry?.notes?.trim?.() || 'Removed on this device',
+      };
+    }
+
+    if (entry?._isMissingRemote) {
+      return {
+        type: 'Not in cloud',
+        checkIn: null,
+        checkOut: null,
+        duration: 'Not in cloud',
+        notes: entry?.notes?.trim?.() || 'Deleted or missing in cloud',
+      };
+    }
+
     const intervals = Array.isArray(entry?.intervals) ? entry.intervals : [];
     const firstInterval = intervals[0] || null;
     const lastInterval = intervals.length > 0 ? intervals[intervals.length - 1] : null;
+    const baseType = entry?.type || 'Regular';
+    const typeLabel = entry?.duration === 0.5 ? `${baseType} (0.5d)` : baseType;
 
     return {
+      type: typeLabel,
       checkIn: firstInterval?.in || null,
       checkOut: lastInterval?.out || null,
       duration: formatDuration(entry),
@@ -146,7 +169,22 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
     const localDetails = getEntryDetails(localEntry);
     const remoteDetails = getEntryDetails(remoteEntry);
 
-    return [
+    const rows = [];
+
+    if (
+      localDetails.type !== remoteDetails.type ||
+      localEntry?._isDeleted ||
+      remoteEntry?._isMissingRemote
+    ) {
+      rows.push({
+        key: 'type',
+        label: 'Type',
+        localValue: localDetails.type,
+        remoteValue: remoteDetails.type,
+      });
+    }
+
+    rows.push(
       {
         key: 'checkIn',
         label: 'Check-in',
@@ -168,10 +206,12 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
       {
         key: 'notes',
         label: 'Notes',
-        localValue: localDetails.notes || 'â€”',
-        remoteValue: remoteDetails.notes || 'â€”',
+        localValue: localDetails.notes || '—',
+        remoteValue: remoteDetails.notes || '—',
       },
-    ].map((row) => ({
+    );
+
+    return rows.map((row) => ({
       ...row,
       differs: row.localValue !== row.remoteValue,
     }));
@@ -261,10 +301,16 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
       <div className="conflict-modal-content bento-modal-card">
         <div className="conflict-header">
           <div>
-            <h2>Sync Conflicts Found</h2>
+            <h2>
+              {syncDirection === 'push'
+                ? 'Sync to Cloud · Conflicts Found'
+                : syncDirection === 'pull'
+                  ? 'Sync from Cloud · Conflicts Found'
+                  : 'Sync Conflicts Found'}
+            </h2>
             <span className="conflict-count">{modalCountLabel}</span>
             <span className="conflict-progress">
-              {resolvedCount} of {conflicts.length} selected
+              {resolvedCount} of {activeConflicts.length} selected
             </span>
           </div>
 
@@ -311,7 +357,7 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
 
             <div className="conflict-columns">
               <div className={`conflict-column ${currentChoice === 'local' ? 'selected' : ''}`}>
-                <div className="column-header">Your Offline Edit</div>
+                <div className="column-header">Your Device</div>
 
                 <div className="column-content">
                   {displayRows.map((row) => (
@@ -337,7 +383,7 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose }) => {
               </div>
 
               <div className={`conflict-column ${currentChoice === 'remote' ? 'selected' : ''}`}>
-                <div className="column-header">Online Version</div>
+                <div className="column-header">Cloud Version</div>
 
                 <div className="column-content">
                   {displayRows.map((row) => (

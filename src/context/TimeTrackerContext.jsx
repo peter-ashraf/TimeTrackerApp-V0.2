@@ -22,6 +22,11 @@ import {
   setSimpleEncryptedItem,
   getSimpleEncryptedItem,
 } from "../utils/simple-encryption";
+import {
+  clearPendingTimeEntrySync,
+  clearPendingTimeEntryDeletes,
+  markPendingTimeEntryDelete,
+} from "../utils/timeEntrySyncStatus";
 import { hasWorkedTimes, isWorkedDay } from "../utils/entryType";
 import {
   calculateHoursWorkedFromIntervals,
@@ -789,6 +794,8 @@ export const TimeTrackerProvider = ({ children }) => {
                         currentEntries.filter((e) => e.date !== date),
                         currentUser.username,
                       );
+                      clearPendingTimeEntrySync(currentUser.id, date);
+                      clearPendingTimeEntryDeletes(currentUser.id, date);
 
                       deleteSuccess = true;
                       break;
@@ -911,6 +918,9 @@ export const TimeTrackerProvider = ({ children }) => {
                   currentEntries.filter((e) => e.date !== date),
                   currentUser.username,
                 );
+                if (!currentUser.isLocalOnly) {
+                  markPendingTimeEntryDelete(currentUser.id, entryToDelete || { date });
+                }
               }
 
               if (!currentUser) {
@@ -980,6 +990,35 @@ export const TimeTrackerProvider = ({ children }) => {
     };
   }, []);
 
+  const syncToCloud = useCallback(
+    async (options = {}) => {
+      const entryResult = await timeEntryContext.syncEntriesToCloud(options);
+      if (entryResult?.success && !entryResult?.requiresResolution) {
+        await Promise.allSettled([
+          payPeriodContext.syncPeriodsToCloud?.(),
+          userPreferencesContext.pushPreferencesToCloud?.(),
+        ]);
+        timeEntryContext.setLastSaved?.(new Date().toISOString());
+      }
+      return entryResult;
+    },
+    [timeEntryContext, payPeriodContext, userPreferencesContext],
+  );
+
+  const syncFromCloud = useCallback(
+    async (options = {}) => {
+      const entryResult = await timeEntryContext.syncEntriesFromCloud(options);
+      if (entryResult?.success && !entryResult?.requiresResolution) {
+        await Promise.allSettled([
+          payPeriodContext.pullPeriodsFromCloud?.(),
+          userPreferencesContext.pullPreferencesFromCloud?.(),
+        ]);
+      }
+      return entryResult;
+    },
+    [timeEntryContext, payPeriodContext, userPreferencesContext],
+  );
+
   const contextValue = useMemo(
     () => ({
       ...timeEntryContext,
@@ -989,6 +1028,8 @@ export const TimeTrackerProvider = ({ children }) => {
       checkOut,
       updateEntry,
       deleteEntry,
+      syncToCloud,
+      syncFromCloud,
       calculateOvertimeDetails,
       calculateHoursWorked,
       calculateHoursSpentOutside,
@@ -1020,6 +1061,8 @@ export const TimeTrackerProvider = ({ children }) => {
       checkOut,
       updateEntry,
       deleteEntry,
+      syncToCloud,
+      syncFromCloud,
       calculateOvertimeDetails,
       calculateHoursWorked,
       calculateHoursSpentOutside,

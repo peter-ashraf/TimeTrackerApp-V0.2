@@ -146,6 +146,13 @@ export const UserPreferencesProvider = ({ children }) => {
   });
 
   const isInitialSyncCompleted = useRef(false);
+  const isPullingPreferencesRef = useRef(false);
+  const employeeRef = useRef(employee);
+  const leaveSettingsRef = useRef(leaveSettings);
+  const reminderSettingsRef = useRef(reminderSettings);
+  employeeRef.current = employee;
+  leaveSettingsRef.current = leaveSettings;
+  reminderSettingsRef.current = reminderSettings;
 
   // Load user preferences
   const loadUserPreferences = useCallback(async () => {
@@ -423,7 +430,7 @@ export const UserPreferencesProvider = ({ children }) => {
 
   // Save employee data
   useEffect(() => {
-    if (!currentUser || !isInitialSyncCompleted.current) return;
+    if (!currentUser || !isInitialSyncCompleted.current || isPullingPreferencesRef.current) return;
 
     const saveEmployeeData = async () => {
       // Save salary to encrypted localStorage immediately
@@ -453,7 +460,7 @@ export const UserPreferencesProvider = ({ children }) => {
 
   // Save leave settings
   useEffect(() => {
-    if (!currentUser || !isInitialSyncCompleted.current) return;
+    if (!currentUser || !isInitialSyncCompleted.current || isPullingPreferencesRef.current) return;
 
     const saveLeaveSettingsData = async () => {
       const normalizedLeaveSettings = normalizeLeaveSettings(leaveSettings);
@@ -507,7 +514,7 @@ export const UserPreferencesProvider = ({ children }) => {
 
   // Save reminder settings
   useEffect(() => {
-    if (!currentUser || !isInitialSyncCompleted.current) return;
+    if (!currentUser || !isInitialSyncCompleted.current || isPullingPreferencesRef.current) return;
 
     const saveReminderSettingsData = async () => {
       const timezone =
@@ -618,6 +625,115 @@ export const UserPreferencesProvider = ({ children }) => {
     }
   }, [currentUser, isAuthenticated, loadUserPreferences]);
 
+  const pushPreferencesToCloud = useCallback(async () => {
+    if (!currentUser || currentUser.isLocalOnly || !navigator.onLine) {
+      return { success: false, reason: "unavailable" };
+    }
+    const emp = employeeRef.current;
+    const leave = normalizeLeaveSettings(leaveSettingsRef.current);
+    const rem = reminderSettingsRef.current;
+
+    try {
+      await Promise.all([
+        supabaseData.saveUserProfile(currentUser.id, {
+          full_name: emp.name || undefined,
+          employee_type: emp.employeeType,
+          daily_hours: emp.dailyHours,
+          monthly_hours: emp.monthlyHours,
+          work_days_per_week: emp.workDaysPerWeek,
+          break_start_time: emp.breakStartTime,
+        }),
+        supabaseData.saveLeaveSettings(currentUser.id, {
+          annual_vacation: leave.annualVacation,
+          sick_days: leave.sickDays,
+          personal_days: leave.personalDays,
+          used_vacation_days: leave.usedVacationDays,
+          used_sick_days: leave.usedSickDays,
+          used_personal_days: leave.usedPersonalDays,
+        }),
+        supabaseData.saveReminderPreferences(currentUser.id, {
+          enabled: rem.enabled,
+          start_time: normalizeReminderTime(rem.startTime),
+          reminder_count: rem.reminderCount,
+          interval_minutes: rem.intervalMinutes,
+          timezone: rem.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+        }),
+      ]);
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to push preferences to cloud:", error);
+      return { success: false, error };
+    }
+  }, [currentUser]);
+
+  const pullPreferencesFromCloud = useCallback(async () => {
+    if (!currentUser || currentUser.isLocalOnly || !navigator.onLine) {
+      return { success: false, reason: "unavailable" };
+    }
+
+    isPullingPreferencesRef.current = true;
+    try {
+      const [profileData, leaveSettingsData, reminderData] = await Promise.all([
+        supabaseData.getUserProfile(currentUser.id),
+        supabaseData.getLeaveSettings(currentUser.id),
+        supabaseData.getReminderPreferences(currentUser.id),
+      ]);
+
+      if (profileData) {
+        if (profileData.full_name) {
+          localStorage.setItem("userDisplayName", profileData.full_name);
+        }
+        setEmployee((prev) => ({
+          ...prev,
+          name: profileData.full_name ?? prev.name,
+          employeeType: profileData.employee_type ?? prev.employeeType,
+          dailyHours: profileData.daily_hours ?? prev.dailyHours,
+          monthlyHours: profileData.monthly_hours ?? prev.monthlyHours,
+          workDaysPerWeek: profileData.work_days_per_week ?? prev.workDaysPerWeek,
+          breakStartTime: profileData.break_start_time ?? prev.breakStartTime,
+        }));
+      }
+
+      if (leaveSettingsData) {
+        const normalizedCloud = normalizeLeaveSettings(leaveSettingsData);
+        const leaveKey = `leaveSettings_${currentUser.id}`;
+        setLeaveSettings(normalizedCloud);
+        setSimpleEncryptedItem(leaveKey, normalizedCloud, currentUser.username);
+        localStorage.setItem(
+          getLeaveSettingsUpdatedAtKey(currentUser.id),
+          String(getTimestampMs(leaveSettingsData.updated_at) || Date.now()),
+        );
+        try {
+          cacheManager.setCachedData(leaveKey, normalizedCloud);
+        } catch (_) { /* ignore */ }
+      }
+
+      if (reminderData) {
+        const pulledReminder = {
+          enabled: reminderData.enabled ?? false,
+          startTime: normalizeReminderTime(reminderData.start_time),
+          reminderCount: reminderData.reminder_count ?? 3,
+          intervalMinutes: reminderData.interval_minutes ?? 15,
+          timezone: reminderData.timezone ?? (Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"),
+        };
+        setReminderSettings(pulledReminder);
+        setSimpleEncryptedItem(`reminderSettings_${currentUser.id}`, pulledReminder, currentUser.username);
+        try {
+          cacheManager.setCachedData("reminderSettings", pulledReminder);
+        } catch (_) { /* ignore */ }
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to pull preferences from cloud:", error);
+      return { success: false, error };
+    } finally {
+      setTimeout(() => {
+        isPullingPreferencesRef.current = false;
+      }, 0);
+    }
+  }, [currentUser]);
+
   const contextValue = {
     // Employee data
     employee,
@@ -644,6 +760,8 @@ export const UserPreferencesProvider = ({ children }) => {
 
     // Data operations
     loadUserPreferences,
+    pushPreferencesToCloud,
+    pullPreferencesFromCloud,
   };
 
   return (

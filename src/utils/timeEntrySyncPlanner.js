@@ -174,3 +174,192 @@ export const buildTimeEntrySyncPlan = ({ localEntries = [], remoteEntries = [] }
     pulledCount,
   };
 };
+
+const buildDeleteMap = (pendingDeletes = [], localMap = new Map()) => {
+  const deleteMap = new Map();
+  (pendingDeletes || []).forEach((item) => {
+    const date = normalizeDateKey(typeof item === "string" ? item : item?.date);
+    if (!date || localMap.has(date)) return;
+    deleteMap.set(date, typeof item === "string" ? { date, id: null, deletedAt: null } : { ...item, date });
+  });
+  return deleteMap;
+};
+
+/**
+ * Plan a Sync to Cloud (Push) operation.
+ * Never overwrites divergent cloud entries or deletes cloud records modified after local deletion.
+ */
+export const buildPushTimeEntryPlan = ({
+  localEntries = [],
+  remoteEntries = [],
+  pendingDeletes = [],
+}) => {
+  const localMap = new Map(localEntries.map((entry) => [normalizeDateKey(entry.date), entry]));
+  const remoteMap = new Map(
+    remoteEntries.map((entry) => [normalizeDateKey(entry.date), normalizeRemoteEntry(entry)]),
+  );
+  const deleteMap = buildDeleteMap(pendingDeletes, localMap);
+
+  const finalEntries = [];
+  const entriesToUpload = [];
+  const entriesToDeleteFromCloud = [];
+  const resolvedDeleteDates = [];
+  const conflicts = [];
+  let alreadySyncedCount = 0;
+  let remoteOnlyCount = 0;
+
+  for (const [date, localEntry] of localMap) {
+    const remoteEntry = remoteMap.get(date);
+    if (!remoteEntry) {
+      finalEntries.push(localEntry);
+      entriesToUpload.push(localEntry);
+    } else if (timeEntriesAreDifferent(localEntry, remoteEntry)) {
+      conflicts.push({
+        entryId: remoteEntry.id || localEntry.id || date,
+        date,
+        localEntry,
+        remoteEntry,
+      });
+    } else {
+      finalEntries.push({
+        ...localEntry,
+        id: remoteEntry.id,
+      });
+      alreadySyncedCount += 1;
+    }
+  }
+
+  for (const [date, deleteItem] of deleteMap) {
+    const remoteEntry = remoteMap.get(date);
+    if (!remoteEntry) {
+      resolvedDeleteDates.push(date);
+      continue;
+    }
+
+    const remoteTime = new Date(remoteEntry.updated_at || remoteEntry.lastModified || 0).getTime();
+    const deletedAtTime = new Date(deleteItem.deletedAt || 0).getTime();
+
+    if (deletedAtTime > 0 && remoteTime > deletedAtTime + 1000) {
+      conflicts.push({
+        entryId: remoteEntry.id || date,
+        date,
+        localEntry: {
+          date,
+          intervals: [],
+          type: "Deleted",
+          notes: "(Deleted locally)",
+          _isDeleted: true,
+        },
+        remoteEntry,
+      });
+    } else {
+      entriesToDeleteFromCloud.push(remoteEntry);
+    }
+  }
+
+  for (const date of remoteMap.keys()) {
+    if (!localMap.has(date) && !deleteMap.has(date)) {
+      remoteOnlyCount += 1;
+    }
+  }
+
+  return {
+    finalEntries,
+    entriesToUpload,
+    entriesToDeleteFromCloud,
+    resolvedDeleteDates,
+    conflicts,
+    alreadySyncedCount,
+    remoteOnlyCount,
+  };
+};
+
+/**
+ * Plan a Sync from Cloud (Pull) operation.
+ * Preserves unuploaded local-only entries and triggers conflicts whenever local data diverges.
+ */
+export const buildPullTimeEntryPlan = ({
+  localEntries = [],
+  remoteEntries = [],
+  pendingSyncDates = [],
+  pendingDeletes = [],
+}) => {
+  const localMap = new Map(localEntries.map((entry) => [normalizeDateKey(entry.date), entry]));
+  const remoteMap = new Map(
+    remoteEntries.map((entry) => [normalizeDateKey(entry.date), normalizeRemoteEntry(entry)]),
+  );
+  const pendingSet = new Set((pendingSyncDates || []).map(normalizeDateKey).filter(Boolean));
+  const deleteMap = buildDeleteMap(pendingDeletes, localMap);
+
+  const finalEntries = [];
+  const conflicts = [];
+  let pulledCount = 0;
+  let preservedLocalCount = 0;
+
+  for (const [date, remoteEntry] of remoteMap) {
+    const localEntry = localMap.get(date);
+
+    if (!localEntry) {
+      if (deleteMap.has(date)) {
+        conflicts.push({
+          entryId: remoteEntry.id || date,
+          date,
+          localEntry: {
+            date,
+            intervals: [],
+            type: "Deleted",
+            notes: "(Deleted locally)",
+            _isDeleted: true,
+          },
+          remoteEntry,
+        });
+      } else {
+        finalEntries.push(remoteEntry);
+        pulledCount += 1;
+      }
+    } else if (timeEntriesAreDifferent(localEntry, remoteEntry)) {
+      conflicts.push({
+        entryId: remoteEntry.id || localEntry.id || date,
+        date,
+        localEntry,
+        remoteEntry,
+      });
+    } else {
+      finalEntries.push({
+        ...localEntry,
+        ...remoteEntry,
+        id: remoteEntry.id,
+      });
+    }
+  }
+
+  for (const [date, localEntry] of localMap) {
+    if (!remoteMap.has(date)) {
+      if (!localEntry.id || pendingSet.has(date)) {
+        finalEntries.push(localEntry);
+        preservedLocalCount += 1;
+      } else {
+        conflicts.push({
+          entryId: localEntry.id || date,
+          date,
+          localEntry,
+          remoteEntry: {
+            id: null,
+            date,
+            intervals: [],
+            type: "Deleted",
+            notes: "(Not in cloud)",
+            _isMissingRemote: true,
+          },
+        });
+      }
+    }
+  }
+
+  return {
+    finalEntries,
+    conflicts,
+    pulledCount,
+    preservedLocalCount,
+  };
+};

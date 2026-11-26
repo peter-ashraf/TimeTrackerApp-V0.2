@@ -108,64 +108,78 @@ export const PayPeriodProvider = ({ children }) => {
 
       // Defer Supabase sync
       setTimeout(async () => {
-        if (navigator.onLine && currentUser && !currentUser.isLocalOnly) {
-          try {
-            let [periodsData, currentPeriodData] = await Promise.all([
-              supabaseData.getPayPeriods(currentUser.id).catch(err => {
-                if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
-                  console.warn('Session expired during pay periods fetch in PayPeriodContext');
-                  return [];
-                }
-                throw err;
-              }),
-              supabaseData.getCurrentPayPeriod(currentUser.id).catch(err => {
-                if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
-                  console.warn('Session expired during current pay period fetch in PayPeriodContext');
-                  return null;
-                }
-                throw err;
-              })
-            ]);
-
-            // Merge instead of replace: keep local periods not yet in the cloud, honour
-            // pending deletes, and keep local versions of edited-but-unsynced periods.
-            const cloudList = (periodsData || []).filter(p => !pendingDeletesRef.current.has(String(p.id)));
-            const unsyncedLocal = (localPeriods || []).filter(p => !isCloudId(p.id));
-            periodsData = cloudList.map(cp => {
-              if (dirtyPeriodIdsRef.current.has(String(cp.id))) {
-                const lp = (localPeriods || []).find(p => String(p.id) === String(cp.id));
-                return lp ? { ...cp, ...lp } : cp;
-              }
-              return cp;
-            }).concat(unsyncedLocal);
-
-            if (periodsData && periodsData.length > 0) {
-              let selectedId = localCurrentPeriodId;
-              if (currentPeriodData) {
-                const pId = currentPeriodData.id || currentPeriodData;
-                if (pId && pId !== 'undefined' && pId !== 'null') {
-                  selectedId = pId;
-                }
-              }
-
-              const normalizedPeriodsData = normalizeCurrentFlags(periodsData, selectedId);
-              setPeriods(normalizedPeriodsData);
-
-              if (selectedId && selectedId !== 'undefined' && selectedId !== 'null') {
-                setCurrentPeriodId(selectedId);
-                persistCurrentPeriodId(selectedId, normalizedPeriodsData);
-              }
-            }
-          } catch (onlineError) {
-            console.error('Failed to fetch pay periods from Supabase, staying with local data', onlineError);
-          }
-        }
+        await pullPeriodsFromCloudInternal(localPeriods, localCurrentPeriodId);
       }, 400);
       
     } catch (error) {
       console.error('loadPayPeriodsData critical error:', error);
     }
   }, [currentUser, isAuthenticated, normalizeCurrentFlags, persistCurrentPeriodId]);
+
+  const pullPeriodsFromCloudInternal = useCallback(async (localPeriodsOverride = null, localCurrentOverride = null) => {
+    if (!navigator.onLine || !currentUser || currentUser.isLocalOnly) {
+      return { success: false, reason: 'unavailable' };
+    }
+
+    const periodsKey = `payPeriods_${currentUser.id}`;
+    const currentPeriodIdKey = `currentPeriodId_${currentUser.id}`;
+    const localPeriods = localPeriodsOverride ?? periodsRef.current ?? getSimpleEncryptedItem(periodsKey, currentUser.username) ?? [];
+    const localCurrentPeriodId = localCurrentOverride ?? currentPeriodId ?? localStorage.getItem(currentPeriodIdKey);
+
+    try {
+      let [periodsData, currentPeriodData] = await Promise.all([
+        supabaseData.getPayPeriods(currentUser.id).catch(err => {
+          if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+            console.warn('Session expired during pay periods fetch in PayPeriodContext');
+            return [];
+          }
+          throw err;
+        }),
+        supabaseData.getCurrentPayPeriod(currentUser.id).catch(err => {
+          if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+            console.warn('Session expired during current pay period fetch in PayPeriodContext');
+            return null;
+          }
+          throw err;
+        })
+      ]);
+
+      // Merge instead of replace: keep local periods not yet in the cloud, honour
+      // pending deletes, and keep local versions of edited-but-unsynced periods.
+      const cloudList = (periodsData || []).filter(p => !pendingDeletesRef.current.has(String(p.id)));
+      const unsyncedLocal = (localPeriods || []).filter(p => !isCloudId(p.id));
+      periodsData = cloudList.map(cp => {
+        if (dirtyPeriodIdsRef.current.has(String(cp.id))) {
+          const lp = (localPeriods || []).find(p => String(p.id) === String(cp.id));
+          return lp ? { ...cp, ...lp } : cp;
+        }
+        return cp;
+      }).concat(unsyncedLocal);
+
+      if (periodsData && periodsData.length > 0) {
+        let selectedId = localCurrentPeriodId;
+        if (currentPeriodData) {
+          const pId = currentPeriodData.id || currentPeriodData;
+          if (pId && pId !== 'undefined' && pId !== 'null') {
+            selectedId = pId;
+          }
+        }
+
+        const normalizedPeriodsData = normalizeCurrentFlags(periodsData, selectedId);
+        setPeriods(normalizedPeriodsData);
+
+        if (selectedId && selectedId !== 'undefined' && selectedId !== 'null') {
+          setCurrentPeriodId(selectedId);
+          persistCurrentPeriodId(selectedId, normalizedPeriodsData);
+        }
+      }
+
+      return { success: true, count: periodsData?.length || 0 };
+    } catch (onlineError) {
+      console.error('Failed to fetch pay periods from Supabase, staying with local data', onlineError);
+      return { success: false, error: onlineError };
+    }
+  }, [currentUser, currentPeriodId, normalizeCurrentFlags, persistCurrentPeriodId]);
 
   // Persist dirty ids + pending deletes so a reload/crash doesn't lose queued cloud work
   const pendingKey = currentUser ? `payPeriodsPending_${currentUser.id}` : null;
@@ -446,6 +460,7 @@ export const PayPeriodProvider = ({ children }) => {
     markPeriodDirty,
     deletePeriod,
     syncPeriodsToCloud,
+    pullPeriodsFromCloud: () => pullPeriodsFromCloudInternal(),
 
     // Refresh key for component updates
     refreshKey: refreshKeyRef.current

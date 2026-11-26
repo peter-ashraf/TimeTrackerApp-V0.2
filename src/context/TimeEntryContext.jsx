@@ -7,11 +7,16 @@ import { multiTabSync } from '../utils/multiTabSync';
 import { cacheManager } from '../utils/cacheManager';
 import {
   clearPendingTimeEntrySync,
-  markPendingTimeEntrySync
+  clearPendingTimeEntryDeletes,
+  getPendingTimeEntrySyncStatus,
+  markPendingTimeEntrySync,
+  readPendingTimeEntryDeletes,
 } from '../utils/timeEntrySyncStatus';
 import { syncTimeEntryToCloud } from '../utils/timeEntrySyncManager';
 import {
   buildTimeEntrySyncPlan,
+  buildPushTimeEntryPlan,
+  buildPullTimeEntryPlan,
   normalizeDateKey as normalizeSyncDateKey,
 } from '../utils/timeEntrySyncPlanner';
 
@@ -37,6 +42,7 @@ export const TimeEntryProvider = ({ children }) => {
   const [pendingConflicts, setPendingConflicts] = useState([]);
   const [conflictResolver, setConflictResolver] = useState(null);
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
+  const [syncDirection, setSyncDirection] = useState(null);
 
   // Refs to track state
   const isRefreshingRef = useRef(false);
@@ -89,6 +95,7 @@ export const TimeEntryProvider = ({ children }) => {
     const attemptSave = async () => {
       try {
         // Always save to local storage first as backup
+        clearPendingTimeEntryDeletes(currentUser.id, entriesToSave);
         const entriesKey = `timeEntries_${currentUser.id}`;
         let finalEntries;
         if (Array.isArray(entriesToSave)) {
@@ -431,19 +438,39 @@ export const TimeEntryProvider = ({ children }) => {
 
         // Batch both state updates together so the modal never sees an empty
         // conflicts array on the first render (race condition fix).
+        setSyncDirection(null);
         setPendingConflicts(conflicts);
-        setConflictResolver(() => (resolutions) => {
-          const resolutionMap = new Map(resolutions.map(r => [r.entryId || r.date, r.chosenEntry]));
-          const mergedEntries = [...finalEntries];
+        setConflictResolver(() => async (resolutions) => {
+          const resolutionMap = new Map(resolutions.map(r => [r.entryId || r.date, r]));
+          let mergedEntries = [...finalEntries];
+
+          const localEntriesToUpload = [...entriesToUpload];
+          const remoteEntriesToDelete = [];
+          const datesToClearSync = [];
+          const datesToClearDelete = [];
 
           conflicts.forEach(conflict => {
-            const chosen = resolutionMap.get(conflict.entryId || conflict.date);
-            if (chosen) {
-              const existingIndex = mergedEntries.findIndex(e => normalizeDateKey(e.date) === conflict.date);
-              if (existingIndex >= 0) {
-                mergedEntries[existingIndex] = chosen;
+            const resolution = resolutionMap.get(conflict.entryId || conflict.date);
+            if (!resolution) return;
+            const { choice, chosenEntry } = resolution;
+
+            mergedEntries = mergedEntries.filter(e => normalizeDateKey(e.date) !== conflict.date);
+
+            if (chosenEntry?._isDeleted || chosenEntry?._isMissingRemote) {
+              if (choice === 'local' && conflict.localEntry?._isDeleted && conflict.remoteEntry?.id) {
+                remoteEntriesToDelete.push(conflict.remoteEntry);
               } else {
-                mergedEntries.push(chosen);
+                datesToClearDelete.push(conflict.date);
+                datesToClearSync.push(conflict.date);
+              }
+            } else if (chosenEntry) {
+              mergedEntries.push(chosenEntry);
+              if (choice === 'local') {
+                localEntriesToUpload.push(chosenEntry);
+                datesToClearDelete.push(conflict.date);
+              } else {
+                datesToClearSync.push(conflict.date);
+                datesToClearDelete.push(conflict.date);
               }
             }
           });
@@ -452,16 +479,36 @@ export const TimeEntryProvider = ({ children }) => {
           setEntries(finalMerged);
           persistEntriesSnapshot(finalMerged);
 
-          const toUpload = resolutions.filter(r => r.chosenEntry === r.localEntry);
-          if (toUpload.length > 0) {
-            uploadLocalEntries(toUpload.map(resolution => resolution.chosenEntry)).catch(err => {
+          setPendingConflicts([]);
+          setConflictResolver(null);
+          setSyncDirection(null);
+          setIsConflictModalOpen(false);
+
+          if (datesToClearSync.length > 0) {
+            clearPendingTimeEntrySync(currentUser.id, datesToClearSync);
+          }
+          if (datesToClearDelete.length > 0) {
+            clearPendingTimeEntryDeletes(currentUser.id, datesToClearDelete);
+          }
+
+          if (remoteEntriesToDelete.length > 0) {
+            await Promise.all(remoteEntriesToDelete.map(async (entry) => {
+              const delRes = await supabaseData.deleteTimeEntry({
+                id: entry.id,
+                userId: currentUser.id,
+                date: entry.date,
+              });
+              if (delRes?.success) {
+                clearPendingTimeEntryDeletes(currentUser.id, entry.date);
+              }
+            }));
+          }
+
+          if (localEntriesToUpload.length > 0) {
+            uploadLocalEntries(localEntriesToUpload).catch(err => {
               console.error('[Sync] Error uploading user-chosen entries:', err);
             });
           }
-
-          setPendingConflicts([]);
-          setConflictResolver(null);
-          setIsConflictModalOpen(false);
         });
         // Open the modal AFTER setting conflicts and resolver so the modal
         // always has a populated conflicts array on its first render.
@@ -521,6 +568,416 @@ export const TimeEntryProvider = ({ children }) => {
         reason: 'cloud_fetch_failed',
         error,
         message: error.message || 'Failed to fetch cloud entries.'
+      };
+    } finally {
+      isLoadingRef.current = false;
+      loadStartedAtRef.current = null;
+    }
+  }, [currentUser, isAuthenticated, normalizeDateKey]);
+
+  // Explicit Push: Sync local entries & pending deletes to cloud, triggering ConflictResolutionModal on divergence
+  const syncEntriesToCloud = useCallback(async (options = {}) => {
+    const fetchTimeoutMs = options?.fetchTimeoutMs ?? 30000;
+    const waitForCurrentSyncMs = options?.waitForCurrentSyncMs ?? 10000;
+    const staleLoadMs = Math.max(fetchTimeoutMs + 15000, 45000);
+
+    if (!currentUser || !isAuthenticated) {
+      return { success: false, reason: 'not_authenticated', message: 'You are not signed in.' };
+    }
+    if (currentUser.isLocalOnly) {
+      return { success: false, reason: 'local_only', message: 'This account is local only.' };
+    }
+    if (!navigator.onLine) {
+      return { success: false, reason: 'offline', message: 'You are offline. Connect to sync to cloud.' };
+    }
+
+    if (isLoadingRef.current) {
+      const loadAge = Date.now() - (loadStartedAtRef.current || 0);
+      if (loadAge > staleLoadMs) {
+        isLoadingRef.current = false;
+        loadStartedAtRef.current = null;
+      } else if (waitForCurrentSyncMs > 0) {
+        const waitStartedAt = Date.now();
+        while (isLoadingRef.current && Date.now() - waitStartedAt < waitForCurrentSyncMs) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+        }
+      }
+      if (isLoadingRef.current) {
+        return { success: false, skipped: true, reason: 'already_loading', message: 'A sync is already running.' };
+      }
+    }
+
+    const sortEntries = (entryList) =>
+      [...entryList].sort((a, b) => normalizeDateKey(b.date).localeCompare(normalizeDateKey(a.date)));
+
+    const persistEntriesSnapshot = (entryList) => {
+      if (!currentUser || !Array.isArray(entryList)) return;
+      try {
+        setSimpleEncryptedItem(`timeEntries_${currentUser.id}`, entryList, currentUser.username);
+      } catch (storageError) {
+        console.warn('Failed to persist entries:', storageError);
+      }
+      try {
+        cacheManager.setCachedData('timeEntries', entryList);
+      } catch (cacheError) {
+        console.warn('Failed to cache entries:', cacheError);
+      }
+    };
+
+    const uploadLocalEntries = async (entriesToUpload) => {
+      if (!entriesToUpload.length) return { uploaded: 0, failed: 0, returnedEntries: [] };
+      const uploadResults = await Promise.all(
+        entriesToUpload.map(async (entry) => syncTimeEntryToCloud({
+          userId: currentUser.id,
+          entry,
+          saveTimeEntry: (userId, entryToSave) => supabaseData.saveTimeEntry(userId, entryToSave),
+        }))
+      );
+      return {
+        uploaded: uploadResults.filter(r => r.success).length,
+        failed: uploadResults.filter(r => !r.success).length,
+        returnedEntries: uploadResults.filter(r => r.success && r.returnedEntry).map(r => r.returnedEntry),
+      };
+    };
+
+    const deleteCloudEntries = async (entriesToDelete) => {
+      if (!entriesToDelete.length) return { deleted: 0, failed: 0 };
+      const results = await Promise.all(
+        entriesToDelete.map(async (entry) => {
+          const res = await supabaseData.deleteTimeEntry({
+            id: entry.id,
+            userId: currentUser.id,
+            date: entry.date,
+          });
+          if (res?.success) {
+            clearPendingTimeEntryDeletes(currentUser.id, entry.date);
+          }
+          return res;
+        })
+      );
+      return {
+        deleted: results.filter(r => r?.success).length,
+        failed: results.filter(r => !r?.success).length,
+      };
+    };
+
+    try {
+      isLoadingRef.current = true;
+      loadStartedAtRef.current = Date.now();
+
+      const localEntries = entriesRef.current || [];
+      const pendingDeletes = readPendingTimeEntryDeletes(currentUser.id);
+      const remoteEntries = await supabaseData.getTimeEntries(currentUser.id, { timeoutMs: fetchTimeoutMs });
+
+      const {
+        finalEntries,
+        entriesToUpload,
+        entriesToDeleteFromCloud,
+        resolvedDeleteDates,
+        conflicts,
+        alreadySyncedCount,
+        remoteOnlyCount,
+      } = buildPushTimeEntryPlan({
+        localEntries,
+        remoteEntries: remoteEntries || [],
+        pendingDeletes,
+      });
+
+      if (resolvedDeleteDates.length > 0) {
+        clearPendingTimeEntryDeletes(currentUser.id, resolvedDeleteDates);
+      }
+
+      const conflictDates = new Set(conflicts.map(c => normalizeDateKey(c.date)));
+      const confirmedLocalDates = finalEntries
+        .filter(e => e?.id && !conflictDates.has(normalizeDateKey(e.date)))
+        .map(e => e.date);
+      if (confirmedLocalDates.length > 0) {
+        clearPendingTimeEntrySync(currentUser.id, confirmedLocalDates);
+      }
+
+      if (conflicts.length > 0) {
+        setSyncDirection('push');
+        setPendingConflicts(conflicts);
+        setConflictResolver(() => async (resolutions) => {
+          const resolutionMap = new Map(resolutions.map(r => [r.entryId || r.date, r]));
+          let mergedEntries = [...finalEntries];
+          const toUpload = [...entriesToUpload];
+          const toDelete = [...entriesToDeleteFromCloud];
+          const syncDatesToClear = [];
+          const deleteDatesToClear = [];
+
+          conflicts.forEach(conflict => {
+            const resolution = resolutionMap.get(conflict.entryId || conflict.date);
+            if (!resolution) return;
+            const { choice, chosenEntry } = resolution;
+
+            mergedEntries = mergedEntries.filter(e => normalizeDateKey(e.date) !== conflict.date);
+            if (chosenEntry?._isDeleted) {
+              if (conflict.remoteEntry?.id) {
+                toDelete.push(conflict.remoteEntry);
+              } else {
+                deleteDatesToClear.push(conflict.date);
+              }
+            } else if (chosenEntry) {
+              mergedEntries.push(chosenEntry);
+              if (choice === 'local') {
+                toUpload.push(chosenEntry);
+                deleteDatesToClear.push(conflict.date);
+              } else {
+                syncDatesToClear.push(conflict.date);
+                deleteDatesToClear.push(conflict.date);
+              }
+            }
+          });
+
+          const sortedMerged = sortEntries(mergedEntries);
+          setEntries(sortedMerged);
+          persistEntriesSnapshot(sortedMerged);
+
+          setPendingConflicts([]);
+          setConflictResolver(null);
+          setSyncDirection(null);
+          setIsConflictModalOpen(false);
+
+          if (syncDatesToClear.length > 0) clearPendingTimeEntrySync(currentUser.id, syncDatesToClear);
+          if (deleteDatesToClear.length > 0) clearPendingTimeEntryDeletes(currentUser.id, deleteDatesToClear);
+
+          await deleteCloudEntries(toDelete);
+          const uploadSummary = await uploadLocalEntries(toUpload);
+          if (uploadSummary.returnedEntries?.length) {
+            const returnedByDate = new Map(uploadSummary.returnedEntries.map(e => [normalizeDateKey(e.date), e]));
+            const postUpload = sortEntries(sortedMerged.map(e => {
+              const ret = returnedByDate.get(normalizeDateKey(e.date));
+              return ret ? { ...e, ...ret } : e;
+            }));
+            setEntries(postUpload);
+            persistEntriesSnapshot(postUpload);
+          }
+        });
+        setIsConflictModalOpen(true);
+
+        return {
+          success: true,
+          requiresResolution: true,
+          conflictCount: conflicts.length,
+          message: `Found ${conflicts.length} conflict${conflicts.length === 1 ? '' : 's'} between your device and cloud. Resolve the modal to finish syncing to cloud.`,
+        };
+      }
+
+      const sortedFinal = sortEntries(finalEntries);
+      setEntries(sortedFinal);
+      persistEntriesSnapshot(sortedFinal);
+
+      const deleteSummary = await deleteCloudEntries(entriesToDeleteFromCloud);
+      const uploadSummary = await uploadLocalEntries(entriesToUpload);
+
+      let postEntries = sortedFinal;
+      if (uploadSummary.returnedEntries?.length) {
+        const returnedByDate = new Map(uploadSummary.returnedEntries.map(e => [normalizeDateKey(e.date), e]));
+        postEntries = sortEntries(sortedFinal.map(e => {
+          const ret = returnedByDate.get(normalizeDateKey(e.date));
+          return ret ? { ...e, ...ret } : e;
+        }));
+        setEntries(postEntries);
+        persistEntriesSnapshot(postEntries);
+      }
+
+      const totalFailed = deleteSummary.failed + uploadSummary.failed;
+      const parts = [];
+      if (uploadSummary.uploaded > 0) parts.push(`uploaded ${uploadSummary.uploaded}`);
+      if (deleteSummary.deleted > 0) parts.push(`deleted ${deleteSummary.deleted} from cloud`);
+      if (parts.length === 0 && alreadySyncedCount > 0) parts.push(`all ${alreadySyncedCount} local entries are up to date`);
+      if (remoteOnlyCount > 0) parts.push(`${remoteOnlyCount} cloud-only entr${remoteOnlyCount === 1 ? 'y' : 'ies'} kept in cloud`);
+
+      return {
+        success: totalFailed === 0,
+        uploadCount: uploadSummary.uploaded,
+        deletedCount: deleteSummary.deleted,
+        failedUploadCount: totalFailed,
+        alreadySyncedCount,
+        remoteOnlyCount,
+        mergedEntries: postEntries,
+        message: totalFailed > 0
+          ? `Sync to cloud partially completed (${totalFailed} failed).`
+          : `Synced to cloud: ${parts.join(', ') || 'nothing pending'}.`,
+      };
+    } catch (error) {
+      console.error('[Sync to Cloud] Failed:', error);
+      return {
+        success: false,
+        reason: 'cloud_push_failed',
+        error,
+        message: error.message || 'Failed to sync to cloud.',
+      };
+    } finally {
+      isLoadingRef.current = false;
+      loadStartedAtRef.current = null;
+    }
+  }, [currentUser, isAuthenticated, normalizeDateKey]);
+
+  // Explicit Pull: Align local storage with cloud entries, triggering ConflictResolutionModal if local data diverges
+  const syncEntriesFromCloud = useCallback(async (options = {}) => {
+    const fetchTimeoutMs = options?.fetchTimeoutMs ?? 30000;
+    const waitForCurrentSyncMs = options?.waitForCurrentSyncMs ?? 10000;
+    const staleLoadMs = Math.max(fetchTimeoutMs + 15000, 45000);
+
+    if (!currentUser || !isAuthenticated) {
+      return { success: false, reason: 'not_authenticated', message: 'You are not signed in.' };
+    }
+    if (currentUser.isLocalOnly) {
+      return { success: false, reason: 'local_only', message: 'This account is local only.' };
+    }
+    if (!navigator.onLine) {
+      return { success: false, reason: 'offline', message: 'You are offline. Connect to sync from cloud.' };
+    }
+
+    if (isLoadingRef.current) {
+      const loadAge = Date.now() - (loadStartedAtRef.current || 0);
+      if (loadAge > staleLoadMs) {
+        isLoadingRef.current = false;
+        loadStartedAtRef.current = null;
+      } else if (waitForCurrentSyncMs > 0) {
+        const waitStartedAt = Date.now();
+        while (isLoadingRef.current && Date.now() - waitStartedAt < waitForCurrentSyncMs) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+        }
+      }
+      if (isLoadingRef.current) {
+        return { success: false, skipped: true, reason: 'already_loading', message: 'A sync is already running.' };
+      }
+    }
+
+    const sortEntries = (entryList) =>
+      [...entryList].sort((a, b) => normalizeDateKey(b.date).localeCompare(normalizeDateKey(a.date)));
+
+    const persistEntriesSnapshot = (entryList) => {
+      if (!currentUser || !Array.isArray(entryList)) return;
+      try {
+        setSimpleEncryptedItem(`timeEntries_${currentUser.id}`, entryList, currentUser.username);
+      } catch (storageError) {
+        console.warn('Failed to persist pulled entries:', storageError);
+      }
+      try {
+        cacheManager.setCachedData('timeEntries', entryList);
+      } catch (cacheError) {
+        console.warn('Failed to cache pulled entries:', cacheError);
+      }
+    };
+
+    try {
+      isLoadingRef.current = true;
+      loadStartedAtRef.current = Date.now();
+
+      const localEntries = entriesRef.current || [];
+      const pendingSync = getPendingTimeEntrySyncStatus(currentUser.id);
+      const pendingDeletes = readPendingTimeEntryDeletes(currentUser.id);
+      const remoteEntries = await supabaseData.getTimeEntries(currentUser.id, { timeoutMs: fetchTimeoutMs });
+
+      const {
+        finalEntries,
+        conflicts,
+        pulledCount,
+        preservedLocalCount,
+      } = buildPullTimeEntryPlan({
+        localEntries,
+        remoteEntries: remoteEntries || [],
+        pendingSyncDates: pendingSync.dates,
+        pendingDeletes,
+      });
+
+      if (conflicts.length > 0) {
+        setSyncDirection('pull');
+        setPendingConflicts(conflicts);
+        setConflictResolver(() => async (resolutions) => {
+          const resolutionMap = new Map(resolutions.map(r => [r.entryId || r.date, r]));
+          let mergedEntries = [...finalEntries];
+          const datesToClearSync = [];
+          const datesToClearDelete = [];
+          const localChoicesToMark = [];
+
+          conflicts.forEach(conflict => {
+            const resolution = resolutionMap.get(conflict.entryId || conflict.date);
+            if (!resolution) return;
+            const { choice, chosenEntry } = resolution;
+
+            mergedEntries = mergedEntries.filter(e => normalizeDateKey(e.date) !== conflict.date);
+            if (chosenEntry?._isDeleted || chosenEntry?._isMissingRemote) {
+              datesToClearSync.push(conflict.date);
+              if (choice === 'remote') {
+                datesToClearDelete.push(conflict.date);
+              }
+            } else if (chosenEntry) {
+              mergedEntries.push(chosenEntry);
+              if (choice === 'remote') {
+                datesToClearSync.push(conflict.date);
+                datesToClearDelete.push(conflict.date);
+              } else {
+                localChoicesToMark.push(chosenEntry);
+                datesToClearDelete.push(conflict.date);
+              }
+            }
+          });
+
+          const sortedMerged = sortEntries(mergedEntries);
+          setEntries(sortedMerged);
+          persistEntriesSnapshot(sortedMerged);
+
+          setPendingConflicts([]);
+          setConflictResolver(null);
+          setSyncDirection(null);
+          setIsConflictModalOpen(false);
+
+          if (datesToClearSync.length > 0) clearPendingTimeEntrySync(currentUser.id, datesToClearSync);
+          if (datesToClearDelete.length > 0) clearPendingTimeEntryDeletes(currentUser.id, datesToClearDelete);
+          if (localChoicesToMark.length > 0) {
+            markPendingTimeEntrySync(currentUser.id, localChoicesToMark, 'conflict_kept_local');
+          }
+          setLastRefreshed(new Date().toISOString());
+        });
+        setIsConflictModalOpen(true);
+
+        return {
+          success: true,
+          requiresResolution: true,
+          conflictCount: conflicts.length,
+          message: `Found ${conflicts.length} conflict${conflicts.length === 1 ? '' : 's'} with local data. Resolve the modal to finish syncing from cloud.`,
+        };
+      }
+
+      const sortedFinal = sortEntries(finalEntries);
+      setPendingConflicts([]);
+      setConflictResolver(null);
+      setSyncDirection(null);
+      setIsConflictModalOpen(false);
+      setEntries(sortedFinal);
+      persistEntriesSnapshot(sortedFinal);
+
+      const syncedRemoteDates = (remoteEntries || [])
+        .filter(entry => entry?.id)
+        .map(entry => entry.date);
+      if (syncedRemoteDates.length > 0) {
+        clearPendingTimeEntrySync(currentUser.id, syncedRemoteDates);
+      }
+
+      setLastRefreshed(new Date().toISOString());
+
+      return {
+        success: true,
+        pulledCount,
+        preservedLocalCount,
+        remoteCount: remoteEntries?.length || 0,
+        mergedEntries: sortedFinal,
+        message: pulledCount > 0
+          ? `Synced from cloud: pulled ${pulledCount} entr${pulledCount === 1 ? 'y' : 'ies'}${preservedLocalCount > 0 ? ` (${preservedLocalCount} unuploaded local kept)` : ''}.`
+          : `Local storage matches cloud (${remoteEntries?.length || 0} cloud entries checked).`,
+      };
+    } catch (error) {
+      console.error('[Sync from Cloud] Failed:', error);
+      return {
+        success: false,
+        reason: 'cloud_pull_failed',
+        error,
+        message: error.message || 'Failed to sync from cloud.',
       };
     } finally {
       isLoadingRef.current = false;
@@ -679,11 +1136,13 @@ export const TimeEntryProvider = ({ children }) => {
       setIsConflictModalOpen(false);
       setPendingConflicts([]);
       setConflictResolver(null);
+      setSyncDirection(null);
     }, []);
 
     const clearConflicts = useCallback(() => {
       setPendingConflicts([]);
       setConflictResolver(null);
+      setSyncDirection(null);
       setIsConflictModalOpen(false);
     }, []);
 
@@ -717,6 +1176,7 @@ export const TimeEntryProvider = ({ children }) => {
     pendingConflicts,
     conflictResolver,
     isConflictModalOpen,
+    syncDirection,
 
     // Helper functions
     formatDate,
@@ -724,6 +1184,8 @@ export const TimeEntryProvider = ({ children }) => {
 
     // Data operations
     loadTimeEntriesData,
+    syncEntriesToCloud,
+    syncEntriesFromCloud,
     saveTimeEntriesData,
     resolveConflict,
     clearConflicts,

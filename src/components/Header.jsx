@@ -9,7 +9,7 @@ import './bento-header.css';
 // Lazy load modal components for better code splitting
 const UserSettingsModal = React.lazy(() => import("./UserSettingsModal"));
 
-function Header({ currentView, setCurrentView, isHeaderCollapsed, onRefresh }) {
+function Header({ currentView, setCurrentView, isHeaderCollapsed, onRefresh, onSyncToCloud, onSyncFromCloud }) {
   const { theme, setTheme, activeTheme, employee } = useTimeTracker();
   const { currentUser, logout, showSessionWarning, setShowSessionWarning } = useSupabaseAuth();
   
@@ -17,16 +17,42 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed, onRefresh }) {
   const [showUserSettingsModal, setShowUserSettingsModal] = useState(false);
   const [userSettingsDefaultTab, setUserSettingsDefaultTab] = useState('username');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [syncDirectionState, setSyncDirectionState] = useState(null);
 
   const handleRefresh = async () => {
     if (isRefreshing || !onRefresh) return;
     setIsRefreshing(true);
+    setSyncDirectionState('pull');
     try {
       await onRefresh();
-      // Keep spinning for 2 seconds total even if refresh is fast
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 600));
     } finally {
       setIsRefreshing(false);
+      setSyncDirectionState(null);
+    }
+  };
+
+  const handleSyncToCloud = async () => {
+    if (isRefreshing || !onSyncToCloud) return;
+    setIsRefreshing(true);
+    setSyncDirectionState('push');
+    try {
+      await onSyncToCloud();
+    } finally {
+      setIsRefreshing(false);
+      setSyncDirectionState(null);
+    }
+  };
+
+  const handleSyncFromCloud = async () => {
+    if (isRefreshing || !onSyncFromCloud) return;
+    setIsRefreshing(true);
+    setSyncDirectionState('pull');
+    try {
+      await onSyncFromCloud();
+    } finally {
+      setIsRefreshing(false);
+      setSyncDirectionState(null);
     }
   };
 
@@ -96,7 +122,13 @@ function Header({ currentView, setCurrentView, isHeaderCollapsed, onRefresh }) {
         </div>
 
         <div className="bento-header-right">
-          <OfflineIndicator onRefresh={handleRefresh} isRefreshing={isRefreshing} />
+          <OfflineIndicator
+            onRefresh={handleRefresh}
+            onSyncToCloud={handleSyncToCloud}
+            onSyncFromCloud={handleSyncFromCloud}
+            isRefreshing={isRefreshing}
+            syncAction={syncDirectionState}
+          />
 
           <button
             className="bento-theme-btn"

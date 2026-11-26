@@ -81,6 +81,9 @@ function App() {
     setRefreshing,
     isSaving,
     saveStatus,
+    syncToCloud,
+    syncFromCloud,
+    showAlert,
   } = useTimeTracker();
 
   const {
@@ -96,6 +99,7 @@ function App() {
     conflictResolver,
     isConflictModalOpen,
     closeConflictModal,
+    syncDirection,
   } = useTimeEntry();
 
   const [refreshing, setRefreshingState] = useState(false);
@@ -226,26 +230,56 @@ function App() {
     [currentView, isTransitioning],
   );
 
-  const handleRefresh = useCallback(async () => {
+  const handleSyncFromCloud = useCallback(async () => {
     if (!currentUser || !isAuthenticated) return;
     try {
-      const refreshWithTimeout = Promise.race([
-        loadTimeEntriesData({ forceConflictCheck: true, fetchTimeoutMs: 30000, waitForCurrentSyncMs: 10000 }),
+      const result = await Promise.race([
+        syncFromCloud({ waitForCurrentSyncMs: 10000 }),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Refresh timed out")), 35000),
+          setTimeout(() => reject(new Error("Sync from cloud timed out")), 35000),
         ),
       ]);
-      const result = await refreshWithTimeout;
-      if (result && !result.success) {
-        throw new Error(result.message || "Refresh failed");
+      if (result?.requiresResolution) {
+        return result;
+      }
+      if (!result?.success) {
+        showAlert?.(result?.message || "Sync from cloud failed.", "error");
+        return result;
       }
       setLastRefreshed(new Date().toISOString());
+      showAlert?.(result.message || "Synced from cloud.", "success");
       return result;
     } catch (err) {
-      console.warn("[Refresh] Timed out or failed:", err.message);
+      console.warn("[Sync from Cloud] Timed out or failed:", err.message);
+      showAlert?.(err.message || "Sync from cloud failed.", "error");
       return { success: false, message: err.message };
     }
-  }, [currentUser, isAuthenticated, loadTimeEntriesData, setLastRefreshed]);
+  }, [currentUser, isAuthenticated, syncFromCloud, setLastRefreshed, showAlert]);
+
+  const handleSyncToCloud = useCallback(async () => {
+    if (!currentUser || !isAuthenticated) return;
+    try {
+      const result = await Promise.race([
+        syncToCloud({ waitForCurrentSyncMs: 10000 }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Sync to cloud timed out")), 35000),
+        ),
+      ]);
+      if (result?.requiresResolution) {
+        return result;
+      }
+      if (!result?.success) {
+        showAlert?.(result?.message || "Sync to cloud failed.", "error");
+        return result;
+      }
+      showAlert?.(result.message || "Synced to cloud.", "success");
+      return result;
+    } catch (err) {
+      console.warn("[Sync to Cloud] Timed out or failed:", err.message);
+      showAlert?.(err.message || "Sync to cloud failed.", "error");
+      return { success: false, message: err.message };
+    }
+  }, [currentUser, isAuthenticated, syncToCloud, showAlert]);
 
   const getNextView = useCallback(
     (direction) => {
@@ -729,7 +763,9 @@ function App() {
                   currentView={currentView}
                   setCurrentView={setCurrentView}
                   isHeaderCollapsed={isHeaderCollapsed}
-                  onRefresh={handleRefresh}
+                  onRefresh={handleSyncFromCloud}
+                  onSyncToCloud={handleSyncToCloud}
+                  onSyncFromCloud={handleSyncFromCloud}
                   style={{
                     position: "fixed",
 
@@ -794,6 +830,7 @@ function App() {
                 {isConflictModalOpen && (
                   <ConflictResolutionModal
                     conflicts={pendingConflicts}
+                    syncDirection={syncDirection}
                     onResolve={(resolutions) => {
                       if (conflictResolver) {
                         conflictResolver(resolutions);
@@ -804,7 +841,7 @@ function App() {
                 )}
 
                 <RefreshIndicator lastRefreshed={lastRefreshed} />
-                <NetworkStatus onRefresh={handleRefresh} />
+                <NetworkStatus onRefresh={handleSyncFromCloud} />
                 <AppUpdatePrompt />
 
                 {/* Scroll to Top Button - Completely outside all containers */}

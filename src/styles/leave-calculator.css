@@ -1,215 +1,500 @@
 /* ============================================================
-   BOTTOM SHEET LEAVE CALCULATOR
+   NATIVE iOS 26 LIQUID GLASS LEAVE CALCULATOR SHEET
    ============================================================ */
 
-.modal-content.leave-calculator-modal {
-  max-width: 650px !important;
+/* Dimmed scrim over parent view */
+body #bento-modal-overlay-id.leave-calculator-overlay::before {
+  background-color: rgba(0, 0, 0, 0.36) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
 }
 
-.modal-content.leave-calculator-modal .modal-header {
+/* Sheet container: translucent Apple graphite glass */
+body #bento-modal-overlay-id .modal-content.leave-calculator-modal,
+html body .bento-modal-overlay .modal-content.leave-calculator-modal {
+  max-width: 460px !important;
+  background-color: rgba(28, 28, 30, 0.76) !important;
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0) 24%
+  ) !important;
+  backdrop-filter: blur(44px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(44px) saturate(180%) !important;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.28) !important;
+  border-radius: 36px 36px 0 0 !important;
+  box-shadow:
+    0 -20px 50px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Outfit', sans-serif !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+[data-theme="light"] body #bento-modal-overlay-id .modal-content.leave-calculator-modal,
+[data-theme="light"] html body .bento-modal-overlay .modal-content.leave-calculator-modal {
+  background-color: rgba(242, 242, 247, 0.84) !important;
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0) 24%
+  ) !important;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.85) !important;
+  box-shadow: 0 -18px 42px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Override bento-modals.css opaque header/body */
+body #bento-modal-overlay-id .modal-content.leave-calculator-modal .modal-header.ios-calc-nav {
+  background-color: transparent !important;
+  padding: 2px 16px 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
   flex-shrink: 0 !important;
 }
 
-.modal-content.leave-calculator-modal .modal-body,
-.modal-body.leave-calculator {
+.ios-calc-nav-spacer {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+body #bento-modal-overlay-id .modal-content.leave-calculator-modal .ios-calc-title {
+  margin: 0 !important;
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.4px !important;
+  color: #ffffff !important;
+  text-align: center !important;
+}
+
+[data-theme="light"] body #bento-modal-overlay-id .modal-content.leave-calculator-modal .ios-calc-title {
+  color: #1c1c1e !important;
+}
+
+.ios-calc-close-orb {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(120, 120, 128, 0.38) 0%, rgba(120, 120, 128, 0.22) 100%);
+  border: 0.5px solid rgba(255, 255, 255, 0.24);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.36), 0 2px 8px rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.9);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.ios-calc-close-orb:active {
+  transform: scale(0.92);
+  opacity: 0.8;
+}
+
+[data-theme="light"] .ios-calc-close-orb {
+  background: rgba(118, 118, 128, 0.18);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  color: #3a3a3c;
+}
+
+/* Modal body */
+body #bento-modal-overlay-id .modal-content.leave-calculator-modal .modal-body.leave-calculator {
+  background-color: transparent !important;
+  padding: 2px 16px calc(22px + env(safe-area-inset-bottom, 0px)) !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 12px !important;
-  padding: 0 24px 24px !important;
+  gap: 14px !important;
   flex: 1 1 auto !important;
   min-height: 0 !important;
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch !important;
-  overscroll-behavior: contain !important;
-  scrollbar-width: thin !important;
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent !important;
 }
 
-.modal-content.leave-calculator-modal .modal-body::-webkit-scrollbar,
-.modal-body.leave-calculator::-webkit-scrollbar {
-  display: block !important;
-  width: 6px !important;
+/* iOS 26 Liquid Glass Capsule Segmented Control */
+.ios-calc-segmented {
+  height: 36px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(118, 118, 128, 0.24);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  flex-shrink: 0;
 }
 
-.modal-content.leave-calculator-modal .modal-body::-webkit-scrollbar-track,
-.modal-body.leave-calculator::-webkit-scrollbar-track {
-  background: transparent !important;
+[data-theme="light"] .ios-calc-segmented {
+  background: rgba(118, 118, 128, 0.14);
 }
 
-.modal-content.leave-calculator-modal .modal-body::-webkit-scrollbar-thumb,
-.modal-body.leave-calculator::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2) !important;
-  border-radius: 999px !important;
+.ios-calc-seg-btn {
+  height: 30px;
+  border-radius: 999px;
+  border: 0.5px solid transparent;
+  background: transparent;
+  color: rgba(235, 235, 245, 0.62);
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.modal-content.leave-calculator-modal .modal-footer {
-  flex-shrink: 0 !important;
+.ios-calc-seg-btn.active {
+  background: linear-gradient(180deg, rgba(110, 110, 115, 0.72) 0%, rgba(88, 88, 92, 0.68) 100%);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.36), 0 2px 6px rgba(0, 0, 0, 0.24);
+  font-weight: 600;
+  color: #ffffff;
 }
 
-/* Force loading, warnings, and results to span full width */
-.calculator-loading,
-.calculator-results,
-.calculator-warning,
-.calculator-error,
-.calculator-input-group.full-width {
-  grid-column: 1 / -1 !important;
+[data-theme="light"] .ios-calc-seg-btn {
+  color: rgba(60, 60, 67, 0.65);
 }
 
-.calculator-section {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border-radius: 20px !important;
-  padding: 16px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  min-width: 0 !important;
+[data-theme="light"] .ios-calc-seg-btn.active {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  color: #1c1c1e;
 }
 
-.calculator-section.full-width {
-  grid-column: 1 / -1 !important;
+/* Borderless .insetGrouped Card */
+.ios-inset-group {
+  background: rgba(44, 44, 46, 0.64);
+  border-radius: 20px;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
-.calculator-section.tall {
-  grid-row: span 2 !important;
+[data-theme="light"] .ios-inset-group {
+  background: rgba(255, 255, 255, 0.78);
 }
 
-.calculator-label {
-  font-size: 0.8rem !important;
-  font-weight: 700 !important;
-  color: #94a3b8 !important;
-  text-transform: uppercase !important;
-  margin-bottom: 8px !important;
-  white-space: nowrap !important;
+/* Top Hero Results */
+.ios-hero-block {
+  padding: 15px 16px 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
-.calculator-value {
-  font-size: 1.5rem !important;
-  font-weight: 800 !important;
-  color: #00f0ff !important;
-  margin: auto 0 !important; /* Center vertically */
+.ios-hero-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ios-hero-stat.align-right {
+  text-align: right;
+}
+
+.ios-hero-label {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(235, 235, 245, 0.6);
+}
+
+[data-theme="light"] .ios-hero-label {
+  color: rgba(60, 60, 67, 0.65);
+}
+
+.ios-hero-value {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+  color: #ffffff;
+}
+
+[data-theme="light"] .ios-hero-value {
+  color: #1c1c1e;
+}
+
+.ios-hero-value.is-positive,
+.ios-row-value.is-positive {
+  color: #30d158;
+}
+
+.ios-hero-value.is-negative,
+.ios-row-value.is-negative {
+  color: #ff453a;
+}
+
+[data-theme="light"] .ios-hero-value.is-positive,
+[data-theme="light"] .ios-row-value.is-positive {
+  color: #248a3d;
+}
+
+[data-theme="light"] .ios-hero-value.is-negative,
+[data-theme="light"] .ios-row-value.is-negative {
+  color: #d70015;
+}
+
+/* 16px-indented 0.5px hairline divider */
+.ios-inset-sep {
+  height: 0.5px;
+  margin-left: 16px;
+  background: rgba(84, 84, 88, 0.65);
+}
+
+[data-theme="light"] .ios-inset-sep {
+  background: rgba(60, 60, 67, 0.18);
+}
+
+/* Native 45-50px Row */
+.ios-inset-row {
+  min-height: 45px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 16.5px;
+  letter-spacing: -0.3px;
+}
+
+.ios-inset-row.is-tall {
+  min-height: 50px;
+}
+
+.ios-row-label {
+  font-weight: 400;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+[data-theme="light"] .ios-row-label {
+  color: #1c1c1e;
+}
+
+.ios-row-value {
+  font-weight: 400;
+  color: rgba(235, 235, 245, 0.6);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  text-align: right;
+}
+
+[data-theme="light"] .ios-row-value {
+  color: rgba(60, 60, 67, 0.68);
+}
+
+.ios-status-msg {
+  font-size: 14px;
+  color: #ff9f0a;
+}
+
+/* Inline Time Pill + Liquid Glass Now Button (override bento-modals.css !important) */
+.ios-inline-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+body #bento-modal-overlay-id .modal-content.leave-calculator-modal input.ios-time-pill-input,
+body #bento-modal-overlay-id .modal-content.leave-calculator-modal input.ios-number-pill-input {
+  width: 108px !important;
+  height: 34px !important;
+  padding: 0 10px !important;
+  margin: 0 !important;
+  border-radius: 9px !important;
+  background: rgba(118, 118, 128, 0.28) !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+  font-size: 15.5px !important;
+  font-weight: 500 !important;
   text-align: center !important;
   font-variant-numeric: tabular-nums !important;
-}
-
-.calculator-value.readonly {
-  color: rgba(255, 255, 255, 0.7) !important;
-}
-
-.calculator-input {
-  font-size: 1rem !important;
-  font-weight: 600 !important;
-  padding: 12px !important;
-  background: rgba(0, 0, 0, 0.2) !important;
-  border-radius: 12px !important;
-  color: white !important;
-  transition: all 0.2s ease !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  width: 100% !important;
   box-sizing: border-box !important;
-  margin-top: auto !important;
 }
 
-.calculator-input:focus {
+body #bento-modal-overlay-id .modal-content.leave-calculator-modal input.ios-number-pill-input {
+  width: 84px !important;
+}
+
+body #bento-modal-overlay-id .modal-content.leave-calculator-modal input.ios-time-pill-input.is-short {
+  width: 112px !important;
+}
+
+body #bento-modal-overlay-id .modal-content.leave-calculator-modal input.ios-time-pill-input:focus,
+body #bento-modal-overlay-id .modal-content.leave-calculator-modal input.ios-number-pill-input:focus {
+  background: rgba(118, 118, 128, 0.42) !important;
+  border-color: rgba(255, 255, 255, 0.42) !important;
   outline: none !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-  border-color: #00f0ff !important;
 }
 
-.calculator-input:disabled {
-  opacity: 0.5 !important;
+[data-theme="light"] body #bento-modal-overlay-id .modal-content.leave-calculator-modal input.ios-time-pill-input,
+[data-theme="light"] body #bento-modal-overlay-id .modal-content.leave-calculator-modal input.ios-number-pill-input {
+  background: rgba(118, 118, 128, 0.14) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #1c1c1e !important;
 }
 
-.calculator-input-group {
-  display: flex !important;
-  gap: 8px !important;
-  margin-top: auto !important;
+.ios-now-glass-btn {
+  height: 34px;
+  padding: 0 15px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.12) 100%);
+  border: 0.5px solid rgba(255, 255, 255, 0.34);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.44), 0 2px 6px rgba(0, 0, 0, 0.22);
+  color: #ffffff;
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s ease, opacity 0.15s ease;
 }
 
-.calculator-input-group .calculator-input {
-  flex: 1 !important;
+.ios-now-glass-btn:active {
+  transform: scale(0.95);
+  opacity: 0.85;
 }
 
-.calculator-input-btn {
-  padding: 12px 16px !important;
-  font-weight: 800 !important;
-  background: #00f0ff !important;
-  color: black !important;
-  border: none !important;
-  border-radius: 12px !important;
+[data-theme="light"] .ios-now-glass-btn {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(238, 238, 242, 0.9) 100%);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 1px 0 #ffffff, 0 2px 6px rgba(0, 0, 0, 0.08);
+  color: #1c1c1e;
 }
 
-.calculator-input-btn:active {
-  transform: scale(0.96) !important;
+/* Inline Reverse-mode Logic Toggle */
+.ios-inline-seg {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(118, 118, 128, 0.24);
 }
 
-.calculator-toggle-group {
-  display: flex !important;
-  gap: 8px !important;
-  grid-column: 1 / -1 !important; /* Full width for toggles usually */
+.ios-inline-seg-btn {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: rgba(235, 235, 245, 0.65);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
 }
 
-.calculator-toggle {
-  flex: 1 !important;
-  padding: 12px !important;
-  font-weight: 700 !important;
-  color: white !important;
-  background: rgba(255, 255, 255, 0.05) !important;
-  border-radius: 12px !important;
-  border: none !important;
+.ios-inline-seg-btn.active {
+  background: rgba(110, 110, 115, 0.72);
+  color: #ffffff;
+  font-weight: 600;
 }
 
-.calculator-toggle.active {
-  background: #00f0ff !important;
-  color: black !important;
+[data-theme="light"] .ios-inline-seg-btn {
+  color: rgba(60, 60, 67, 0.65);
 }
 
-.calculator-results {
-  padding: 20px !important;
-  background: rgba(255, 255, 255, 0.02) !important;
-  border-radius: 20px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 12px !important;
+[data-theme="light"] .ios-inline-seg-btn.active {
+  background: #ffffff;
+  color: #1c1c1e;
 }
 
-.calculator-result-row {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  padding-bottom: 12px !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+/* Break Disclosure Row & Inline Drawer */
+.ios-disclosure-btn {
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
 }
 
-.calculator-result-row:last-child {
-  border-bottom: none !important;
-  padding-bottom: 0 !important;
+.ios-chevron {
+  color: rgba(235, 235, 245, 0.35);
+  transition: transform 0.2s ease;
 }
 
-.calculator-result-label {
-  color: rgba(255, 255, 255, 0.7) !important;
-  font-weight: 600 !important;
-  font-size: 0.9rem !important;
+.ios-chevron.is-open {
+  transform: rotate(90deg);
 }
 
-.calculator-result-value {
-  font-size: 1.2rem !important;
-  font-weight: 800 !important;
-  color: white !important;
-  font-variant-numeric: tabular-nums !important;
+[data-theme="light"] .ios-chevron {
+  color: rgba(60, 60, 67, 0.38);
 }
 
-.calculator-result-value.positive {
-  color: #00f0ff !important;
+.ios-break-drawer {
+  padding: 4px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.calculator-result-value.negative {
-  color: #ff0080 !important;
+.ios-break-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: rgba(235, 235, 245, 0.65);
 }
 
-.calculator-result-value.highlight {
-  font-size: 1.6rem !important;
-  color: #00f0ff !important;
+.ios-break-presets {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
 }
 
-.calculator-result-value.highlight.negative {
-  color: #ff0080 !important;
+.ios-break-preset-btn {
+  height: 30px;
+  border-radius: 999px;
+  border: 0.5px solid rgba(255, 255, 255, 0.14);
+  background: rgba(118, 118, 128, 0.22);
+  color: rgba(235, 235, 245, 0.8);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ios-break-preset-btn.active {
+  background: rgba(255, 255, 255, 0.88);
+  color: #1c1c1e;
+  border-color: transparent;
+}
+
+[data-theme="light"] .ios-break-preset-btn {
+  background: rgba(118, 118, 128, 0.14);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #3a3a3c;
+}
+
+[data-theme="light"] .ios-break-preset-btn.active {
+  background: #1c1c1e;
+  color: #ffffff;
+}
+
+.ios-break-fields {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ios-break-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 1;
+  font-size: 13px;
+  color: rgba(235, 235, 245, 0.72);
+}
+
+[data-theme="light"] .ios-break-field {
+  color: rgba(60, 60, 67, 0.75);
+}
+
+.ios-break-note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: rgba(235, 235, 245, 0.5);
+}
+
+[data-theme="light"] .ios-break-note {
+  color: rgba(60, 60, 67, 0.58);
 }

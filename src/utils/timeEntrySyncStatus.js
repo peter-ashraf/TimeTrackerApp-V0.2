@@ -1,4 +1,5 @@
 const PENDING_TIME_ENTRY_SYNC_PREFIX = "pendingTimeEntrySync_";
+const PENDING_TIME_ENTRY_DELETES_PREFIX = "pendingTimeEntryDeletes_";
 export const SYNC_STATUS_EVENT = "time-entry-sync-status-changed";
 
 const normalizeDateKey = (date) => {
@@ -110,6 +111,112 @@ export const clearPendingTimeEntrySync = (userId, entries) => {
 
 export const getPendingTimeEntrySyncStatus = (userId) => {
   const items = readPendingTimeEntrySync(userId);
+
+  return {
+    pending: items.length,
+    dates: items.map((item) => item.date),
+    items,
+  };
+};
+
+export const getPendingTimeEntryDeletesKey = (userId) =>
+  `${PENDING_TIME_ENTRY_DELETES_PREFIX}${userId}`;
+
+export const readPendingTimeEntryDeletes = (userId) => {
+  if (!userId || typeof localStorage === "undefined") return [];
+
+  try {
+    const stored = localStorage.getItem(getPendingTimeEntryDeletesKey(userId));
+    if (!stored) return [];
+
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((item) => {
+        if (typeof item === "string") {
+          return {
+            date: normalizeDateKey(item),
+            id: null,
+            deletedAt: null,
+          };
+        }
+
+        return {
+          date: normalizeDateKey(item?.date),
+          id: item?.id || null,
+          deletedAt: item?.deletedAt || null,
+        };
+      })
+      .filter((item) => item.date);
+  } catch (error) {
+    return [];
+  }
+};
+
+export const markPendingTimeEntryDelete = (userId, entries) => {
+  if (!userId || typeof localStorage === "undefined") return;
+
+  const list = Array.isArray(entries) ? entries : [entries];
+  const normalized = list
+    .map((entry) => {
+      if (typeof entry === "string") {
+        return { date: normalizeDateKey(entry), id: null };
+      }
+      return { date: normalizeDateKey(entry?.date), id: entry?.id || null };
+    })
+    .filter((item) => item.date);
+
+  if (normalized.length === 0) return;
+
+  const existing = readPendingTimeEntryDeletes(userId);
+  const byDate = new Map(existing.map((item) => [item.date, item]));
+  const deletedAt = new Date().toISOString();
+
+  normalized.forEach(({ date, id }) => {
+    const prev = byDate.get(date);
+    byDate.set(date, {
+      date,
+      id: id || prev?.id || null,
+      deletedAt,
+    });
+  });
+
+  localStorage.setItem(
+    getPendingTimeEntryDeletesKey(userId),
+    JSON.stringify(Array.from(byDate.values())),
+  );
+  clearPendingTimeEntrySync(
+    userId,
+    normalized.map((item) => item.date),
+  );
+};
+
+export const clearPendingTimeEntryDeletes = (userId, entries) => {
+  if (!userId || typeof localStorage === "undefined") return;
+
+  const dates = normalizeEntries(entries);
+  if (dates.length === 0) return;
+
+  const datesToClear = new Set(dates);
+  const remaining = readPendingTimeEntryDeletes(userId).filter(
+    (item) => !datesToClear.has(item.date),
+  );
+
+  if (remaining.length > 0) {
+    localStorage.setItem(
+      getPendingTimeEntryDeletesKey(userId),
+      JSON.stringify(remaining),
+    );
+  } else {
+    localStorage.removeItem(getPendingTimeEntryDeletesKey(userId));
+  }
+
+  emitSyncStatusChange();
+};
+
+export const getPendingTimeEntryDeletesStatus = (userId) => {
+  const items = readPendingTimeEntryDeletes(userId);
 
   return {
     pending: items.length,

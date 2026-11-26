@@ -5,7 +5,7 @@
 
 class CacheManager {
   constructor() {
-    this.cacheVersion = '2.0.0';
+    this.cacheVersion = '2.1.0';
     this.cachePrefix = 'tt_cache_';
     this.isOnline = navigator.onLine;
     this.refreshQueue = new Map();
