@@ -508,7 +508,7 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
               {calcMode === 'forward' ? (
                 <div className="ios-inset-row">
                   <span className="ios-row-label">Minimum Leave</span>
-                  <span className="ios-row-value">
+                  <span className="ios-row-value is-accent">
                     {fulfillmentLeaveTime ? formatTime12Hour(fulfillmentLeaveTime) : '—'}
                   </span>
                 </div>
@@ -550,7 +550,7 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
                   <div className="ios-inset-sep" />
                   <div className="ios-inset-row">
                     <span className="ios-row-label">Minimum Leave</span>
-                    <span className="ios-row-value">{formatTime12Hour(fulfillmentLeaveTime)}</span>
+                    <span className="ios-row-value is-accent">{formatTime12Hour(fulfillmentLeaveTime)}</span>
                   </div>
                 </>
               )}

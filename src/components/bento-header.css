@@ -93,7 +93,7 @@
   letter-spacing: 0.5px;
 }
 
-.status-queued { background: var(--accent-rose); color: white; border-radius: var(--radius-pill); padding: 2px 6px; font-size: 10px; font-weight: 700; margin-left: 4px; }
+.status-queued { background: var(--accent-hot-pink, #ff007f); color: white; border-radius: var(--radius-pill); padding: 2px 6px; font-size: 10px; font-weight: 700; margin-left: 4px; }
 .status-dot.slow { background-color: #F59E0B; box-shadow: 0 0 8px rgba(245, 158, 11, 0.5); }
 
 @media (max-width: 600px) {
@@ -101,7 +101,7 @@
     gap: 8px;
   }
   .bento-logo span,
-  .bento-status span {
+  .bento-status .status-text {
     display: none; /* Hide text on small screens to save space */
   }
   .bento-logo i {

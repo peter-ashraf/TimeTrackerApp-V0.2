@@ -2515,12 +2515,12 @@ function Settings() {
                 <div className="spoke-row" style={{ borderTop: '1px solid var(--border-light)', flexWrap: 'wrap', gap: '10px' }}>
                   <span className="spoke-row-hint">Updated {syncStatus.checkedAt ? formatRelativeTime(new Date(syncStatus.checkedAt)) : '—'}</span>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <button type="button" onClick={handleRefreshSyncStatus} style={{ padding: '6px 12px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 600, background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-light)', cursor: 'pointer' }}>Refresh</button>
-                    <button type="button" onClick={handleSyncToCloud} disabled={isSyncingNow} style={{ padding: '6px 12px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 600, background: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', cursor: 'pointer', opacity: isSyncingNow ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <button type="button" onClick={handleRefreshSyncStatus} className="spoke-sync-btn is-muted">Refresh</button>
+                    <button type="button" onClick={handleSyncToCloud} disabled={isSyncingNow} className="spoke-sync-btn">
                       <i className="fa-solid fa-cloud-arrow-up" />
                       {syncDirectionBusy === 'push' ? 'Uploading…' : 'Sync to Cloud'}
                     </button>
-                    <button type="button" onClick={handleSyncFromCloud} disabled={isSyncingNow} style={{ padding: '6px 12px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 600, background: 'rgba(0,240,255,0.12)', color: 'var(--accent-cyan)', border: '1px solid rgba(0,240,255,0.25)', cursor: 'pointer', opacity: isSyncingNow ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <button type="button" onClick={handleSyncFromCloud} disabled={isSyncingNow} className="spoke-sync-btn is-primary">
                       <i className="fa-solid fa-cloud-arrow-down" />
                       {syncDirectionBusy === 'pull' ? 'Pulling…' : 'Sync from Cloud'}
                     </button>
