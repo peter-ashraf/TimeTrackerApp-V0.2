@@ -480,31 +480,37 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
           </button>
         </div>
 
-        {/* Group 1: Top Results (.insetGrouped) */}
+        {/* Group 1: Top Results (.insetGrouped — locked 4-block structure across all modes/states) */}
         <div className="ios-inset-group">
+          <div className="ios-hero-block">
+            <div className="ios-hero-stat">
+              <span className="ios-hero-label">
+                {calcMode === 'forward' ? 'Worked Today' : 'Required Leave'}
+              </span>
+              <span className="ios-hero-value">
+                {calculationResults.isValid
+                  ? (calcMode === 'forward'
+                      ? formatMinutesAsHours(calculationResults.projectedWorkedMinutes)
+                      : formatTime12Hour(calculationResults.calculatedLeaveTime))
+                  : '—'}
+              </span>
+            </div>
+            <div className="ios-hero-stat align-right">
+              <span className="ios-hero-label">Daily Balance</span>
+              <span
+                className={`ios-hero-value ${
+                  calculationResults.isValid ? getSemanticClass(calculationResults.dailyBalanceMinutes) : ''
+                }`}
+              >
+                {calculationResults.isValid ? formatSignedHours(calculationResults.dailyBalanceMinutes) : '—'}
+              </span>
+            </div>
+          </div>
+
+          <div className="ios-inset-sep" />
+
           {calculationResults.isValid ? (
             <>
-              <div className="ios-hero-block">
-                <div className="ios-hero-stat">
-                  <span className="ios-hero-label">
-                    {calcMode === 'forward' ? 'Worked Today' : 'Required Leave'}
-                  </span>
-                  <span className="ios-hero-value">
-                    {calcMode === 'forward'
-                      ? formatMinutesAsHours(calculationResults.projectedWorkedMinutes)
-                      : formatTime12Hour(calculationResults.calculatedLeaveTime)}
-                  </span>
-                </div>
-                <div className="ios-hero-stat align-right">
-                  <span className="ios-hero-label">Daily Balance</span>
-                  <span className={`ios-hero-value ${getSemanticClass(calculationResults.dailyBalanceMinutes)}`}>
-                    {formatSignedHours(calculationResults.dailyBalanceMinutes)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="ios-inset-sep" />
-
               {calcMode === 'forward' ? (
                 <div className="ios-inset-row">
                   <span className="ios-row-label">Minimum Leave</span>
@@ -545,20 +551,29 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
                 <span className="ios-row-label">Status</span>
                 <span className="ios-row-value ios-status-msg">{calculationResults.error}</span>
               </div>
-              {fulfillmentLeaveTime && (
-                <>
-                  <div className="ios-inset-sep" />
-                  <div className="ios-inset-row">
-                    <span className="ios-row-label">Minimum Leave</span>
-                    <span className="ios-row-value is-accent">{formatTime12Hour(fulfillmentLeaveTime)}</span>
-                  </div>
-                </>
-              )}
+
+              <div className="ios-inset-sep" />
+
+              <div className="ios-inset-row">
+                <span className="ios-row-label">Minimum Leave</span>
+                <span className="ios-row-value is-accent">
+                  {fulfillmentLeaveTime ? formatTime12Hour(fulfillmentLeaveTime) : '—'}
+                </span>
+              </div>
+
+              <div className="ios-inset-sep" />
+
+              <div className="ios-inset-row">
+                <span className="ios-row-label">Current Period OT</span>
+                <span className={`ios-row-value ${getSemanticClass(currentTotalOvertimeMinutes)}`}>
+                  {formatSignedHours(currentTotalOvertimeMinutes, true)}
+                </span>
+              </div>
             </>
           )}
         </div>
 
-        {/* Group 2: Shift & Inputs (.insetGrouped) */}
+        {/* Group 2: Shift & Inputs (.insetGrouped — locked 4-row height across both modes) */}
         <div className="ios-inset-group">
           <div className="ios-inset-row">
             <span className="ios-row-label">Check-in</span>
@@ -593,30 +608,40 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
           <div className="ios-inset-sep" />
 
           {calcMode === 'forward' ? (
-            <div className="ios-inset-row is-tall">
-              <span className="ios-row-label">Expected Leave</span>
-              <div className="ios-inline-controls">
-                <input
-                  type="tel"
-                  placeholder="HH:MM:SS"
-                  className="ios-time-pill-input"
-                  aria-label="Expected leave time"
-                  value={leaveTime || ''}
-                  onChange={(e) => setLeaveTime(formatTimeInputTyping(e.target.value))}
-                  onBlur={(e) => {
-                    const formatted = formatTimeInputBlur(e.target.value);
-                    if (formatted) setLeaveTime(formatted);
-                  }}
-                />
-                <button
-                  type="button"
-                  className="ios-now-glass-btn"
-                  onClick={handleSetNow}
-                >
-                  Now
-                </button>
+            <>
+              <div className="ios-inset-row is-tall">
+                <span className="ios-row-label">Required Shift</span>
+                <span className="ios-row-value">
+                  {formatMinutesAsHours(requiredDailyMinutes)} ·{' '}
+                  {employee?.employeeType === 'part-time' ? 'Part-Time' : 'Full-Time'}
+                </span>
               </div>
-            </div>
+              <div className="ios-inset-sep" />
+              <div className="ios-inset-row is-tall">
+                <span className="ios-row-label">Expected Leave</span>
+                <div className="ios-inline-controls">
+                  <input
+                    type="tel"
+                    placeholder="HH:MM:SS"
+                    className="ios-time-pill-input"
+                    aria-label="Expected leave time"
+                    value={leaveTime || ''}
+                    onChange={(e) => setLeaveTime(formatTimeInputTyping(e.target.value))}
+                    onBlur={(e) => {
+                      const formatted = formatTimeInputBlur(e.target.value);
+                      if (formatted) setLeaveTime(formatted);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="ios-now-glass-btn"
+                    onClick={handleSetNow}
+                  >
+                    Now
+                  </button>
+                </div>
+              </div>
+            </>
           ) : (
             <>
               <div className="ios-inset-row is-tall">
@@ -645,7 +670,7 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
                 </div>
               </div>
               <div className="ios-inset-sep" />
-              <div className="ios-inset-row">
+              <div className="ios-inset-row is-tall">
                 <span className="ios-row-label">Apply As</span>
                 <div className="ios-inline-seg">
                   <button

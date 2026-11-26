@@ -68,7 +68,7 @@ body[data-theme="light"] #bento-modal-overlay-id.leave-calculator-overlay::befor
 /* Sheet container: translucent frosted Bento surface */
 body #bento-modal-overlay-id .modal-content.leave-calculator-modal,
 html body .bento-modal-overlay .modal-content.leave-calculator-modal {
-  max-width: 460px !important;
+  max-width: 580px !important;
   background-color: var(--calc-sheet-bg) !important;
   background-image: var(--calc-sheet-sheen) !important;
   backdrop-filter: blur(40px) saturate(180%) !important;
@@ -88,7 +88,7 @@ html body .bento-modal-overlay .modal-content.leave-calculator-modal {
 /* Inline navigation header */
 body #bento-modal-overlay-id .modal-content.leave-calculator-modal .modal-header.ios-calc-nav {
   background-color: transparent !important;
-  padding: 2px 16px 12px !important;
+  padding: 2px 20px 12px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
@@ -138,7 +138,7 @@ body #bento-modal-overlay-id .modal-content.leave-calculator-modal .ios-calc-tit
 /* Modal body */
 body #bento-modal-overlay-id .modal-content.leave-calculator-modal .modal-body.leave-calculator {
   background-color: transparent !important;
-  padding: 2px 16px calc(22px + env(safe-area-inset-bottom, 0px)) !important;
+  padding: 2px 20px calc(22px + env(safe-area-inset-bottom, 0px)) !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 14px !important;
@@ -193,6 +193,8 @@ body #bento-modal-overlay-id .modal-content.leave-calculator-modal .modal-body.l
 
 /* Top Hero Results */
 .ios-hero-block {
+  min-height: 78px;
+  box-sizing: border-box;
   padding: 15px 16px 14px;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -244,7 +246,8 @@ body #bento-modal-overlay-id .modal-content.leave-calculator-modal .modal-body.l
 
 /* List Row */
 .ios-inset-row {
-  min-height: 45px;
+  height: 46px;
+  box-sizing: border-box;
   padding: 0 16px;
   display: flex;
   align-items: center;
@@ -255,7 +258,7 @@ body #bento-modal-overlay-id .modal-content.leave-calculator-modal .modal-body.l
 }
 
 .ios-inset-row.is-tall {
-  min-height: 52px;
+  height: 52px;
 }
 
 .ios-row-label {
