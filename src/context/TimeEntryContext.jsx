@@ -52,6 +52,9 @@ export const TimeEntryProvider = ({ children }) => {
   const initialSyncTimeoutRef = useRef(null);
   const entriesRef = useRef(entries);
   const realtimeDebounceRef = useRef(null);
+  const lastCloudFetchAtRef = useRef(0);
+  const realtimeRetryTimeoutRef = useRef(null);
+  const [realtimeRetryCount, setRealtimeRetryCount] = useState(0);
 
   useEffect(() => {
     entriesRef.current = entries;
@@ -395,8 +398,11 @@ export const TimeEntryProvider = ({ children }) => {
           }
           throw err;
         });
+      lastCloudFetchAtRef.current = Date.now();
+      setLastRefreshed(new Date().toISOString());
       syncResult.remoteCount = entriesData?.length || 0;
 
+      const pendingSync = getPendingTimeEntrySyncStatus(currentUser.id);
       const {
         entriesToUpload,
         finalEntries,
@@ -405,6 +411,7 @@ export const TimeEntryProvider = ({ children }) => {
       } = buildTimeEntrySyncPlan({
         localEntries,
         remoteEntries: entriesData || [],
+        pendingSyncDates: pendingSync.dates,
       });
 
       syncResult.pulledCount = pulledCount;
@@ -668,6 +675,7 @@ export const TimeEntryProvider = ({ children }) => {
       const localEntries = entriesRef.current || [];
       const pendingDeletes = readPendingTimeEntryDeletes(currentUser.id);
       const remoteEntries = await supabaseData.getTimeEntries(currentUser.id, { timeoutMs: fetchTimeoutMs });
+      lastCloudFetchAtRef.current = Date.now();
 
       const {
         finalEntries,
@@ -872,6 +880,7 @@ export const TimeEntryProvider = ({ children }) => {
       const pendingSync = getPendingTimeEntrySyncStatus(currentUser.id);
       const pendingDeletes = readPendingTimeEntryDeletes(currentUser.id);
       const remoteEntries = await supabaseData.getTimeEntries(currentUser.id, { timeoutMs: fetchTimeoutMs });
+      lastCloudFetchAtRef.current = Date.now();
 
       const {
         finalEntries,
@@ -1078,6 +1087,40 @@ export const TimeEntryProvider = ({ children }) => {
       };
     }, [currentUser, isAuthenticated, loadTimeEntriesData]);
 
+  // Trigger foreground catch-up sync when returning to the tab/window
+  useEffect(() => {
+    let focusTimer = null;
+
+    const triggerForegroundSync = () => {
+      if (document.visibilityState === 'hidden') return;
+      if (!currentUser || !isAuthenticated || currentUser.isLocalOnly) return;
+      if (!navigator.onLine || isLoadingRef.current || isConflictModalOpen) return;
+      if (Date.now() - lastCloudFetchAtRef.current < 5000) return;
+
+      if (focusTimer) {
+        clearTimeout(focusTimer);
+      }
+      focusTimer = setTimeout(() => {
+        if (!isLoadingRef.current) {
+          loadTimeEntriesData({ forceConflictCheck: true }).catch((err) => {
+            console.warn('[ForegroundSync] Auto-sync on focus failed:', err);
+          });
+        }
+      }, 300);
+    };
+
+    document.addEventListener('visibilitychange', triggerForegroundSync);
+    window.addEventListener('focus', triggerForegroundSync);
+
+    return () => {
+      document.removeEventListener('visibilitychange', triggerForegroundSync);
+      window.removeEventListener('focus', triggerForegroundSync);
+      if (focusTimer) {
+        clearTimeout(focusTimer);
+      }
+    };
+  }, [currentUser, isAuthenticated, isConflictModalOpen, loadTimeEntriesData]);
+
   // Supabase Realtime subscription — auto-sync when another device changes time entries
   useEffect(() => {
     if (!currentUser || !isAuthenticated || currentUser.isLocalOnly) return;
@@ -1118,8 +1161,23 @@ export const TimeEntryProvider = ({ children }) => {
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           console.log('[Realtime] Subscribed to time_entries changes for user', currentUser.id);
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          if (realtimeRetryTimeoutRef.current) {
+            clearTimeout(realtimeRetryTimeoutRef.current);
+            realtimeRetryTimeoutRef.current = null;
+          }
+          if (realtimeRetryCount > 0 && !isLoadingRef.current) {
+            loadTimeEntriesData({ forceConflictCheck: true }).catch((err) => {
+              console.warn('[Realtime] Catch-up sync after reconnect failed:', err);
+            });
+          }
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
           console.warn('[Realtime] Subscription issue:', status);
+          if (!realtimeRetryTimeoutRef.current) {
+            realtimeRetryTimeoutRef.current = setTimeout(() => {
+              realtimeRetryTimeoutRef.current = null;
+              setRealtimeRetryCount((count) => count + 1);
+            }, 5000);
+          }
         }
       });
 
@@ -1128,9 +1186,13 @@ export const TimeEntryProvider = ({ children }) => {
         clearTimeout(realtimeDebounceRef.current);
         realtimeDebounceRef.current = null;
       }
+      if (realtimeRetryTimeoutRef.current) {
+        clearTimeout(realtimeRetryTimeoutRef.current);
+        realtimeRetryTimeoutRef.current = null;
+      }
       supabase.removeChannel(channel);
     };
-  }, [currentUser, isAuthenticated, loadTimeEntriesData]);
+  }, [currentUser, isAuthenticated, loadTimeEntriesData, realtimeRetryCount]);
 
     const closeConflictModal = useCallback(() => {
       setIsConflictModalOpen(false);

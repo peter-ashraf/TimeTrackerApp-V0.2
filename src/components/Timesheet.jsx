@@ -13,6 +13,7 @@ import '../styles/performance-optimizations.css';
 import './bento-timesheet.css';
 import { isWorkedDay, typeTagStyle } from '../utils/entryType';
 import { extractBreaksFromIntervals } from '../hooks/useCalculations';
+import { parseIntervals } from '../utils/timeEntrySyncPlanner';
 
 // Memoized individual row component to prevent unnecessary re-renders
 const TimesheetRow = React.memo(({
@@ -24,7 +25,7 @@ const TimesheetRow = React.memo(({
   onEdit,
   onDelete
 }) => {
-  const validIntervals = (entry.intervals || []).filter(i => i?.in || i?.out);
+  const validIntervals = parseIntervals(entry.intervals).filter(i => i?.in || i?.out);
   const isComplete = validIntervals.length > 0 &&
     validIntervals.every(interval => interval.in && interval.out);
   const isCurrentlyTracking = validIntervals.some(i => i.in && !i.out);
@@ -78,7 +79,7 @@ const TimesheetRow = React.memo(({
             {formatTime(firstIn)} &rarr; {lastOut ? formatTime(lastOut) : (isCurrentlyTracking ? 'Tracking…' : '-')}
           </div>
           <div style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-primary)', alignSelf: 'flex-end'}}>
-              {isWorkedDay(entry) ? (isComplete ? `${hoursWorked.toFixed(2)}h` : (entry.hoursWorked ? `${parseFloat(entry.hoursWorked).toFixed(2)}h` : (isCurrentlyTracking ? 'Tracking…' : '-'))) : '-'}
+              {isWorkedDay(entry) ? (isComplete ? `${hoursWorked.toFixed(2)}h` : (isCurrentlyTracking ? 'Tracking…' : (entry.hoursWorked ? `${parseFloat(entry.hoursWorked).toFixed(2)}h` : '-'))) : '-'}
           </div>
         </div>
         <div className="stacked-metrics">

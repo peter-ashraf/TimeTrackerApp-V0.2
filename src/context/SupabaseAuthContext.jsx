@@ -128,6 +128,7 @@ export const SupabaseAuthProvider = ({ children }) => {
   const [isFailsafeMode, setIsFailsafeMode] = useState(false);
   const [networkStatus, setNetworkStatus] = useState({ isOnline: navigator.onLine, supabaseAvailable: true });
   const lastActivityRef = useRef(lastActivity);
+  const isCachedFallbackRef = useRef(false);
 
   // Session management constants
   const REMEMBERED_SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
@@ -285,7 +286,7 @@ export const SupabaseAuthProvider = ({ children }) => {
           }
           return prev;
         });
-      }, 3000); // Decreased to 3 seconds for snappy loading
+      }, 10000); // Allow slow token refresh before falling back to failsafe mode
 
       try {
         // Check for remember me state first
@@ -313,7 +314,7 @@ export const SupabaseAuthProvider = ({ children }) => {
         // Try Supabase with timeout
         try {
           const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Supabase timeout')), 2000); // Decreased to 2 seconds to prevent hanging
+            setTimeout(() => reject(new Error('Supabase timeout')), 8000);
           });
 
           const sessionPromise = supabase.auth.getSession();
@@ -343,6 +344,7 @@ export const SupabaseAuthProvider = ({ children }) => {
                 (decodedUser.email ? decodedUser.email.split("@")[0] : null) ||
                 "user";
 
+              isCachedFallbackRef.current = true;
               setCurrentUser({
                 ...decodedUser,
                 username: resolvedUsername,
@@ -394,6 +396,8 @@ export const SupabaseAuthProvider = ({ children }) => {
         const session = sessionData.session;
 
         if (session?.user) {
+          isCachedFallbackRef.current = false;
+          setIsFailsafeMode(false);
 
           // Validate session expiry if remember me was used
           if (rememberMeState && sessionExpiry) {
@@ -531,7 +535,27 @@ export const SupabaseAuthProvider = ({ children }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (
+        (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") &&
+        session?.user &&
+        isCachedFallbackRef.current
+      ) {
+        isCachedFallbackRef.current = false;
+        setIsFailsafeMode(false);
+        setCurrentUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                isCachedSession: false,
+              }
+            : prev,
+        );
+        return;
+      }
+
       if (event === "SIGNED_IN" && session?.user) {
+        isCachedFallbackRef.current = false;
+        setIsFailsafeMode(false);
         // Get user profile from profiles table
         try {
           const { data: profile, error: profileError } = await supabase

@@ -144,3 +144,31 @@ test('calculateHoursSpentOutsideFromIntervals measures outside gap between seque
   const outside = calculateHoursSpentOutsideFromIntervals(intervals);
   assert.equal(Math.round(outside * 100) / 100, 0.16);
 });
+
+test('calculateHoursSpentOutsideFromIntervals measures break gap before an open second session', () => {
+  const intervals = [
+    { in: '10:10:11', out: '13:44:25' },
+    { in: '13:47:47', out: null }
+  ];
+
+  // 13:44:25 to 13:47:47 = 3m 22s = 202s
+  const outside = calculateHoursSpentOutsideFromIntervals(intervals);
+  assert.ok(Math.abs(outside - 202 / 3600) < 1e-9);
+});
+
+test('calculateHoursWorkedFromIntervals credits paid allowed lunch break between sequential sessions', () => {
+  const intervals = [
+    { in: '09:00:00', out: '13:05:00' },
+    { in: '13:25:00', out: '18:00:00' }
+  ];
+
+  assert.equal(calculateHoursWorkedFromIntervals(intervals, '13:00'), 9);
+});
+
+test('extractBreaksFromIntervals and calculateHoursWorkedFromIntervals accept stringified JSON intervals', () => {
+  const rawIntervals = '[{"in":"09:00:00","out":"12:00:00"},{"in":"12:30:00","out":"18:00:00"}]';
+
+  const breaks = extractBreaksFromIntervals(rawIntervals);
+  assert.deepEqual(breaks, [{ in: '12:00:00', out: '12:30:00' }]);
+  assert.equal(calculateHoursWorkedFromIntervals(rawIntervals), 8.5);
+});

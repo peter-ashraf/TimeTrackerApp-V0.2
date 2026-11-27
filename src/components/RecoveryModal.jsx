@@ -7,6 +7,8 @@ import hapticFeedback from '../utils/hapticFeedback';
 import CustomSelect from './CustomSelect';
 import '../styles/export-modal-enhanced.css';
 import { isWorkedDay } from '../utils/entryType';
+import { parseIntervals } from '../utils/timeEntrySyncPlanner';
+import { extractBreaksFromIntervals } from '../hooks/useCalculations';
 
 const RecoveryModal = ({ onClose }) => {
   const [isScanning, setIsScanning] = useState(false);
@@ -292,11 +294,13 @@ const RecoveryModal = ({ onClose }) => {
       const extraHoursWithFactor = entry.extraHoursWithFactor || 0;
       const hoursSpentOutside = entry.hoursSpentOutside || 0;
 
-      const firstIn = entry.intervals?.[0]?.in || '-';
-      const lastOut = entry.intervals?.[0]?.out || '-';
-      const breakIntervals = entry.intervals?.slice(1) || [];
-      const breakOutTimes = breakIntervals.map(b => formatTime(b.out)).join(', ') || '-';
-      const breakInTimes = breakIntervals.map(b => formatTime(b.in)).join(', ') || '-';
+      const validIntervals = parseIntervals(entry.intervals).filter(i => i?.in || i?.out);
+      const isTracking = validIntervals.some(i => i?.in && !i?.out);
+      const firstIn = validIntervals[0]?.in || '-';
+      const lastOut = isTracking ? 'Tracking…' : (validIntervals[validIntervals.length - 1]?.out || '-');
+      const breakIntervals = extractBreaksFromIntervals(validIntervals);
+      const breakOutTimes = breakIntervals.map(b => formatTime(b.in)).join(', ') || '-';
+      const breakInTimes = breakIntervals.map(b => formatTime(b.out)).join(', ') || '-';
 
       // Use exact same detailed view logic as ExportModal
       return [
@@ -542,11 +546,13 @@ const RecoveryModal = ({ onClose }) => {
               const extraHours = entry.extraHours || 0;
               const extraHoursWithFactor = entry.extraHoursWithFactor || 0;
               const hoursSpentOutside = entry.hoursSpentOutside || 0;
-              const firstIn = entry.intervals?.[0]?.in || '-';
-              const lastOut = entry.intervals?.[0]?.out || '-';
-              const breakIntervals = entry.intervals?.slice(1) || [];
-              const breakOutTimes = breakIntervals.map(b => formatTime(b.out)).join(', ') || '-';
-              const breakInTimes = breakIntervals.map(b => formatTime(b.in)).join(', ') || '-';
+              const validIntervals = parseIntervals(entry.intervals).filter(i => i?.in || i?.out);
+              const isTracking = validIntervals.some(i => i?.in && !i?.out);
+              const firstIn = validIntervals[0]?.in || '-';
+              const lastOut = isTracking ? 'Tracking…' : (validIntervals[validIntervals.length - 1]?.out || '-');
+              const breakIntervals = extractBreaksFromIntervals(validIntervals);
+              const breakOutTimes = breakIntervals.map(b => formatTime(b.in)).join(', ') || '-';
+              const breakInTimes = breakIntervals.map(b => formatTime(b.out)).join(', ') || '-';
 
               // Add username to notes if from different users
               let notes = entry.notes || '';

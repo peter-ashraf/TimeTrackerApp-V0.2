@@ -10,6 +10,7 @@ import LeaveCalculator from './LeaveCalculator';
 import DashboardSkeleton from './DashboardSkeleton';
 import { usePayPeriod } from '../context/PayPeriodContext';
 import OvertimeHistoryModal from './OvertimeHistoryModal';
+import { parseIntervals } from '../utils/timeEntrySyncPlanner';
 import './bento-dashboard.css';
 
 const toFiniteNumber = (value, fallback = 0) => {
@@ -85,8 +86,9 @@ function Dashboard() {
   const isCheckedIn = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     const todayEntry = entries.find(e => e.date === today);
-    if (!todayEntry || !todayEntry.intervals) return false;
-    return todayEntry.intervals.some(interval => interval.in && !interval.out);
+    const intervals = parseIntervals(todayEntry?.intervals);
+    if (intervals.length === 0) return false;
+    return intervals.some(interval => interval.in && !interval.out);
   }, [entries]);
 
   const leaveStats = useMemo(() => {

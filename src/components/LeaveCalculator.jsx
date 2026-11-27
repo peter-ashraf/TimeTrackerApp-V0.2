@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTimeTracker } from '../context/TimeTrackerContext';
 import { extractBreaksFromIntervals, calculateHoursWorkedFromIntervals } from '../hooks/useCalculations';
+import { parseIntervals } from '../utils/timeEntrySyncPlanner';
 import hapticFeedback from '../utils/hapticFeedback';
 import ModalShell, { useSheetClose } from './ModalShell';
 import '../styles/leave-calculator.css';
@@ -84,6 +85,7 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
   const [overtimeMode, setOvertimeMode] = useState('spend'); // 'spend' or 'keep'
   const [userBreakMinutes, setUserBreakMinutes] = useState(0);
   const [plannedBreakStartTime, setPlannedBreakStartTime] = useState('13:00');
+  const [isBreakFromEntry, setIsBreakFromEntry] = useState(false);
   const [showBreakDetails, setShowBreakDetails] = useState(false);
   const [hasExistingCheckIn, setHasExistingCheckIn] = useState(false);
 
@@ -206,7 +208,9 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
       plannedEndMins >= allowedBreakStartMins &&
       plannedEndMins <= allowedBreakEndMins;
 
-    const effectiveUserBreakMinutes = isAllowedPlannedBreak ? 0 : userBreakMinutes || 0;
+    const effectiveUserBreakMinutes = isBreakFromEntry
+      ? (userBreakMinutes || 0)
+      : (isAllowedPlannedBreak ? 0 : userBreakMinutes || 0);
     const leaveMinutes = checkInMinutes + requiredDailyMinutes + effectiveUserBreakMinutes;
     return minutesToTime(leaveMinutes);
   }, [
@@ -214,6 +218,7 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     loadedCheckIn,
     checkInTime,
     plannedBreakStartTime,
+    isBreakFromEntry,
     userBreakMinutes,
     allowedBreakStartMins,
     allowedBreakEndMins,
@@ -229,10 +234,11 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     prevDateRef.current = selectedDate;
 
     const existingEntry = entries.find((e) => e.date === selectedDate);
+    const entryIntervals = parseIntervals(existingEntry?.intervals);
 
-    if (existingEntry?.intervals?.[0]?.in) {
-      setLoadedCheckIn(existingEntry.intervals[0].in);
-      setCheckInTime(existingEntry.intervals[0].in);
+    if (entryIntervals[0]?.in) {
+      setLoadedCheckIn(entryIntervals[0].in);
+      setCheckInTime(entryIntervals[0].in);
       setHasExistingCheckIn(true);
     } else {
       setLoadedCheckIn(null);
@@ -241,8 +247,9 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     }
 
     let breakMinutes = 0;
-    if (existingEntry?.intervals && existingEntry.intervals.length > 1) {
-      const extractedBreaks = extractBreaksFromIntervals(existingEntry.intervals);
+    let firstNonAllowedBreak = null;
+    if (entryIntervals.length > 1) {
+      const extractedBreaks = extractBreaksFromIntervals(entryIntervals);
       for (const b of extractedBreaks) {
         if (b.in && b.out) {
           const inMins = timeToMinutes(b.in);
@@ -255,15 +262,23 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
 
           if (!isAllowedBreak) {
             breakMinutes += Math.max(0, outMins - inMins);
+            if (!firstNonAllowedBreak) {
+              firstNonAllowedBreak = b;
+            }
           }
         }
       }
     }
-    setLoadedBreakMinutes(breakMinutes);
-    setUserBreakMinutes(breakMinutes);
+    const roundedBreakMinutes = Math.round(breakMinutes * 100) / 100;
+    setLoadedBreakMinutes(roundedBreakMinutes);
+    setUserBreakMinutes(roundedBreakMinutes);
+    setIsBreakFromEntry(roundedBreakMinutes > 0);
+    if (firstNonAllowedBreak?.in) {
+      setPlannedBreakStartTime(firstNonAllowedBreak.in.substring(0, 5));
+    }
 
     // Default leave time: existing checkout if logged, otherwise current time ("Now")
-    const existingOut = existingEntry?.intervals?.[existingEntry.intervals.length - 1]?.out;
+    const existingOut = entryIntervals[entryIntervals.length - 1]?.out;
     setLeaveTime(existingOut || getCurrentTimeStr());
   }, [selectedDate, entries, allowedBreakStartMins, allowedBreakEndMins, timeToMinutes]);
 
@@ -298,9 +313,12 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
       plannedEndMins >= allowedBreakStartMins &&
       plannedEndMins <= allowedBreakEndMins;
 
-    const effectiveUserBreakMinutes = isAllowedPlannedBreak ? 0 : userBreakMinutes || 0;
+    const effectiveUserBreakMinutes = isBreakFromEntry
+      ? (userBreakMinutes || 0)
+      : (isAllowedPlannedBreak ? 0 : userBreakMinutes || 0);
 
     const existingEntry = entries.find((e) => e.date === selectedDate);
+    const existingIntervals = parseIntervals(existingEntry?.intervals);
     const dayOfWeek = new Date(selectedDate).getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const entryType = existingEntry?.type || 'Regular';
@@ -309,13 +327,12 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
 
     let oldDayContributionMinutes = 0;
     const isComplete = Boolean(
-      existingEntry?.intervals &&
-        existingEntry.intervals.length > 0 &&
-        existingEntry.intervals.every((i) => i?.in && i?.out),
+      existingIntervals.length > 0 &&
+        existingIntervals.every((i) => i?.in && i?.out),
     );
     if (isComplete) {
       const existingWorkMinutes = Math.round(
-        calculateHoursWorkedFromIntervals(existingEntry.intervals, employee?.breakStartTime || '13:00') * 60,
+        calculateHoursWorkedFromIntervals(existingIntervals, employee?.breakStartTime || '13:00') * 60,
       );
       const rawOldDayContribution = existingWorkMinutes - requiredDailyMinutes;
       oldDayContributionMinutes = rawOldDayContribution > 0 ? rawOldDayContribution * factor : rawOldDayContribution;
@@ -411,6 +428,7 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
     leaveTime,
     overtimeAmount,
     overtimeMode,
+    isBreakFromEntry,
     userBreakMinutes,
     plannedBreakStartTime,
     allowedBreakStartMins,
@@ -705,7 +723,7 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
           >
             <span className="ios-row-label">Break</span>
             <span className="ios-row-value">
-              <span>{userBreakMinutes} min</span>
+              <span>{Number((userBreakMinutes || 0).toFixed(1))} min</span>
               <svg
                 width="7"
                 height="12"
@@ -730,7 +748,7 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
               {hasExistingCheckIn && loadedBreakMinutes > 0 && (
                 <div className="ios-break-meta">
                   <span>Logged non-standard break</span>
-                  <strong>{loadedBreakMinutes} min</strong>
+                  <strong>{Number((loadedBreakMinutes || 0).toFixed(1))} min</strong>
                 </div>
               )}
 
@@ -740,7 +758,10 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
                     key={mins}
                     type="button"
                     className={`ios-break-preset-btn ${userBreakMinutes === mins ? 'active' : ''}`}
-                    onClick={() => setUserBreakMinutes(mins)}
+                    onClick={() => {
+                      setIsBreakFromEntry(false);
+                      setUserBreakMinutes(mins);
+                    }}
                   >
                     {mins}m
                   </button>
@@ -754,9 +775,10 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
                     type="number"
                     className="ios-number-pill-input"
                     value={userBreakMinutes === 0 ? '' : userBreakMinutes}
-                    onChange={(e) =>
-                      setUserBreakMinutes(e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0)
-                    }
+                    onChange={(e) => {
+                      setIsBreakFromEntry(false);
+                      setUserBreakMinutes(e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0);
+                    }}
                     min="0"
                     placeholder="0"
                   />
@@ -768,7 +790,10 @@ const LeaveCalculator = ({ selectedDate, onClose }) => {
                     type="time"
                     className="ios-time-pill-input is-short"
                     value={plannedBreakStartTime}
-                    onChange={(e) => setPlannedBreakStartTime(e.target.value)}
+                    onChange={(e) => {
+                      setIsBreakFromEntry(false);
+                      setPlannedBreakStartTime(e.target.value);
+                    }}
                   />
                 </label>
               </div>

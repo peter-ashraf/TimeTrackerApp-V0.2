@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { isWorkedDay } from '../utils/entryType.js';
+import { parseIntervals } from '../utils/timeEntrySyncPlanner.js';
 
 export const timeToSeconds = (timeStr) => {
   if (!timeStr || timeStr.trim() === '') return 0;
@@ -43,8 +44,9 @@ export const validateIntervalStructure = (intervals) => {
 };
 
 // Helper to extract breaks from intervals (supports both sequential work sessions and legacy nested format)
-export function extractBreaksFromIntervals(intervals) {
-  if (!Array.isArray(intervals) || intervals.length <= 1) return [];
+export function extractBreaksFromIntervals(rawIntervals) {
+  const intervals = parseIntervals(rawIntervals);
+  if (intervals.length <= 1) return [];
 
   // Check if legacy nested format where interval[1] is inside interval[0]
   if (
@@ -118,8 +120,9 @@ export function applyBreakToIntervals(intervals, breakStart, breakEnd) {
   return newIntervals;
 }
 
-export function calculateHoursWorkedFromIntervals(intervals, breakStartTimeStr = "13:00") {
-  if (!Array.isArray(intervals) || intervals.length === 0) return 0;
+export function calculateHoursWorkedFromIntervals(rawIntervals, breakStartTimeStr = "13:00") {
+  const intervals = parseIntervals(rawIntervals);
+  if (intervals.length === 0) return 0;
 
   const hasIncompleteInterval = intervals.some(interval =>
     !interval.in || !interval.out
@@ -170,7 +173,9 @@ export function calculateHoursWorkedFromIntervals(intervals, breakStartTimeStr =
     return secondsToHours(Math.max(0, workDuration - totalBreakSeconds));
   }
 
-  // Standard sequential work sessions: sum of completed sessions
+  // Standard sequential work sessions: sum of completed sessions + paid allowed break window
+  const allowedBreakStart = timeToSeconds(breakStartTimeStr);
+  const allowedBreakEnd = allowedBreakStart + 30 * 60;
   let totalWorkSeconds = 0;
   for (const interval of sorted) {
     const inSec = timeToSeconds(interval.in);
@@ -181,11 +186,30 @@ export function calculateHoursWorkedFromIntervals(intervals, breakStartTimeStr =
     }
   }
 
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const gapStart = timeToSeconds(sorted[i].out);
+    const gapEnd = timeToSeconds(sorted[i + 1].in);
+    const gapDuration = gapEnd - gapStart;
+
+    if (gapDuration > 0 && gapDuration <= 2 * 3600) {
+      const isAllowedBreak =
+        gapStart >= allowedBreakStart &&
+        gapStart <= allowedBreakEnd &&
+        gapEnd >= allowedBreakStart &&
+        gapEnd <= allowedBreakEnd;
+
+      if (isAllowedBreak) {
+        totalWorkSeconds += gapDuration;
+      }
+    }
+  }
+
   return secondsToHours(totalWorkSeconds);
 }
 
-export function calculateHoursSpentOutsideFromIntervals(intervals, breakStartTimeStr = "13:00") {
-  if (!Array.isArray(intervals) || intervals.length < 2) return 0;
+export function calculateHoursSpentOutsideFromIntervals(rawIntervals, breakStartTimeStr = "13:00") {
+  const intervals = parseIntervals(rawIntervals);
+  if (intervals.length < 2) return 0;
 
   const allowedBreakStart = timeToSeconds(breakStartTimeStr);
   const allowedBreakEnd = allowedBreakStart + 30 * 60;
@@ -221,11 +245,12 @@ export function calculateHoursSpentOutsideFromIntervals(intervals, breakStartTim
     return hoursSpentOutside;
   }
 
-  // Sequential work sessions: check gaps between sessions
+  // Sequential work sessions: check gaps between sessions (including before an open session)
   let totalOutsideSeconds = 0;
-  const sorted = [...intervals].filter(i => i.in && i.out).sort((a, b) => timeToSeconds(a.in) - timeToSeconds(b.in));
+  const sorted = [...intervals].filter(i => i?.in).sort((a, b) => timeToSeconds(a.in) - timeToSeconds(b.in));
 
   for (let i = 0; i < sorted.length - 1; i++) {
+    if (!sorted[i].out || !sorted[i + 1].in) continue;
     const gapStart = timeToSeconds(sorted[i].out);
     const gapEnd = timeToSeconds(sorted[i + 1].in);
     const gapDuration = gapEnd - gapStart;
@@ -260,11 +285,12 @@ export function calculateOvertimeDetailsForEntries(entries, periodStart, periodE
   let totalExtraHoursWithFactor = 0;
 
   periodEntries.forEach(entry => {
-    if (isWorkedDay(entry) && entry.intervals) {
-      const isComplete = entry.intervals.every(interval => interval.in && interval.out);
+    const intervals = parseIntervals(entry.intervals);
+    if (isWorkedDay(entry) && intervals.length > 0) {
+      const isComplete = intervals.every(interval => interval.in && interval.out);
       if (!isComplete) return;
 
-      const hoursWorked = calculateHoursWorkedFromIntervals(entry.intervals, breakStartTimeStr);
+      const hoursWorked = calculateHoursWorkedFromIntervals(intervals, breakStartTimeStr);
       totalHoursWorked += hoursWorked;
 
       const dayOfWeek = new Date(entry.date).getDay();

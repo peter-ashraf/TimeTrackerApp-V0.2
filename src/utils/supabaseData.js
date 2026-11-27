@@ -1,23 +1,20 @@
 // Import the shared supabase client to avoid multiple instances
 import { supabaseClient } from './supabaseClient';
+import { hasOpenInterval, parseIntervals } from './timeEntrySyncPlanner.js';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const parseTimeEntryRecord = (record) => {
   if (!record) return record;
-  let intervals = record.intervals;
-  if (typeof intervals === 'string') {
-    try {
-      intervals = JSON.parse(intervals);
-    } catch {
-      intervals = [];
-    }
-  }
+  const intervals = parseIntervals(record.intervals);
+  const openInterval = hasOpenInterval(intervals);
   return {
     ...record,
-    intervals: Array.isArray(intervals) ? intervals : [],
-    hoursWorked: record.hoursWorked ?? (record.hours_worked != null ? parseFloat(record.hours_worked) : undefined),
+    intervals,
+    hoursWorked: openInterval
+      ? 0
+      : (record.hoursWorked ?? (record.hours_worked != null ? parseFloat(record.hours_worked) : undefined)),
     extraHours: record.extraHours ?? (record.extra_hours != null ? parseFloat(record.extra_hours) : undefined),
     extraHoursWithFactor: record.extraHoursWithFactor ?? (record.extra_hours_with_factor != null ? parseFloat(record.extra_hours_with_factor) : undefined),
     hoursSpentOutside: record.hoursSpentOutside ?? (record.hours_spent_outside != null ? parseFloat(record.hours_spent_outside) : undefined),

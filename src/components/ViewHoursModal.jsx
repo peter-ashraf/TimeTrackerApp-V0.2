@@ -3,9 +3,10 @@ import { useTimeTracker } from '../context/TimeTrackerContext';
 import ModalShell from './ModalShell';
 import '../styles/view-hours-modal.css';
 import { isWorkedDay } from '../utils/entryType';
+import { parseIntervals } from '../utils/timeEntrySyncPlanner';
 
 function ViewHoursModal({ onClose }) {
-  const { entries, getCurrentPeriod, employee } = useTimeTracker();
+  const { entries, getCurrentPeriod, employee, calculateHoursWorked } = useTimeTracker();
   const currentPeriod = getCurrentPeriod();
 
   // Filter entries for current period
@@ -19,27 +20,17 @@ function ViewHoursModal({ onClose }) {
   });
 
   // Calculate hours for each entry
-  const calculateHours = (intervals) => {
-    if (!intervals || intervals.length === 0) return 0;
-    
-    let totalMinutes = 0;
-    intervals.forEach(interval => {
-      if (interval.in && interval.out) {
-        const [inH, inM] = interval.in.split(':').map(Number);
-        const [outH, outM] = interval.out.split(':').map(Number);
-        const inMinutes = inH * 60 + inM;
-        const outMinutes = outH * 60 + outM;
-        totalMinutes += outMinutes - inMinutes;
-      }
-    });
-    
-    return totalMinutes / 60;
+  const calculateHours = (rawIntervals, date) => {
+    const intervals = parseIntervals(rawIntervals).filter(i => i?.in || i?.out);
+    if (intervals.length === 0) return 0;
+    if (intervals.some(i => i.in && !i.out)) return 0;
+    return calculateHoursWorked ? calculateHoursWorked(intervals, date) : 0;
   };
 
   // Calculate totals
   const totalHours = periodEntries.reduce((sum, entry) => {
     if (isWorkedDay(entry)) {
-      return sum + calculateHours(entry.intervals);
+      return sum + calculateHours(entry.intervals, entry.date);
     } else if (entry.type === 'Sick Leave' || entry.type === 'Holiday' || entry.type === 'Vacation') {
       // Each sick day, holiday, or vacation day counts as 8.5 hours (normal working day without half hour break)
       return sum + (8.5 * (entry.duration || 1));
@@ -99,8 +90,10 @@ function ViewHoursModal({ onClose }) {
                       <td>{entry.date}</td>
                       <td>{entry.type}</td>
                       <td>
-                        {isWorkedDay(entry) 
-                          ? calculateHours(entry.intervals).toFixed(2) + 'h' 
+                        {isWorkedDay(entry)
+                          ? (parseIntervals(entry.intervals).some(i => i?.in && !i?.out)
+                              ? 'Tracking…'
+                              : calculateHours(entry.intervals, entry.date).toFixed(2) + 'h')
                           : (entry.type === 'Sick Leave' || entry.type === 'Holiday' || entry.type === 'Vacation')
                             ? (8.5 * (entry.duration || 1)).toFixed(2) + 'h'
                             : '-'

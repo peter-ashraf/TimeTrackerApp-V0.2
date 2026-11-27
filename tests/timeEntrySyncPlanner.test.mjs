@@ -183,3 +183,110 @@ test('pull plan pulls cloud entries, preserves unuploaded local entries, and fla
   assert.ok(plan.finalEntries.some((e) => e.date === '2026-06-18'));
   assert.ok(plan.finalEntries.some((e) => e.date === '2026-06-20'));
 });
+
+test('pulls phone break-back check-in payload in both auto sync and pull plans without false conflict', () => {
+  const localEntry = {
+    id: 'af3f2ab4-a9e4-4327-b2f0-241d4da6a666',
+    date: '2026-11-27',
+    intervals: [{ in: '10:10:11', out: '13:44:25' }],
+    hoursWorked: 3.57,
+    type: 'Regular',
+    duration: 1,
+    doubleHours: false,
+    notes: null,
+    updated_at: '2026-11-27 11:44:25+00',
+  };
+  const remoteEntry = {
+    id: 'af3f2ab4-a9e4-4327-b2f0-241d4da6a666',
+    user_id: '77e81cc5-23ce-4f10-b11c-14cf9d453ef8',
+    date: '2026-11-27',
+    intervals: '[{"in": "10:10:11", "out": "13:44:25"}, {"in": "13:47:47", "out": null}]',
+    hours_worked: '0.00',
+    extra_hours: '-9.00',
+    extra_hours_with_factor: '-9.00',
+    hours_spent_outside: '0.00',
+    type: 'Regular',
+    duration: '1.00',
+    double_hours: false,
+    notes: null,
+    updated_at: '2026-11-27 12:52:15.346+00',
+  };
+
+  for (const plan of [
+    buildTimeEntrySyncPlan({ localEntries: [localEntry], remoteEntries: [remoteEntry] }),
+    buildPullTimeEntryPlan({ localEntries: [localEntry], remoteEntries: [remoteEntry] }),
+  ]) {
+    assert.equal(plan.conflicts.length, 0);
+    assert.equal(plan.pulledCount, 1);
+    assert.equal(plan.finalEntries.length, 1);
+    assert.deepEqual(plan.finalEntries[0].intervals, [
+      { in: '10:10:11', out: '13:44:25' },
+      { in: '13:47:47', out: null },
+    ]);
+    assert.equal(plan.finalEntries[0].hoursWorked, 0);
+  }
+});
+
+test('pulls remote session continuation even with slight local clock skew when no local edit is pending', () => {
+  const localEntry = {
+    id: 'entry-1',
+    date: '2026-11-27',
+    intervals: [{ in: '10:10:11', out: '13:44:25' }],
+    lastModified: '2026-11-27T13:00:00.000Z',
+  };
+  const remoteEntry = {
+    id: 'entry-1',
+    date: '2026-11-27',
+    intervals: [
+      { in: '10:10:11', out: '13:44:25' },
+      { in: '13:47:47', out: null },
+    ],
+    hours_worked: '3.57',
+    updated_at: '2026-11-27T12:52:15.346Z',
+  };
+
+  const autoPlan = buildTimeEntrySyncPlan({
+    localEntries: [localEntry],
+    remoteEntries: [remoteEntry],
+    pendingSyncDates: [],
+  });
+  const pullPlan = buildPullTimeEntryPlan({
+    localEntries: [localEntry],
+    remoteEntries: [remoteEntry],
+    pendingSyncDates: [],
+  });
+
+  for (const plan of [autoPlan, pullPlan]) {
+    assert.equal(plan.conflicts.length, 0);
+    assert.equal(plan.pulledCount, 1);
+    assert.equal(plan.finalEntries[0].intervals.length, 2);
+    assert.equal(plan.finalEntries[0].hoursWorked, 0);
+  }
+});
+
+test('pull plan still flags a conflict when the date has an unuploaded local edit', () => {
+  const localEntry = {
+    id: 'entry-1',
+    date: '2026-11-27',
+    intervals: [{ in: '10:10:11', out: '13:44:25' }],
+    lastModified: '2026-11-27T12:55:00.000Z',
+  };
+  const remoteEntry = {
+    id: 'entry-1',
+    date: '2026-11-27',
+    intervals: [
+      { in: '10:10:11', out: '13:44:25' },
+      { in: '13:47:47', out: null },
+    ],
+    updated_at: '2026-11-27T12:52:15.346Z',
+  };
+
+  const pullPlan = buildPullTimeEntryPlan({
+    localEntries: [localEntry],
+    remoteEntries: [remoteEntry],
+    pendingSyncDates: ['2026-11-27'],
+  });
+
+  assert.equal(pullPlan.conflicts.length, 1);
+  assert.equal(pullPlan.conflicts[0].date, '2026-11-27');
+});

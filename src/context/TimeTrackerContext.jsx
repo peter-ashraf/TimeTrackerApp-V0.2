@@ -79,16 +79,6 @@ export const TimeTrackerProvider = ({ children }) => {
   const migrationRef = useRef(false);
   const backupCheckedUserRef = useRef(null);
 
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      // Tab visibility change handled
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () =>
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, []);
-
   const showAlert = useCallback((message, type = "info") => {
     setAlertModal({ isOpen: true, message, type });
   }, []);
@@ -249,15 +239,18 @@ export const TimeTrackerProvider = ({ children }) => {
           return;
         }
 
-        const updatedEntry = { ...todayEntry };
-        updatedEntry.intervals = [
-          ...updatedEntry.intervals,
-          { in: timeString, out: null },
-        ];
-        updatedEntry.lastModified = now.toISOString();
+        const updatedEntry = {
+          ...todayEntry,
+          intervals: [
+            ...(todayEntry.intervals || []),
+            { in: timeString, out: null },
+          ],
+          lastModified: now.toISOString(),
+        };
+        const recalculated = recalculateEntryFields(updatedEntry);
 
         const saveResult = await timeEntryContext.saveTimeEntriesData(
-          updatedEntry,
+          recalculated,
           showAlert,
         );
 

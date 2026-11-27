@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import ModalShell from './ModalShell';
+import { parseIntervals } from '../utils/timeEntrySyncPlanner';
+import { extractBreaksFromIntervals } from '../hooks/useCalculations';
 import '../styles/conflict-resolution-modal.css';
 
 const ConflictResolutionModal = ({ conflicts, onResolve, onClose, syncDirection = null }) => {
@@ -98,9 +100,10 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose, syncDirection 
   };
 
   const formatDuration = (entry) => {
-    if (!entry?.intervals || !Array.isArray(entry.intervals)) return '—';
+    const intervals = parseIntervals(entry?.intervals);
+    if (intervals.length === 0) return '—';
 
-    const completedIntervals = entry.intervals.filter(
+    const completedIntervals = intervals.filter(
       (interval) => interval?.in && interval?.out
     );
 
@@ -150,9 +153,14 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose, syncDirection 
       };
     }
 
-    const intervals = Array.isArray(entry?.intervals) ? entry.intervals : [];
+    const intervals = parseIntervals(entry?.intervals);
     const firstInterval = intervals[0] || null;
     const lastInterval = intervals.length > 0 ? intervals[intervals.length - 1] : null;
+    const isTracking = Boolean(lastInterval?.in && !lastInterval?.out);
+    const breaks = extractBreaksFromIntervals(intervals);
+    const breaksLabel = breaks.length > 0
+      ? breaks.map((b) => `${formatTime(b.in)} → ${formatTime(b.out)}`).join(', ')
+      : '';
     const baseType = entry?.type || 'Regular';
     const typeLabel = entry?.duration === 0.5 ? `${baseType} (0.5d)` : baseType;
 
@@ -160,6 +168,8 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose, syncDirection 
       type: typeLabel,
       checkIn: firstInterval?.in || null,
       checkOut: lastInterval?.out || null,
+      isTracking,
+      breaks: breaksLabel,
       duration: formatDuration(entry),
       notes: entry?.notes?.trim?.() || ''
     };
@@ -194,9 +204,21 @@ const ConflictResolutionModal = ({ conflicts, onResolve, onClose, syncDirection 
       {
         key: 'checkOut',
         label: 'Check-out',
-        localValue: formatTime(localDetails.checkOut),
-        remoteValue: formatTime(remoteDetails.checkOut),
+        localValue: localDetails.isTracking ? 'Tracking…' : formatTime(localDetails.checkOut),
+        remoteValue: remoteDetails.isTracking ? 'Tracking…' : formatTime(remoteDetails.checkOut),
       },
+    );
+
+    if (localDetails.breaks || remoteDetails.breaks) {
+      rows.push({
+        key: 'breaks',
+        label: 'Breaks',
+        localValue: localDetails.breaks || '—',
+        remoteValue: remoteDetails.breaks || '—',
+      });
+    }
+
+    rows.push(
       {
         key: 'duration',
         label: 'Duration',

@@ -25,18 +25,35 @@ export const normalizeTimeValue = (value) => {
   return text;
 };
 
-export const normalizeIntervals = (intervals) => {
-  let parsedIntervals = intervals;
+export const parseIntervals = (raw) => {
+  let parsed = raw;
+  let depth = 0;
 
-  if (typeof parsedIntervals === "string") {
+  while (typeof parsed === "string" && depth < 3) {
     try {
-      parsedIntervals = JSON.parse(parsedIntervals);
-    } catch (error) {
-      parsedIntervals = [];
+      parsed = JSON.parse(parsed);
+    } catch {
+      return [];
     }
+    depth += 1;
   }
 
-  if (!Array.isArray(parsedIntervals)) return [];
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed
+    .filter((item) => item && typeof item === "object")
+    .map((item) => ({
+      ...item,
+      in: item?.in || null,
+      out: item?.out || null,
+    }));
+};
+
+export const hasOpenInterval = (intervals) =>
+  parseIntervals(intervals).some((interval) => Boolean(interval?.in) && !interval?.out);
+
+export const normalizeIntervals = (intervals) => {
+  const parsedIntervals = parseIntervals(intervals);
 
   return parsedIntervals.map((interval) => ({
     in: normalizeTimeValue(interval?.in),
@@ -69,19 +86,74 @@ export const timeEntriesAreDifferent = (localEntry, remoteEntry) => {
   );
 };
 
-export const normalizeRemoteEntry = (remoteEntry) => {
-  if (!remoteEntry) return remoteEntry;
-  let parsedIntervals = remoteEntry.intervals;
-  if (typeof parsedIntervals === "string") {
-    try {
-      parsedIntervals = JSON.parse(parsedIntervals);
-    } catch {
-      parsedIntervals = [];
+export const isRemoteProgressionOfLocal = (localEntry, remoteEntry) => {
+  if (!timeEntriesAreDifferent(localEntry, remoteEntry)) return false;
+
+  const localType = localEntry?.type || "Regular";
+  const remoteType = remoteEntry?.type || "Regular";
+  const localNotes = (localEntry?.notes || "").trim();
+  const remoteNotes = (remoteEntry?.notes || "").trim();
+  const localDuration = localEntry?.duration || 1;
+  const remoteDuration = remoteEntry?.duration || 1;
+  const localDouble = !!(localEntry?.doubleHours || localEntry?.double_hours);
+  const remoteDouble = !!(remoteEntry?.doubleHours || remoteEntry?.double_hours);
+
+  if (
+    localType !== remoteType ||
+    localNotes !== remoteNotes ||
+    localDuration !== remoteDuration ||
+    localDouble !== remoteDouble
+  ) {
+    return false;
+  }
+
+  const localIntervals = normalizeIntervals(localEntry?.intervals);
+  const remoteIntervals = normalizeIntervals(remoteEntry?.intervals);
+
+  if (localIntervals.length === 0 || remoteIntervals.length < localIntervals.length) {
+    return false;
+  }
+
+  for (let i = 0; i < localIntervals.length; i += 1) {
+    const localItem = localIntervals[i];
+    const remoteItem = remoteIntervals[i];
+    const isLastLocal = i === localIntervals.length - 1;
+
+    if (!isLastLocal) {
+      if (
+        !localItem.in ||
+        !localItem.out ||
+        localItem.in !== remoteItem.in ||
+        localItem.out !== remoteItem.out
+      ) {
+        return false;
+      }
+    } else {
+      if (!localItem.in || localItem.in !== remoteItem.in) {
+        return false;
+      }
+
+      if (localItem.out) {
+        if (localItem.out !== remoteItem.out || remoteIntervals.length <= localIntervals.length) {
+          return false;
+        }
+      } else if (!remoteItem.out) {
+        return false;
+      }
     }
   }
 
+  return true;
+};
+
+export const normalizeRemoteEntry = (remoteEntry) => {
+  if (!remoteEntry) return remoteEntry;
+  const parsedIntervals = parseIntervals(remoteEntry.intervals);
+  const openInterval = hasOpenInterval(parsedIntervals);
+
   if (
     Array.isArray(remoteEntry.intervals) &&
+    !openInterval &&
     remoteEntry.hours_worked === undefined &&
     remoteEntry.extra_hours === undefined &&
     remoteEntry.extra_hours_with_factor === undefined &&
@@ -93,10 +165,12 @@ export const normalizeRemoteEntry = (remoteEntry) => {
 
   const result = {
     ...remoteEntry,
-    intervals: Array.isArray(parsedIntervals) ? parsedIntervals : (remoteEntry.intervals || []),
+    intervals: parsedIntervals,
   };
 
-  if (remoteEntry.hours_worked != null && result.hoursWorked === undefined) {
+  if (openInterval) {
+    result.hoursWorked = 0;
+  } else if (remoteEntry.hours_worked != null && result.hoursWorked === undefined) {
     result.hoursWorked = parseFloat(remoteEntry.hours_worked);
   }
   if (remoteEntry.extra_hours != null && result.extraHours === undefined) {
@@ -115,9 +189,14 @@ export const normalizeRemoteEntry = (remoteEntry) => {
   return result;
 };
 
-export const buildTimeEntrySyncPlan = ({ localEntries = [], remoteEntries = [] }) => {
+export const buildTimeEntrySyncPlan = ({
+  localEntries = [],
+  remoteEntries = [],
+  pendingSyncDates = [],
+}) => {
   const localMap = new Map(localEntries.map((entry) => [normalizeDateKey(entry.date), entry]));
   const remoteMap = new Map(remoteEntries.map((entry) => [normalizeDateKey(entry.date), entry]));
+  const pendingSet = new Set((pendingSyncDates || []).map(normalizeDateKey).filter(Boolean));
 
   const entriesToUpload = [];
   const finalEntries = [];
@@ -134,28 +213,31 @@ export const buildTimeEntrySyncPlan = ({ localEntries = [], remoteEntries = [] }
     } else if (timeEntriesAreDifferent(localEntry, remoteEntry)) {
       const localTime = new Date(localEntry.lastModified || localEntry.updated_at || 0).getTime();
       const remoteTime = new Date(remoteEntry.updated_at || remoteEntry.lastModified || 0).getTime();
+      const hasPendingLocalEdit = pendingSet.has(date);
+      const isProgression = !hasPendingLocalEdit && isRemoteProgressionOfLocal(localEntry, remoteEntry);
 
-      if (remoteTime > localTime + 2000) {
-        // Remote is newer, auto-resolve to remote
+      if ((remoteTime > 0 && remoteTime > localTime + 2000 && !hasPendingLocalEdit) || isProgression) {
+        // Remote is newer or a direct continuation of the day's sessions, auto-resolve to remote
         finalEntries.push({ ...remoteEntry });
         pulledCount += 1;
-      } else if (localTime > remoteTime + 2000) {
+      } else if (localTime > 0 && localTime > remoteTime + 2000 && !isProgression) {
         // Local is newer, auto-resolve to local
         finalEntries.push(localEntry);
         entriesToUpload.push(localEntry);
       } else {
         // Genuine conflict, or timestamps are missing/too close
         conflicts.push({
-          entryId: rawRemoteEntry.id || localEntry.id,
+          entryId: remoteEntry.id || localEntry.id,
           date,
           localEntry,
-          remoteEntry: rawRemoteEntry,
+          remoteEntry,
         });
       }
     } else {
       finalEntries.push({
         ...localEntry,
         id: remoteEntry.id,
+        ...(remoteEntry.updated_at ? { updated_at: remoteEntry.updated_at } : {}),
       });
     }
   }
@@ -318,12 +400,25 @@ export const buildPullTimeEntryPlan = ({
         pulledCount += 1;
       }
     } else if (timeEntriesAreDifferent(localEntry, remoteEntry)) {
-      conflicts.push({
-        entryId: remoteEntry.id || localEntry.id || date,
-        date,
-        localEntry,
-        remoteEntry,
-      });
+      const localTime = new Date(localEntry.lastModified || localEntry.updated_at || 0).getTime();
+      const remoteTime = new Date(remoteEntry.updated_at || remoteEntry.lastModified || 0).getTime();
+      const hasPendingLocalEdit = pendingSet.has(date);
+
+      if (
+        !hasPendingLocalEdit &&
+        ((remoteTime > 0 && remoteTime > localTime + 2000) ||
+          isRemoteProgressionOfLocal(localEntry, remoteEntry))
+      ) {
+        finalEntries.push({ ...remoteEntry });
+        pulledCount += 1;
+      } else {
+        conflicts.push({
+          entryId: remoteEntry.id || localEntry.id || date,
+          date,
+          localEntry,
+          remoteEntry,
+        });
+      }
     } else {
       finalEntries.push({
         ...localEntry,

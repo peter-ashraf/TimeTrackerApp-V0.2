@@ -3,6 +3,8 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import './bento-calendar.css';
 import { isWorkedDay, typeColor } from '../utils/entryType';
+import { parseIntervals } from '../utils/timeEntrySyncPlanner';
+import { calculateHoursWorkedFromIntervals } from '../hooks/useCalculations';
 
 function CalendarView({ entries, onDateClick, onEntryClick }) {
   const [value, onChange] = useState(new Date());
@@ -45,16 +47,16 @@ function CalendarView({ entries, onDateClick, onEntryClick }) {
     const entry = entriesByDate[dateStr];
     if (!entry) return null;
 
-    if (isWorkedDay(entry) && entry.intervals) {
-      const hours = entry.intervals.reduce((total, interval) => {
-        if (interval.in && interval.out) {
-          const inTime = new Date(`2000-01-01T${interval.in}`);
-          const outTime = new Date(`2000-01-01T${interval.out}`);
-          return total + (outTime - inTime) / (1000 * 60 * 60);
-        }
-        return total;
-      }, 0);
-      return `${hours.toFixed(2)}h`;
+    const intervals = parseIntervals(entry.intervals).filter(i => i?.in || i?.out);
+    if (isWorkedDay(entry) && intervals.length > 0) {
+      if (intervals.some(i => i.in && !i.out)) {
+        return 'Tracking…';
+      }
+      if (intervals.every(i => i.in && i.out)) {
+        const hours = calculateHoursWorkedFromIntervals(intervals);
+        return `${hours.toFixed(2)}h`;
+      }
+      return entry.hoursWorked ? `${parseFloat(entry.hoursWorked).toFixed(2)}h` : '0.00h';
     }
 
     return entry.type;

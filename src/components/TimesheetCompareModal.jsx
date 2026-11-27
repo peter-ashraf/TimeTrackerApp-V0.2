@@ -12,6 +12,7 @@ import {
 } from '../utils/hrTimesheetCompare';
 import '../styles/timesheet-compare-modal.css';
 import { isWorkedDay } from '../utils/entryType';
+import { parseIntervals } from '../utils/timeEntrySyncPlanner';
 
 const STEP_LABELS = {
   source: 'Source',
@@ -87,14 +88,15 @@ function TimesheetCompareModal({ onClose, onEditEntry }) {
       };
     }
 
-    const validIntervals = (entry.intervals || []).filter(i => i?.in || i?.out);
+    const validIntervals = parseIntervals(entry.intervals).filter(i => i?.in || i?.out);
+    const isTracking = validIntervals.some(i => i?.in && !i?.out);
     const firstIn = validIntervals[0]?.in || '-';
-    const lastOut = validIntervals[validIntervals.length - 1]?.out || '-';
+    const lastOut = isTracking ? 'Tracking…' : (validIntervals[validIntervals.length - 1]?.out || '-');
     const isComplete = isWorkedDay(entry) && validIntervals.length > 0 && validIntervals.every(i => i.in && i.out);
     const hours = isComplete
       ? `${calculateHoursWorked(validIntervals, entry.date).toFixed(2)}h`
       : isWorkedDay(entry)
-        ? (entry.hoursWorked ? `${parseFloat(entry.hoursWorked).toFixed(2)}h` : '0.00h')
+        ? (isTracking ? 'Tracking…' : (entry.hoursWorked ? `${parseFloat(entry.hoursWorked).toFixed(2)}h` : '0.00h'))
         : entry.type;
 
     return {

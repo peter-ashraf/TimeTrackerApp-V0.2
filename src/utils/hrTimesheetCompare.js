@@ -1,3 +1,6 @@
+import { parseIntervals } from './timeEntrySyncPlanner.js';
+import { calculateHoursWorkedFromIntervals } from '../hooks/useCalculations.js';
+
 const DAY_NAMES = [
   'Sunday',
   'Monday',
@@ -220,12 +223,18 @@ const formatAppType = (type) => type || 'Regular';
 const isRegularType = (type) => formatAppType(type) === 'Regular';
 
 const appEntryToComparable = (entry) => {
-  const interval = entry?.intervals?.[0] || {};
+  const validIntervals = parseIntervals(entry?.intervals).filter(i => i?.in || i?.out);
+  const firstInterval = validIntervals[0] || {};
+  const lastInterval = validIntervals.length > 0 ? validIntervals[validIntervals.length - 1] : {};
+  const isTracking = validIntervals.some(i => i?.in && !i?.out);
+  const isComplete = !isTracking && validIntervals.length > 0 && validIntervals.every(i => i?.in && i?.out);
+
   return {
     date: entry?.date || '',
     type: formatAppType(entry?.type),
-    checkIn: normalizeTimeValue(interval.in),
-    checkOut: normalizeTimeValue(interval.out)
+    checkIn: normalizeTimeValue(firstInterval.in),
+    checkOut: isTracking ? '' : normalizeTimeValue(lastInterval.out),
+    hoursWorked: isComplete ? calculateHoursWorkedFromIntervals(validIntervals) : null,
   };
 };
 
@@ -265,9 +274,7 @@ export const compareHrTimesheetToEntries = (reviewedData, appEntries, period) =>
           issues.push('Time mismatch');
         }
 
-        const appDurationHours = app.checkIn && app.checkOut
-          ? ((secondsFromTime(app.checkOut) || 0) - (secondsFromTime(app.checkIn) || 0)) / 3600
-          : null;
+        const appDurationHours = app.hoursWorked;
         const hrDurationHours = durationToHours(hrRow.hrDuration);
         if (
           hrDurationHours !== null &&
